@@ -1,7 +1,8 @@
-﻿using SqlSugar;
+using SqlSugar;
 
 namespace cdisc_dataset.Models;
 
+[TenantAttribute("project")]
 public class WhereClause
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]

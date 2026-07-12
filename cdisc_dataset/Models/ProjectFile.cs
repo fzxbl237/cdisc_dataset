@@ -1,9 +1,11 @@
 using System;
 using cdisc_dataset.Models.Enums;
 using LiteDB;
+using SqlSugar;
 
 namespace cdisc_dataset.Models;
 
+[Tenant("project")]
 public class ProjectFile
 {
     [BsonId]

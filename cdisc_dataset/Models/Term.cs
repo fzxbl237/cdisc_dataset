@@ -5,6 +5,7 @@ using SqlSugar;
 namespace cdisc_dataset.Models;
 
 [SugarTable("Term")]
+[TenantAttribute("project")]
 public class Term
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
@@ -53,6 +54,7 @@ public class Term
 
 
 [SugarTable("TermStd")]
+[TenantAttribute("project")]
 public class TermStd
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]

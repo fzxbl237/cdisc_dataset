@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Models.Enums;
+using cdisc_dataset.Models.Settings;
 
 namespace cdisc_dataset.Services.Interface;
 
@@ -27,5 +28,9 @@ public interface ICodeListService
     
     Task<int> SaveCodeListsAsync(List<CodeListDto> codeLists);
     
-    Task<bool> VariableHasCodeListAsync(string? variableName);
+    // Task<bool> VariableHasCodeListAsync(string? variableName);
+
+    Task<VariableCodeList?> GetCodeListRefByVariableAsync(string? variableName);
+    
+    Task<CodeListTerm?> GetCodeListTermAsync(string? codeListOid,string? term);
 }

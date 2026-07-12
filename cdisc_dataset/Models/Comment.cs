@@ -4,6 +4,7 @@ using SqlSugar;
 namespace cdisc_dataset.Models;
 
 // [SugarIndex("unique_index",nameof(Comment.UniqueId),OrderByType.Asc,nameof(Comment.ProjectId),OrderByType.Asc,true)]
+[TenantAttribute("project")]
 public class Comment
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]

@@ -5,7 +5,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.Models;
 
-[SugarTable("CodeList")]
+[TenantAttribute("project")]
 public class CodeList
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
@@ -49,6 +49,7 @@ public class CodeList
     public int ProjectId { get; set; }
 }
 
+[TenantAttribute("project")]
 [SugarTable("CodeListStd")]
 [SugarIndex("unique_id",nameof(UniqueId),OrderByType.Asc,nameof(Terminology),OrderByType.Desc,true)]
 public class CodeListStd

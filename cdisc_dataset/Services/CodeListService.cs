@@ -5,6 +5,7 @@ using cdisc_dataset.Extensions;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Models.Enums;
+using cdisc_dataset.Models.Settings;
 using cdisc_dataset.Services.Interface;
 using MapsterMapper;
 using SqlSugar;
@@ -108,8 +109,24 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
         return result;
     }
 
-    public async Task<bool> VariableHasCodeListAsync(string? variableName)
+    public async Task<VariableCodeList?> GetCodeListRefByVariableAsync(string? variableName)
     {
-        return await _sqlSugar.Queryable<VariableCodeList>().AnyAsync(o => o.VariableName == variableName);
+        return  await sqlSugar.Queryable<VariableCodeList>()
+            .AsWithAttr().Where(o=>o.VariableName == variableName)
+            .FirstAsync();
     }
+
+    public async Task<CodeListTerm?> GetCodeListTermAsync(string? codeListOid, string? term)
+    {
+        return  await sqlSugar.Queryable<CodeListTerm>()
+            .AsWithAttr().Where(o=>o.CodeListRef == codeListOid &&  o.CodeValue == term)
+            .FirstAsync();
+    }
+
+    // public async Task<bool> VariableHasCodeListAsync(string? variableName)
+    // {
+    //     return await _sqlSugar.Queryable<VariableCodeList>().AnyAsync(o => o.VariableName == variableName);
+    // }
+    
+    
 }

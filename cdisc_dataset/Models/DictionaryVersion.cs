@@ -3,6 +3,7 @@ using SqlSugar;
 namespace cdisc_dataset.Models;
 
 [SugarTable("config_dictionary_version")]
+[TenantAttribute("project")]
 public class DictionaryVersion
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]

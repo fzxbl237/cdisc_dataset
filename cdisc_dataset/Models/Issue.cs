@@ -4,6 +4,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.Models;
 
+[TenantAttribute("project")]
 public class Issue
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]

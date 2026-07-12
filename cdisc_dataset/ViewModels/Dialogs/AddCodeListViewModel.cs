@@ -289,9 +289,10 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     
     private List<string> GetCodeLists(ISelectOption? value)
     {
-        if (value == null || value.Content is not VariableCodeList variableCodeList) return [];
-        var codeLists = variableCodeList.CodeLists;
-        return string.IsNullOrWhiteSpace(codeLists) ? [] : codeLists.Split("; ").ToList();
+        // if (value == null || value.Content is not VariableCodeList variableCodeList) return [];
+        // var codeLists = variableCodeList.CodeLists;
+        // return string.IsNullOrWhiteSpace(codeLists) ? [] : codeLists.Split("; ").ToList();
+        return [];
     }
     
     private async Task LoadComments()
@@ -312,14 +313,15 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
 
     private async Task LoadVariables()
     {
-        var list =  await _sqlSugar.Queryable<VariableCodeList>().ToListAsync();
-        List<ISelectOption> res = [];
-        foreach (var variableCodeList in list)
-        {
-            var selectOption = new SelectOption() { Header = variableCodeList.VariableName,Content = variableCodeList };
-            res.Add(selectOption);
-        }
-        Variables = new AvaloniaList<ISelectOption>(res);
+        // var list =  await _sqlSugar.Queryable<VariableCodeList>().ToListAsync();
+        // List<ISelectOption> res = [];
+        // foreach (var variableCodeList in list)
+        // {
+        //     var selectOption = new SelectOption() { Header = variableCodeList.VariableName,Content = variableCodeList };
+        //     res.Add(selectOption);
+        // }
+        //Variables = new AvaloniaList<ISelectOption>(res);
+        Variables = new AvaloniaList<ISelectOption>();
     }
     
     private async Task LoadCodeLists(string? terminology,List<string> codeLists)

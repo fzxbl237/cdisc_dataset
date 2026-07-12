@@ -266,11 +266,17 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                     Source = !string.IsNullOrWhiteSpace(variableName.InferOrigin())?"Sponsor":null,
                     CdiscDataType = CdiscDataType.Sdtm
                 };
-                if (await _codeListService.VariableHasCodeListAsync(variableName))
+                var codeListRef = await _codeListService.GetCodeListRefByVariableAsync(variableName.ToUpper());
+                if (codeListRef != null)
                 {
-                    var terms = dataEntries.Where(o=>o.HasValue).Select(o=>o.ToString()).Distinct();
+                    var codeListRefName = codeListRef.CodeListRef;
                     
                 }
+                // if (await _codeListService.VariableHasCodeListAsync(variableName))
+                // {
+                //     var terms = dataEntries.Where(o=>o.HasValue).Select(o=>o.ToString()).Distinct();
+                //     
+                // }
                 variables.Add(variable);
             }
         }

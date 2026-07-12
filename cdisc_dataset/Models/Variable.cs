@@ -5,6 +5,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.Models;
 
+[TenantAttribute("project")]
 public class Variable
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]

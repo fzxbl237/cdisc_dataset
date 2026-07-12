@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using AtomUI;
 using AtomUI.Controls;
 using AtomUI.Desktop.Controls;
@@ -9,6 +10,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
+using cdisc_dataset.Models.Settings;
 using cdisc_dataset.Services;
 using cdisc_dataset.Services.Interface;
 using cdisc_dataset.Validations;
@@ -28,6 +30,7 @@ using Prism.Ioc;
 using Prism.Mvvm;
 using SqlSugar;
 using DbType = System.Data.DbType;
+using VariableCodeList = cdisc_dataset.Models.Settings.VariableCodeList;
 using Window = AtomUI.Desktop.Controls.Window;
 
 namespace cdisc_dataset;
@@ -80,8 +83,7 @@ public class App : PrismApplication
         sqlSugar.Ado.ExecuteCommand("UPDATE Term SET DecodedValueConsistent = COALESCE(DecodedValueConsistent, 1)");
         sqlSugar.Ado.ExecuteCommand("UPDATE Issue SET Severity = Severity");
     }
-
-    private IContainerRegistry _containerRegistry;
+    
     
     protected override void RegisterTypes(IContainerRegistry containerRegistry)
     {
@@ -124,17 +126,38 @@ public class App : PrismApplication
         containerRegistry.RegisterSingleton<IMapper, Mapper>();
         containerRegistry.RegisterSingleton<ISqlSugarClient>(s =>
         {
-            SqlSugarScope sqlSugar = new SqlSugarScope(new ConnectionConfig()
-            {
-                DbType = SqlSugar.DbType.Sqlite,
-                ConnectionString = "DataSource=cdisc_dataset.db",
-                IsAutoCloseConnection = true,
-                InitKeyType = InitKeyType.Attribute,
-            });
+            
+            var sqlSugar = new SqlSugarClient([
+                
+                new ConnectionConfig()
+                {
+                    ConfigId = "project", DbType = SqlSugar.DbType.Sqlite,
+                    ConnectionString = "DataSource=cdisc_dataset.db",
+                    IsAutoCloseConnection = true, InitKeyType = InitKeyType.Attribute
+                },
 
-            sqlSugar.CodeFirst.InitTables<Project, Document, Dataset, Variable>();
-            sqlSugar.CodeFirst.InitTables<CodeList, Term, Comment, Method, ValueLevel>();
-            sqlSugar.CodeFirst.InitTables<Dictionary, Issue,WhereClause,DictionaryVersion>();
+                new ConnectionConfig()
+                {
+                    ConfigId = "setting", DbType = SqlSugar.DbType.Sqlite,
+                    ConnectionString = "DataSource=cdisc_setting.db", IsAutoCloseConnection = true
+                }
+            ]);
+            
+            // SqlSugarScope sqlSugar = new SqlSugarScope(new ConnectionConfig()
+            // {
+            //     DbType = SqlSugar.DbType.Sqlite,
+            //     ConnectionString = "DataSource=cdisc_dataset.db",
+            //     IsAutoCloseConnection = true,
+            //     InitKeyType = InitKeyType.Attribute,
+            // });
+            
+            var sqlSugarProject = sqlSugar.GetConnection("project");
+
+            sqlSugarProject.CodeFirst.InitTables<Project, Document, Dataset, Variable>();
+            sqlSugarProject.CodeFirst.InitTables<CodeList, Term, Comment, Method, ValueLevel>();
+            sqlSugarProject.CodeFirst.InitTables<Dictionary, Issue,WhereClause,DictionaryVersion>();
+            var sqlSugarSetting = sqlSugar.GetConnection("setting");
+            sqlSugarSetting.CodeFirst.InitTables<VariableCodeList,CodeListTerm>();
             FixHasErrorsDefault(sqlSugar);
             return sqlSugar;
         });
@@ -169,7 +192,6 @@ public class App : PrismApplication
         containerRegistry.Register<FormValueLevelValidator>();
         containerRegistry.Register<FormProjectValidator>();
         containerRegistry.Register<FormDictionaryValidator>();
-        _containerRegistry=containerRegistry;
     }
     
     protected override AvaloniaObject CreateShell()

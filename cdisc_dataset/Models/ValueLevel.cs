@@ -1,9 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using cdisc_dataset.Models.Enums;
 using SqlSugar;
 
 namespace cdisc_dataset.Models;
 
+[TenantAttribute("project")]
 public class ValueLevel
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]

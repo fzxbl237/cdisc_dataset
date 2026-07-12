@@ -1,9 +1,10 @@
-﻿using MiniExcelLibs.Attributes;
+using MiniExcelLibs.Attributes;
 using SqlSugar;
 
 namespace cdisc_dataset.Models;
 
-public class VariableCodeList
+[TenantAttribute("project")]
+public class VariableCodeListProject
 {
     [SugarColumn(IsPrimaryKey = true)]
     [ExcelColumnName("Variable Name")]
