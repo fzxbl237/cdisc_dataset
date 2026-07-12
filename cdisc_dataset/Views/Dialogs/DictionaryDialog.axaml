@@ -1,0 +1,128 @@
+<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.Dialogs.DictionaryDialog"
+    x:DataType="vm:DictionaryViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:atom="https://atomui.net"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:cdisc_dataset.ViewModels.Dialogs"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel
+        Margin="20"
+        MinWidth="700"
+        Spacing="15">
+        <atom:TextBlock
+            FontSize="18"
+            FontWeight="Bold"
+            HorizontalAlignment="Left"
+            Text="{Binding Title}" />
+
+        <atom:Form
+            HorizontalAlignment="Stretch"
+            LabelColInfo="5*"
+            WrapperColInfo="17*">
+            <Interaction.Behaviors>
+                <EventTriggerBehavior EventName="Submitted">
+                    <InvokeCommandAction Command="{Binding ConfirmCommand}" />
+                </EventTriggerBehavior>
+            </Interaction.Behaviors>
+
+            <atom:FormItem
+                FieldName="UniqueId"
+                IsRequired="True"
+                IsValidateFeedbackEnabled="True"
+                LabelText="Id"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:LineEdit
+                    IsEnabled="{Binding !IsInEditMode}"
+                    PlaceholderText="请输入Id"
+                    Text="{Binding Dictionary.UniqueId, Mode=TwoWay}" />
+            </atom:FormItem>
+
+            <atom:FormItem
+                FieldName="Name"
+                IsRequired="True"
+                IsValidateFeedbackEnabled="True"
+                LabelText="Name"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:LineEdit PlaceholderText="请输入Name" Text="{Binding Dictionary.Name, Mode=TwoWay}" />
+            </atom:FormItem>
+
+            <atom:FormItem
+                FieldName="DataType"
+                IsValidateFeedbackEnabled="True"
+                LabelText="Data Type"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:ComboBox
+                    HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding DataTypeOptions}"
+                    SelectedItem="{Binding Dictionary.DataType, Mode=TwoWay}" />
+            </atom:FormItem>
+
+            <atom:FormItem
+                FieldName="DictionaryName"
+                IsRequired="True"
+                IsValidateFeedbackEnabled="True"
+                LabelText="Dictionary Name"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:AutoComplete
+                    Filter="{atom:ValueFilterProvider Contains}"
+                    HorizontalAlignment="Stretch"
+                    MinimumPrefixLength="0"
+                    OptionsSource="{Binding DataDictionaryNameOptions}"
+                    Value="{Binding Dictionary.DictionaryName, Mode=TwoWay}">
+                    <atom:AutoComplete.OptionTemplate>
+                        <DataTemplate x:DataType="atom:AutoCompleteOption">
+                            <atom:TextBlock Text="{Binding Content}" />
+                        </DataTemplate>
+                    </atom:AutoComplete.OptionTemplate>
+                </atom:AutoComplete>
+            </atom:FormItem>
+
+            <atom:FormItem
+                FieldName="Version1"
+                IsRequired="True"
+                IsValidateFeedbackEnabled="{Binding !Dictionary.ShowComboBox}"
+                IsVisible="{Binding !Dictionary.ShowComboBox}"
+                LabelText="Version"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:LineEdit PlaceholderText="请输入Version" Text="{Binding Dictionary.Version, Mode=TwoWay}" />
+            </atom:FormItem>
+
+            <atom:FormItem
+                FieldName="Version2"
+                IsRequired="True"
+                IsValidateFeedbackEnabled="{Binding Dictionary.ShowComboBox}"
+                IsVisible="{Binding Dictionary.ShowComboBox}"
+                LabelText="Version"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:ComboBox
+                    HorizontalAlignment="Stretch"
+                    ItemsSource="{Binding Dictionary.Versions}"
+                    SelectedItem="{Binding Dictionary.Version, Mode=TwoWay}" />
+            </atom:FormItem>
+
+            <atom:FormActionsItem>
+                <StackPanel
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal"
+                    Spacing="15">
+                    <atom:Button
+                        ButtonType="Default"
+                        Command="{Binding CancelCommand}"
+                        Content="取消" />
+                    <atom:SubmitButton Content="确认" />
+                </StackPanel>
+            </atom:FormActionsItem>
+        </atom:Form>
+    </StackPanel>
+</UserControl>

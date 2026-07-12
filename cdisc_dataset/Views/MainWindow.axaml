@@ -1,0 +1,117 @@
+<atom:Window
+    Background="#F4F6FA"
+    IsPinCaptionButtonVisible="True"
+    IsTitleBarVisible="False"
+    Title="Cdisc dataset"
+    Width="1400"
+    WindowStartupLocation="CenterScreen"
+    WindowState="Normal"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    prism:ViewModelLocator.AutoWireViewModel="True"
+    x:Class="cdisc_dataset.Views.MainWindow"
+    x:DataType="vm:MainWindowViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:atom="https://atomui.net"
+    xmlns:controls="using:cdisc_dataset.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:prism="http://prismlibrary.com/"
+    xmlns:vm="using:cdisc_dataset.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- <controls:Window.RightAddOn> -->
+    <!--     <StackPanel HorizontalAlignment="Right"> -->
+    <!--         <atom:Button ButtonType="Primary" Content="aaa" /> -->
+    <!--     </StackPanel> -->
+    <!-- </controls:Window.RightAddOn> -->
+    <atom:Window.Styles>
+        <dialogHost:DialogHostStyles />
+    </atom:Window.Styles>
+    <dialogHost:DialogHost
+        BlurBackground="True"
+        BlurBackgroundRadius="2"
+        Identifier="Root"
+        Padding="0,-50,0,0"
+        dialogHost:DialogHostStyle.CornerRadius="7">
+        <DockPanel LastChildFill="True" Margin="0">
+
+
+
+            <StackPanel Background="#1C1E22" DockPanel.Dock="Left">
+                <atom:TextBlock
+                    FontSize="20"
+                    FontWeight="Bold"
+                    Foreground="White"
+                    HorizontalAlignment="Center"
+                    Margin="0,20,0,20"
+                    Text="CDISC Datasets" />
+                <atom:ThemeConfigProvider>
+                    <atom:ThemeConfigProvider.ControlTokenInfoSetters>
+                        <atom:ControlTokenInfoSetter TokenId="NavMenu">
+                            <atom:ControlTokenSetter Key="DarkMenuBg" Value="#1C1E22" />
+                        </atom:ControlTokenInfoSetter>
+                    </atom:ThemeConfigProvider.ControlTokenInfoSetters>
+                    <atom:NavMenu
+                        DefaultSelectedPath="{Binding DefaultSelectedPath}"
+                        HorizontalAlignment="Left"
+                        IsDarkStyle="True"
+                        IsInlineCollapsed="False"
+                        ItemsSource="{Binding NavMenuItems}"
+                        Mode="Inline"
+                        Name="ShowCaseNavMenu"
+                        SelectedItem="{Binding SelectedNavMenuItem}"
+                        VerticalAlignment="Stretch"
+                        Width="220" />
+                </atom:ThemeConfigProvider>
+
+            </StackPanel>
+
+
+
+            <Border DockPanel.Dock="Top">
+                <DockPanel
+                    Background="Transparent"
+                    HorizontalAlignment="Stretch"
+                    Name="TitleBarHost"
+                    PointerCaptureLost="TitleBarOnPointerCaptureLost"
+                    PointerMoved="TitleBarOnPointerMoved"
+                    PointerPressed="TitleBarOnPointerPressed"
+                    PointerReleased="TitleBarOnPointerReleased">
+
+                    <atom:WindowTitleBar DockPanel.Dock="Right" />
+                    <StackPanel
+                        DockPanel.Dock="Left"
+                        HorizontalAlignment="Right"
+                        Margin="0,8,0,0"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <atom:TextBlock
+                            HorizontalAlignment="Right"
+                            Text="Project: "
+                            VerticalAlignment="Center" />
+                        <atom:ComboBox
+                            DisplayMemberBinding="{Binding ProjectCode}"
+                            ItemsSource="{Binding Projects}"
+                            MinWidth="220"
+                            SelectedItem="{Binding CurrentProject}"
+                            VerticalAlignment="Center" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <ContentControl
+                Background="White"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="3"
+                DockPanel.Dock="Right"
+                Margin="12"
+                Padding="12,20,12,12"
+                prism:RegionManager.RegionName="ContentRegion" />
+        </DockPanel>
+
+    </dialogHost:DialogHost>
+</atom:Window>

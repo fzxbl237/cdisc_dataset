@@ -1,0 +1,205 @@
+<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.Defines.MethodsView"
+    x:DataType="vm:MethodsViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:controls="using:cdisc_dataset.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:cdisc_dataset.ViewModels.Defines"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding SaveCommand}" Gesture="Ctrl+S" />
+        <KeyBinding Command="{Binding DiscardCommand}" Gesture="Escape" />
+    </UserControl.KeyBindings>
+    <Grid RowDefinitions="50,*,50">
+        <DockPanel Margin="10,8">
+            <atom:LineEdit
+                DockPanel.Dock="Left"
+                IsAllowClear="True"
+                MinWidth="200"
+                Text="{Binding SearchText}"
+                Watermark="请输入搜索字段" />
+            <StackPanel
+                DockPanel.Dock="Right"
+                HorizontalAlignment="Right"
+                Orientation="Horizontal"
+                Spacing="10">
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding AddMethodCommand}"
+                    Content="新增"
+                    Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+            </StackPanel>
+        </DockPanel>
+        <DataGrid
+            CanUserSortColumns="False"
+            Grid.Row="1"
+            GridLinesVisibility="Horizontal"
+            HeadersVisibility="Column"
+            HorizontalScrollBarVisibility="Visible"
+            IsReadOnly="False"
+            ItemsSource="{Binding Methods}"
+            SelectionUnit="FullRow">
+            <DataGrid.Columns>
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding UniqueId}"
+                    Header="Id"
+                    IsReadOnly="False"
+                    Width="200" />
+
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding Name}"
+                    Header="Name"
+                    IsReadOnly="False"
+                    Width="200" />
+
+                <controls:DataGridAtomComboBoxColumn
+                    Binding="{Binding Type}"
+                    Header="Type"
+                    IsReadOnly="False"
+                    ItemsSource="{Binding Types}"
+                    Width="150" />
+
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding Description}"
+                    Header="Description"
+                    IsReadOnly="False"
+                    Width="250" />
+
+
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding ExpressionContext}"
+                    Header="Expression Context"
+                    IsReadOnly="False"
+                    Width="250" />
+
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding ExpressionCode}"
+                    Header="Expression Code"
+                    IsReadOnly="False"
+                    Width="250" />
+
+                <controls:DataGridAtomAutoCompleteColumn
+                    Binding="{Binding DocumentUniqueId}"
+                    Header="Document"
+                    IsReadOnly="False"
+                    OptionsSource="{Binding DocumentOptions}"
+                    Width="200">
+                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                        <DataTemplate x:DataType="vm:DocumentAutoCompleteOption">
+                            <StackPanel Margin="0,5">
+                                <atom:TextBlock
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Content}"
+                                    TextWrapping="Wrap" />
+                                <atom:TextBlock
+                                    FontSize="12"
+                                    Foreground="#1677ff"
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Document.Title}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                </controls:DataGridAtomAutoCompleteColumn>
+
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding Pages}"
+                    Header="Pages"
+                    IsReadOnly="False"
+                    Width="200" />
+
+                <!-- <DataGridTemplateColumn Header="Type" Width="120"> -->
+                <!--     <DataGridTemplateColumn.CellTemplate> -->
+                <!--         <DataTemplate> -->
+                <!--             <atom:LineEdit Text="{Binding Type, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /> -->
+                <!--         </DataTemplate> -->
+                <!--     </DataGridTemplateColumn.CellTemplate> -->
+                <!-- </DataGridTemplateColumn> -->
+
+                <!-- <DataGridTemplateColumn Header="ExpressionContext" Width="180"> -->
+                <!--     <DataGridTemplateColumn.CellTemplate> -->
+                <!--         <DataTemplate> -->
+                <!--             <atom:LineEdit Text="{Binding ExpressionContext, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /> -->
+                <!--         </DataTemplate> -->
+                <!--     </DataGridTemplateColumn.CellTemplate> -->
+                <!-- </DataGridTemplateColumn> -->
+                <!-- <DataGridTemplateColumn Header="ExpressionCode" Width="200"> -->
+                <!--     <DataGridTemplateColumn.CellTemplate> -->
+                <!--         <DataTemplate> -->
+                <!--             <atom:LineEdit Text="{Binding ExpressionCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /> -->
+                <!--         </DataTemplate> -->
+                <!--     </DataGridTemplateColumn.CellTemplate> -->
+                <!-- </DataGridTemplateColumn> -->
+                <!-- <DataGridTemplateColumn Header="Pages" Width="140"> -->
+                <!--     <DataGridTemplateColumn.CellTemplate> -->
+                <!--         <DataTemplate> -->
+                <!--             <atom:LineEdit Text="{Binding Pages, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" /> -->
+                <!--         </DataTemplate> -->
+                <!--     </DataGridTemplateColumn.CellTemplate> -->
+                <!-- </DataGridTemplateColumn> -->
+                <!-- <DataGridTemplateColumn Header="Document" Width="260"> -->
+                <!--     <DataGridTemplateColumn.CellTemplate> -->
+                <!--         <DataTemplate> -->
+                <!--  <ComboBox  -->
+                <!--  DisplayMemberBinding="{Binding UniqueId}"  -->
+                <!--  IsTextSearchEnabled="True"  -->
+                <!--  ItemsSource="{Binding DataContext.Documents, RelativeSource={RelativeSource AncestorType=UserControl}}"  -->
+                <!--  SelectedValue="{Binding DocumentUniqueId, Mode=TwoWay}"  -->
+                <!--  SelectedValuePath="UniqueId"  -->
+                <!--  VerticalAlignment="Center" />  -->
+                <!--         </DataTemplate> -->
+                <!--     </DataGridTemplateColumn.CellTemplate> -->
+                <!-- </DataGridTemplateColumn> -->
+                <DataGridTemplateColumn Header="Options" Width="160">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <atom:HyperLinkTextBlock
+                                    Command="{Binding $parent[DataGrid].((vm:MethodsViewModel)DataContext).EditMethodCommand}"
+                                    CommandParameter="{Binding}"
+                                    Text="Edit"
+                                    VerticalAlignment="Center" />
+                                <atom:PopupConfirm Title="Sure to delete?">
+                                    <Interaction.Behaviors>
+                                        <EventTriggerBehavior EventName="Confirmed">
+                                            <InvokeCommandAction Command="{Binding $parent[DataGrid].((vm:MethodsViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
+                                        </EventTriggerBehavior>
+                                    </Interaction.Behaviors>
+                                    <atom:HyperLinkTextBlock Text="Delete" VerticalAlignment="Center" />
+                                </atom:PopupConfirm>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        <StackPanel
+            Grid.Row="2"
+            HorizontalAlignment="Right"
+            Margin="0,0,15,0"
+            Orientation="Horizontal"
+            Spacing="15"
+            VerticalAlignment="Center">
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding SaveCommand}"
+                Content="保存"
+                IsEnabled="{Binding HasChanges}"
+                atom:ToolTip.Tip="保存所有数据(Ctrl+S)" />
+
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding DiscardCommand}"
+                Content="放弃"
+                IsDanger="True"
+                IsEnabled="{Binding HasChanges}"
+                atom:ToolTip.Tip="撤销(Esc)" />
+        </StackPanel>
+    </Grid>
+</UserControl>

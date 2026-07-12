@@ -1,0 +1,121 @@
+﻿<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.TerminologyView"
+    x:DataType="vm:TerminologyViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:atom="https://atomui.net"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:cdisc_dataset.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid RowDefinitions="100,*" RowSpacing="15">
+        <StackPanel
+            Orientation="Horizontal"
+            Spacing="15"
+            VerticalAlignment="Center">
+            <atom:TextBlock
+                FontWeight="Bold"
+                Text="Version: "
+                VerticalAlignment="Center" />
+            <atom:Select OptionsSource="{Binding VersionOptions}" VerticalAlignment="Center" />
+            <atom:TextBlock
+                FontWeight="Bold"
+                Text="CodeLists: "
+                VerticalAlignment="Center" />
+            <atom:Select OptionsSource="{Binding VersionOptions}" VerticalAlignment="Center" />
+
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding UploadCommand}"
+                Content="Upload" />
+        </StackPanel>
+
+        <DataGrid
+            AutoScrollToSelectedItem="True"
+            CanUserAddRows="True"
+            Grid.Row="1"
+            ItemsSource="{Binding CodeListStds}"
+            UseLogicalScrollable="True">
+            <DataGrid.Columns>
+                <DataGridTextColumn
+                    Binding="{Binding Code}"
+                    Header="CodeList"
+                    Width="150" />
+                <DataGridTextColumn
+                    Binding="{Binding Extensible}"
+                    Header="Extensible"
+                    Width="120" />
+                <DataGridTextColumn
+                    Binding="{Binding Name}"
+                    Header="Name"
+                    Width="300" />
+                <DataGridTextColumn
+                    Binding="{Binding UniqueId}"
+                    Header="Submission Value"
+                    Width="200" />
+                <DataGridTextColumn
+                    Binding="{Binding Synonyms}"
+                    Header="Synonyms"
+                    Width="400" />
+                <DataGridTextColumn
+                    Binding="{Binding Definitions}"
+                    Header="Definitions"
+                    Width="400" />
+                <DataGridTextColumn
+                    Binding="{Binding PreferredTerm}"
+                    Header="NCI Preferred Term"
+                    Width="400" />
+
+                <DataGridTextColumn
+                    Binding="{Binding Terminology}"
+                    Header="Terminology"
+                    Width="400" />
+            </DataGrid.Columns>
+        </DataGrid>
+        <!-- <atom:DataGrid Grid.Row="1" ItemsSource="{Binding CodeListStds}"> -->
+        <!--     <atom:DataGrid.Styles> -->
+        <!--         <Style Selector="atom|TextBlock"> -->
+        <!--             <Setter Property="TextWrapping" Value="Wrap" /> -->
+        <!--         </Style> -->
+        <!--     </atom:DataGrid.Styles> -->
+        <!--     <atom:DataGrid.Columns> -->
+        <!--  <atom:DataGridTextColumn  -->
+        <!--  Binding="{Binding Code}"  -->
+        <!--  Header="CodeList"  -->
+        <!--  Width="150" />  -->
+        <!--  <atom:DataGridTextColumn  -->
+        <!--  Binding="{Binding Extensible}"  -->
+        <!--  Header="Extensible"  -->
+        <!--  Width="120" />  -->
+        <!--  <atom:DataGridTextColumn  -->
+        <!--  Binding="{Binding Name}"  -->
+        <!--  Header="Name"  -->
+        <!--  Width="300" />  -->
+        <!--  <atom:DataGridTextColumn  -->
+        <!--  Binding="{Binding UniqueId}"  -->
+        <!--  Header="Submission Value"  -->
+        <!--  Width="200" />  -->
+        <!--  <atom:DataGridTextColumn  -->
+        <!--  Binding="{Binding Synonyms}"  -->
+        <!--  Header="Synonyms"  -->
+        <!--  Width="400" />  -->
+        <!--  <atom:DataGridTextColumn  -->
+        <!--  Binding="{Binding Definitions}"  -->
+        <!--  Header="Definitions"  -->
+        <!--  Width="400" />  -->
+        <!--  <atom:DataGridTextColumn  -->
+        <!--  Binding="{Binding PreferredTerm}"  -->
+        <!--  Header="NCI Preferred Term"  -->
+        <!--  Width="400" />  -->
+        <!--    -->
+        <!--  <atom:DataGridTextColumn  -->
+        <!--  Binding="{Binding Terminology}"  -->
+        <!--  Header="Terminology"  -->
+        <!--  Width="400" />  -->
+        <!--     </atom:DataGrid.Columns> -->
+        <!-- </atom:DataGrid> -->
+
+    </Grid>
+</UserControl>

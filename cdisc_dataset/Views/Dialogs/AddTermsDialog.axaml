@@ -1,0 +1,259 @@
+﻿<UserControl
+    Name="Root"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.Dialogs.AddTermsDialog"
+    x:DataType="vm:AddTermsViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:controls="using:cdisc_dataset.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dto="using:cdisc_dataset.Models.Dto"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:model="using:cdisc_dataset.Models"
+    xmlns:vm="using:cdisc_dataset.ViewModels.Dialogs"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Styles>
+        <Style Selector="atom|TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="atom|LineEdit">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="atom|ComboBox">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+    <StackPanel
+        Margin="20"
+        MinWidth="850"
+        Spacing="5"
+        Width="850">
+        <atom:TextBlock
+            FontSize="18"
+            FontWeight="Bold"
+            HorizontalAlignment="Left"
+            Margin="0,20"
+            Text="Add Terms" />
+        <atom:Separator Title="CodeList and Pair" TitlePosition="Left" />
+        <StackPanel Orientation="Horizontal" Spacing="15">
+            <atom:TextBlock Text="CodeList: " />
+            <atom:Select
+                HorizontalAlignment="Left"
+                IsAllowClear="True"
+                IsFilterEnabled="True"
+                Mode="Single"
+                OptionsSource="{Binding CodeLists, Mode=TwoWay}"
+                SelectedOption="{Binding SelectedCodeList, Mode=TwoWay}"
+                VerticalAlignment="Center"
+                Width="150">
+                <atom:Select.Styles>
+                    <Style Selector="atom|TextBlock">
+                        <Setter Property="HorizontalAlignment" Value="Left" />
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                    </Style>
+                </atom:Select.Styles>
+                <atom:Select.OptionTemplate>
+                    <DataTemplate>
+                        <StackPanel Spacing="10" x:DataType="atom:SelectOption">
+                            <atom:TextBlock Text="{Binding Header}" />
+                            <atom:TextBlock
+                                FontSize="13"
+                                Foreground="#5C9FF9"
+                                Text="{Binding ((model:CodeListStd)Content).Name}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </atom:Select.OptionTemplate>
+            </atom:Select>
+
+            <atom:TextBlock Text="Pair: " />
+            <atom:Select
+                HorizontalAlignment="Left"
+                IsAllowClear="True"
+                IsFilterEnabled="True"
+                Mode="Single"
+                OptionsSource="{Binding CodeLists, Mode=TwoWay}"
+                SelectedOption="{Binding SelectedPairCodeList, Mode=TwoWay}"
+                VerticalAlignment="Center"
+                Width="150">
+                <atom:Select.Styles>
+                    <Style Selector="atom|TextBlock">
+                        <Setter Property="HorizontalAlignment" Value="Left" />
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                    </Style>
+                </atom:Select.Styles>
+                <atom:Select.OptionTemplate>
+                    <DataTemplate>
+                        <StackPanel Spacing="10" x:DataType="atom:SelectOption">
+                            <atom:TextBlock Text="{Binding Header}" />
+                            <atom:TextBlock
+                                FontSize="13"
+                                Foreground="#5C9FF9"
+                                Text="{Binding ((model:CodeListStd)Content).Name}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </atom:Select.OptionTemplate>
+            </atom:Select>
+            <atom:Button Command="{Binding InitialCommand}" Content="Initial by Pair CodeList" />
+        </StackPanel>
+
+
+
+        <atom:Separator Title="Terms" TitlePosition="Left" />
+        <StackPanel
+            HorizontalAlignment="Stretch"
+            Orientation="Horizontal"
+            Spacing="15"
+            VerticalAlignment="Center">
+            <atom:LineEdit
+                IsAllowClear="True"
+                MinWidth="200"
+                Text="{Binding SearchText}"
+                Watermark="请输入搜索字段" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding AddTermCommand}"
+                Content="新增"
+                HorizontalAlignment="Right"
+                Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+        </StackPanel>
+        <DataGrid
+            BorderThickness="0"
+            GridLinesVisibility="Horizontal"
+            Height="240"
+            IsReadOnly="False"
+            ItemsSource="{Binding Terms}"
+            MaxHeight="240"
+            RowBackground="Transparent"
+            RowHeight="40"
+            UseLogicalScrollable="True">
+            <DataGrid.Resources>
+                <SolidColorBrush Color="Transparent" x:Key="DataGridColumnHeaderHoveredBackgroundBrush" />
+                <SolidColorBrush Color="Transparent" x:Key="DataGridColumnHeaderPressedBackgroundBrush" />
+                <SolidColorBrush Color="Transparent" x:Key="DataGridColumnHeaderSelectedBackgroundBrush" />
+            </DataGrid.Resources>
+            <DataGrid.Styles>
+                <Style Selector="DataGridCell.template:cell-selected">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                </Style>
+                <Style Selector="DataGridRow:current">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderBrush" Value="#FF64B5F6" />
+                </Style>
+                <Style Selector="DataGridRow:selected">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Style Selector="^ /template/ Rectangle#BackgroundRectangle">
+                        <Setter Property="Opacity" Value="0.5" />
+                        <Setter Property="Fill" Value="LightGray" />
+                    </Style>
+                </Style>
+                <Style Selector="DataGridRow">
+                    <Setter Property="ContextMenu">
+                        <atom:ContextMenu x:DataType="dto:TermDto">
+                            <atom:MenuItem
+                                Command="{Binding #Root.((vm:AddCodeListViewModel)DataContext).InsertTermAboveCommand}"
+                                CommandParameter="{Binding}"
+                                Header="Insert Above" />
+                            <atom:MenuItem
+                                Command="{Binding #Root.((vm:AddCodeListViewModel)DataContext).InsertTermBelowCommand}"
+                                CommandParameter="{Binding}"
+                                Header="Insert Below" />
+                        </atom:ContextMenu>
+                    </Setter>
+                </Style>
+                <Style Selector="DataGridColumnHeader">
+                    <Setter Property="AreSeparatorsVisible" Value="False" />
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+            </DataGrid.Styles>
+            <DataGrid.Columns>
+                <DataGridNumericColumn
+                    Binding="{Binding Order, UpdateSourceTrigger=LostFocus}"
+                    Header="Order"
+                    IsReadOnly="False" />
+                <DataGridTextColumn Binding="{Binding CodeListUniqueId}" Header="CodeList" />
+                <!--  <controls:DataGridAtomLineEditColumn  -->
+                <!--  Binding="{Binding CodeListUniqueId}"  -->
+                <!--  Header="CodeList"  -->
+                <!--  IsReadOnly="False" />  -->
+                <controls:DataGridAtomAutoCompleteColumn
+                    Binding="{Binding Name, UpdateSourceTrigger=LostFocus}"
+                    Header="Term"
+                    IsReadOnly="False"
+                    OptionsAsyncLoader="{Binding TermOptionsAsyncLoader}"
+                    Width="200">
+                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                        <DataTemplate x:DataType="vm:TermCompleteOption">
+                            <StackPanel Margin="0,5">
+                                <atom:TextBlock HorizontalAlignment="Left" Text="{Binding Content}" />
+                                <atom:TextBlock
+                                    FontSize="12"
+                                    Foreground="#1677ff"
+                                    HorizontalAlignment="Left"
+                                    IsVisible="{Binding !SynonymsIsEmpty}"
+                                    Text="{Binding Header}"
+                                    TextWrapping="NoWrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                </controls:DataGridAtomAutoCompleteColumn>
+
+                <DataGridTextColumn
+                    Binding="{Binding Code}"
+                    Header="NCI Code"
+                    IsReadOnly="True" />
+                <!--  <DataGridCheckBoxColumn  -->
+                <!--  Binding="{Binding IsNameDuplicate}"  -->
+                <!--  Header="Duplicate"  -->
+                <!--  IsReadOnly="False" />  -->
+                <!-- <DataGridTextColumn Binding="{Binding DecodedValue}" Header="Decoded Value" /> -->
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding DecodedValue}"
+                    Header="Decoded Value"
+                    IsReadOnly="False" />
+                <DataGridTemplateColumn Header="Options">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel
+                                HorizontalAlignment="Left"
+                                Margin="5,0,0,0"
+                                Orientation="Horizontal"
+                                Spacing="15">
+                                <!-- <atom:HyperLinkTextBlock Text="Modify" VerticalAlignment="Center" /> -->
+                                <atom:PopupConfirm Title="Sure to delete?">
+                                    <Interaction.Behaviors>
+                                        <EventTriggerBehavior EventName="Confirmed">
+                                            <InvokeCommandAction Command="{Binding $parent[DataGrid].((vm:AddCodeListViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
+                                        </EventTriggerBehavior>
+                                    </Interaction.Behaviors>
+                                    <atom:Button
+                                        ButtonType="Link"
+                                        Content="Delete"
+                                        Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}"
+                                        VerticalAlignment="Center" />
+                                </atom:PopupConfirm>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        <StackPanel
+            HorizontalAlignment="Right"
+            Orientation="Horizontal"
+            Spacing="15">
+            <atom:Button
+                ButtonType="Default"
+                Command="{Binding CancelCommand}"
+                Content="取消" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding SaveCommand}"
+                Content="确认" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

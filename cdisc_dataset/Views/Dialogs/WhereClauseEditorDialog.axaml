@@ -1,0 +1,168 @@
+<UserControl
+    d:DesignHeight="650"
+    d:DesignWidth="900"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.Dialogs.WhereClauseEditorDialog"
+    x:DataType="vm:WhereClauseEditorViewModel"
+    x:Name="Root"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:controls="clr-namespace:cdisc_dataset.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:defines="clr-namespace:cdisc_dataset.ViewModels.Defines"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:model="clr-namespace:cdisc_dataset.Models.Dto"
+    xmlns:vm="using:cdisc_dataset.ViewModels.Dialogs"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel
+        Margin="20"
+        MinWidth="840"
+        Spacing="12">
+        <TextBlock
+            FontSize="18"
+            FontWeight="Bold"
+            Text="{Binding Title}" />
+
+        <Border
+            Background="#0F000000"
+            CornerRadius="6"
+            Padding="10">
+            <StackPanel Spacing="8">
+                <TextBlock
+                    FontSize="14"
+                    FontWeight="Bold"
+                    Text="Expression Preview" />
+                <TextBlock Text="{Binding ExpressionPreview}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+
+        <DataGrid
+            AutoGenerateColumns="False"
+            BorderThickness="0"
+            CanUserReorderColumns="False"
+            CanUserResizeColumns="True"
+            CanUserSortColumns="False"
+            GridLinesVisibility="None"
+            HeadersVisibility="None"
+            ItemsSource="{Binding WhereClauses}"
+            Margin="0,4"
+            MinHeight="260"
+            RowHeight="50">
+            <DataGrid.Columns>
+                <DataGridNumericColumn Binding="{Binding Seq, Mode=TwoWay}" Header="Seq" />
+                <DataGridTemplateColumn Header="Variable" Width="320">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="model:WhereClauseDto">
+                            <atom:AutoComplete
+                                Filter="{atom:ValueFilterProvider Contains}"
+                                OptionsSource="{Binding #Root.((vm:WhereClauseEditorViewModel)DataContext).VariableOptions}"
+                                Value="{Binding Variable, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                VerticalAlignment="Center"
+                                Width="280">
+                                <atom:AutoComplete.OptionTemplate>
+                                    <DataTemplate x:DataType="defines:ValueLevelAutoCompleteOption">
+                                        <StackPanel Margin="0,2" Spacing="5">
+                                            <atom:TextBlock
+                                                HorizontalAlignment="Left"
+                                                Text="{Binding Variable.VariableName, FallbackValue=''}"
+                                                TextWrapping="Wrap" />
+                                            <atom:TextBlock
+                                                FontSize="12"
+                                                Foreground="#1677ff"
+                                                HorizontalAlignment="Left"
+                                                Text="{Binding Variable.Label, FallbackValue=''}"
+                                                TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </atom:AutoComplete.OptionTemplate>
+                            </atom:AutoComplete>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Comparator" Width="140">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="model:WhereClauseDto">
+                            <atom:ComboBox
+                                ItemsSource="{Binding #Root.((vm:WhereClauseEditorViewModel)DataContext).Comparators}"
+                                PlaceholderForeground="Gray"
+                                PlaceholderText="Comparator"
+                                SelectedItem="{Binding Comparator, Mode=TwoWay}"
+                                VerticalAlignment="Center"
+                                Width="100" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Header="Values" Width="320">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="model:WhereClauseDto">
+                            <Grid>
+                                <atom:Select
+                                    HorizontalAlignment="Stretch"
+                                    IsVisible="{Binding ShowSelectValues}"
+                                    Mode="Single"
+                                    OptionsSource="{Binding Terms}"
+                                    PlaceholderText="Values"
+                                    SelectedOption="{Binding SelectedTerm, Mode=TwoWay}"
+                                    VerticalAlignment="Center" />
+                                <atom:Select
+                                    HorizontalAlignment="Stretch"
+                                    IsVisible="{Binding IsMultiSelectValues}"
+                                    Mode="Multiple"
+                                    OptionsSource="{Binding Terms}"
+                                    PlaceholderText="Values"
+                                    SelectedOptions="{Binding SelectedTerms, Mode=TwoWay}"
+                                    VerticalAlignment="Center" />
+                                <atom:LineEdit
+                                    IsVisible="{Binding ShowLineEditValues}"
+                                    PlaceholderText="Values"
+                                    Text="{Binding Values, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    VerticalAlignment="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Actions" Width="140">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="model:WhereClauseDto">
+                            <StackPanel
+                                Margin="20,0,0,0"
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                VerticalAlignment="Center">
+                                <atom:Button
+                                    Command="{Binding #Root.((vm:WhereClauseEditorViewModel)DataContext).AddAfterCommand}"
+                                    CommandParameter="{Binding}"
+                                    Content="and" />
+
+                                <atom:Button
+                                    ButtonType="Default"
+                                    Command="{Binding #Root.((vm:WhereClauseEditorViewModel)DataContext).DeleteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}"
+                                    IsVisible="{Binding CanDelete}"
+                                    Shape="Default" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <StackPanel
+            HorizontalAlignment="Right"
+            Orientation="Horizontal"
+            Spacing="12">
+            <atom:Button
+                ButtonType="Default"
+                Command="{Binding CancelCommand}"
+                Content="取消" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding ConfirmCommand}"
+                Content="确认" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

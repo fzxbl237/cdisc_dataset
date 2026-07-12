@@ -1,0 +1,76 @@
+﻿<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:atom="https://atomui.net"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Design.PreviewWith>
+        <Border Padding="20">
+            <!--  Add Controls for Previewer Here  -->
+        </Border>
+    </Design.PreviewWith>
+    <Styles.Resources>
+        <SolidColorBrush Color="Transparent" x:Key="DataGridColumnHeaderHoveredBackgroundBrush" />
+        <SolidColorBrush Color="Transparent" x:Key="DataGridColumnHeaderPressedBackgroundBrush" />
+        <SolidColorBrush Color="Transparent" x:Key="DataGridColumnHeaderSelectedBackgroundBrush" />
+    </Styles.Resources>
+
+
+    <!-- <Style Selector="atom|FlyoutHost.FlyoutCell"> -->
+    <!--     <Setter Property="IsArrowVisible" Value="False" /> -->
+    <!--     <Setter Property="ShouldUseOverlayPopup" Value="False" /> -->
+    <!--     <Setter Property="Trigger" Value="Hover" /> -->
+    <!--     <Styles> -->
+    <!--         <Style Selector="^ atom|ArrowDecoratedBox"> -->
+    <!--             <Setter Property="Background" Value="#262626" /> -->
+    <!--             <Setter Property="Foreground" Value="White" /> -->
+    <!--         </Style> -->
+    <!--    -->
+    <!--         <Style Selector="atom|HyperLinkTextBlock[IsEnabled=True]"> -->
+    <!--             <Setter Property="Foreground" Value="White" /> -->
+    <!--         </Style> -->
+    <!--    -->
+    <!--         <Style Selector="atom|HyperLinkTextBlock:pointerover"> -->
+    <!--             <Setter Property="Foreground" Value="LightGray" /> -->
+    <!--         </Style> -->
+    <!--    -->
+    <!--         <Style Selector="atom|HyperLinkTextBlock:pressed"> -->
+    <!--             <Setter Property="Foreground" Value="LightGray" /> -->
+    <!--         </Style> -->
+    <!--     </Styles> -->
+    <!-- </Style> -->
+
+
+    <Style Selector="DataGrid">
+        <Setter Property="GridLinesVisibility" Value="Horizontal" />
+        <Setter Property="RowBackground" Value="Transparent" />
+    </Style>
+    <!--  Add Styles Here  -->
+    <Style Selector="DataGridColumnHeader">
+        <Setter Property="AreSeparatorsVisible" Value="False" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="MinHeight" Value="50" />
+    </Style>
+
+    <Style Selector="DataGridCell.template:cell-selected">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="DataGridRow:current">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="#FF64B5F6" />
+    </Style>
+
+    <Style Selector="DataGridCell:current /template/ Rectangle#CurrencyVisual">
+        <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="DataGridCell:focus /template/ Grid#FocusVisual">
+        <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="DataGridRow:selected">
+        <Setter Property="Background" Value="Transparent" />
+        <Style Selector="^ /template/ Rectangle#BackgroundRectangle">
+            <Setter Property="Opacity" Value="0.5" />
+            <Setter Property="Fill" Value="LightGray" />
+        </Style>
+    </Style>
+</Styles>

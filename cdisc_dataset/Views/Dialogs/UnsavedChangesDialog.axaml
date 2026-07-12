@@ -1,0 +1,41 @@
+﻿<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.Dialogs.UnsavedChangesDialog"
+    x:DataType="vm:UnsavedChangesViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:atom="https://atomui.net"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:cdisc_dataset.ViewModels.Dialogs"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel
+        Margin="20"
+        MinWidth="420"
+        Spacing="15">
+        <TextBlock
+            FontSize="18"
+            FontWeight="Bold"
+            Text="{Binding Title}" />
+        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+        <StackPanel
+            HorizontalAlignment="Right"
+            Orientation="Horizontal"
+            Spacing="15">
+            <atom:Button
+                ButtonType="Default"
+                Command="{Binding CancelCommand}"
+                Content="取消" />
+            <atom:Button
+                ButtonType="Default"
+                Command="{Binding DiscardCommand}"
+                Content="放弃" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding SaveCommand}"
+                Content="保存"
+                IsDanger="True" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

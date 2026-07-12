@@ -1,0 +1,105 @@
+﻿<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.ProjectView"
+    x:DataType="vm:ProjectViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:converter="using:cdisc_dataset.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:cdisc_dataset.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <converter:EnumDescriptionConverter x:Key="EnumDescriptionConverter" />
+    </UserControl.Resources>
+    <Grid RowDefinitions="50,Auto,50" x:Name="Grid">
+        <StackPanel Orientation="Horizontal">
+            <Panel>
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding AddProjectCommand}"
+                    Content="新增"
+                    Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
+                    Name="AddButton" />
+            </Panel>
+        </StackPanel>
+        <atom:DataGrid
+            Grid.Row="1"
+            ItemsSource="{Binding Projects}"
+            MaxHeight="{Binding #Grid.Bounds.Height, Converter={x:Static converter:Converters.DatagridHeightConverter}}">
+            <atom:DataGrid.Columns>
+                <!-- <atom:DataGridSelectionColumn /> -->
+                <atom:DataGridTemplateColumn
+                    Header="项目编号"
+                    IsFrozen="False"
+                    IsReadOnly="False">
+                    <atom:DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <atom:FlyoutHost Trigger="Hover">
+                                <atom:FlyoutHost.Flyout>
+                                    <atom:Flyout>
+                                        <atom:HyperLinkTextBlock Text="{Binding ProjectCode}" />
+                                    </atom:Flyout>
+                                </atom:FlyoutHost.Flyout>
+                                <atom:HyperLinkTextBlock Text="{Binding ProjectCode}" />
+                            </atom:FlyoutHost>
+                        </DataTemplate>
+                    </atom:DataGridTemplateColumn.CellTemplate>
+                    <atom:DataGridTemplateColumn.CellEditingTemplate>
+                        <DataTemplate>
+                            <atom:LineEdit Text="{Binding ProtocolCode}" />
+                        </DataTemplate>
+                    </atom:DataGridTemplateColumn.CellEditingTemplate>
+                </atom:DataGridTemplateColumn>
+                <atom:DataGridTextColumn Binding="{Binding ProtocolCode}" Header="方案编号" />
+                <atom:DataGridTemplateColumn Header="方案描述" MaxWidth="600">
+                    <atom:DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <atom:TextBlock Text="{Binding ProtocolDescription}" TextWrapping="Wrap" />
+                        </DataTemplate>
+                    </atom:DataGridTemplateColumn.CellTemplate>
+                </atom:DataGridTemplateColumn>
+                <atom:DataGridTextColumn Binding="{Binding DrugCode}" Header="药物号" />
+                <atom:DataGridTextColumn Binding="{Binding SdtmIgVersion, Converter={StaticResource EnumDescriptionConverter}}" Header="SDTM IG版本" />
+                <atom:DataGridTextColumn Binding="{Binding AdamIgVersion, Converter={StaticResource EnumDescriptionConverter}}" Header="ADAM IG版本" />
+                <atom:DataGridTextColumn Binding="{Binding Language, Converter={StaticResource EnumDescriptionConverter}}" Header="语言" />
+
+                <atom:DataGridTemplateColumn Header="操作" IsFrozen="True">
+                    <atom:DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="15">
+                                <atom:HyperLinkTextBlock
+                                    Command="{Binding $parent[atom:DataGrid].((vm:ProjectViewModel)DataContext).ModifyCommand}"
+                                    CommandParameter="{Binding}"
+                                    Text="Modify" />
+                                <StackPanel Orientation="Horizontal" Spacing="15">
+                                    <atom:PopupConfirm Title="Sure to delete?">
+                                        <Interaction.Behaviors>
+                                            <EventTriggerBehavior EventName="Confirmed">
+                                                <InvokeCommandAction Command="{Binding $parent[atom:DataGrid].((vm:ProjectViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
+                                            </EventTriggerBehavior>
+                                        </Interaction.Behaviors>
+                                        <atom:HyperLinkTextBlock Text="Delete" />
+                                    </atom:PopupConfirm>
+                                </StackPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </atom:DataGridTemplateColumn.CellTemplate>
+                </atom:DataGridTemplateColumn>
+            </atom:DataGrid.Columns>
+        </atom:DataGrid>
+        <atom:Pagination
+            CurrentPage="1"
+            Grid.Row="2"
+            HorizontalAlignment="Right"
+            IsShowSizeChanger="True"
+            IsShowTotalInfo="True"
+            PageSize="20"
+            Total="85"
+            VerticalAlignment="Center" />
+
+    </Grid>
+</UserControl>

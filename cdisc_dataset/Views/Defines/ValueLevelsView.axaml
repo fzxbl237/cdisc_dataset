@@ -1,0 +1,426 @@
+<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.Defines.ValueLevelsView"
+    x:DataType="vm:ValueLevelsViewModel"
+    x:Name="Root"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:controls="using:cdisc_dataset.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:model="clr-namespace:cdisc_dataset.Models.Dto"
+    xmlns:vm="clr-namespace:cdisc_dataset.ViewModels.Defines"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding SaveCommand}" Gesture="Ctrl+S" />
+        <KeyBinding Command="{Binding DiscardCommand}" Gesture="Escape" />
+    </UserControl.KeyBindings>
+    <Grid RowDefinitions="50,*,50">
+        <DockPanel Margin="10,8">
+            <atom:LineEdit
+                DockPanel.Dock="Left"
+                IsAllowClear="True"
+                MinWidth="200"
+                PlaceholderForeground="Gray"
+                PlaceholderText="请输入搜索字段"
+                Text="{Binding SearchText}" />
+            <StackPanel
+                DockPanel.Dock="Right"
+                HorizontalAlignment="Right"
+                Orientation="Horizontal"
+                Spacing="10">
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding AddValueLevelCommand}"
+                    Content="新增"
+                    Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+            </StackPanel>
+        </DockPanel>
+        <DataGrid
+            CanUserSortColumns="False"
+            FrozenColumnCount="3"
+            FrozenColumnCountRight="1"
+            Grid.Row="1"
+            GridLinesVisibility="Horizontal"
+            HeadersVisibility="Column"
+            HorizontalScrollBarVisibility="Visible"
+            IsReadOnly="False"
+            ItemsSource="{Binding ValueLevels}"
+            SelectionMode="Single"
+            SelectionUnit="Cell">
+            <Interaction.Behaviors>
+                <EventTriggerBehavior EventName="CellPointerPressed">
+                    <InvokeCommandAction Command="{Binding PreparingCellForEditCommand}" PassEventArgsToCommand="True" />
+                </EventTriggerBehavior>
+            </Interaction.Behaviors>
+            <DataGrid.Styles>
+                <Style Selector="DataGridCell.whereClauseColumn">
+
+                    <Setter Property="Template">
+                        <ControlTemplate>
+                            <atom:FlyoutHost
+                                Background="#262626"
+                                IsArrowVisible="False"
+                                ShouldUseOverlayPopup="False"
+                                Trigger="Hover">
+                                <atom:FlyoutHost.Styles>
+                                    <Style Selector="atom|ArrowDecoratedBox">
+                                        <Setter Property="Background" Value="#262626" />
+                                        <Setter Property="Foreground" Value="White" />
+                                    </Style>
+                                    <Style Selector="atom|HyperLinkTextBlock[IsEnabled=True]">
+                                        <Setter Property="Foreground" Value="White" />
+                                    </Style>
+                                    <Style Selector="atom|HyperLinkTextBlock:pointerover">
+                                        <Setter Property="Foreground" Value="LightGray" />
+                                    </Style>
+                                    <Style Selector="atom|HyperLinkTextBlock:pressed">
+                                        <Setter Property="Foreground" Value="LightGray" />
+                                    </Style>
+                                </atom:FlyoutHost.Styles>
+                                <atom:FlyoutHost.Flyout>
+                                    <atom:Flyout>
+                                        <StackPanel>
+                                            <ContentPresenter x:Name="Presenter">
+                                                <ContentPresenter.Content>
+                                                    <StackPanel Orientation="Horizontal" Spacing="15">
+                                                        <atom:HyperLinkTextBlock
+                                                            Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).OpenWhereClauseEditorCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            IsVisible="{Binding WhereClauseExist}"
+                                                            Text="Open in Editor"
+                                                            x:DataType="model:ValueLevelDto" />
+                                                        <atom:HyperLinkTextBlock
+                                                            Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).DeleteWhereClauseCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            IsVisible="{Binding WhereClauseExist}"
+                                                            Text="Delete"
+                                                            x:DataType="model:ValueLevelDto" />
+                                                        <atom:HyperLinkTextBlock
+                                                            Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).OpenWhereClauseEditorCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            IsVisible="{Binding !WhereClauseExist}"
+                                                            Text="Add New"
+                                                            x:DataType="model:ValueLevelDto" />
+                                                    </StackPanel>
+
+                                                </ContentPresenter.Content>
+                                            </ContentPresenter>
+                                        </StackPanel>
+                                    </atom:Flyout>
+                                </atom:FlyoutHost.Flyout>
+                                <Border
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="{TemplateBinding CornerRadius}"
+                                    x:Name="CellBorder">
+                                    <Grid ColumnDefinitions="*,Auto" x:Name="PART_CellRoot">
+                                        <Rectangle
+                                            Fill="Transparent"
+                                            HorizontalAlignment="Stretch"
+                                            IsHitTestVisible="False"
+                                            IsVisible="False"
+                                            Stroke="{DynamicResource DataGridCurrencyVisualPrimaryBrush}"
+                                            StrokeThickness="1"
+                                            VerticalAlignment="Stretch"
+                                            x:Name="CurrencyVisual" />
+                                        <Grid
+                                            Grid.Column="0"
+                                            IsHitTestVisible="False"
+                                            IsVisible="False"
+                                            x:Name="FocusVisual">
+                                            <Rectangle
+                                                Fill="Transparent"
+                                                HorizontalAlignment="Stretch"
+                                                IsHitTestVisible="False"
+                                                Stroke="{DynamicResource DataGridCellFocusVisualPrimaryBrush}"
+                                                StrokeThickness="2"
+                                                VerticalAlignment="Stretch" />
+                                            <Rectangle
+                                                Fill="Transparent"
+                                                HorizontalAlignment="Stretch"
+                                                IsHitTestVisible="False"
+                                                Margin="2"
+                                                Stroke="{DynamicResource DataGridCellFocusVisualSecondaryBrush}"
+                                                StrokeThickness="1"
+                                                VerticalAlignment="Stretch" />
+                                        </Grid>
+                                        <DataValidationErrors
+                                            Content="{TemplateBinding Content}"
+                                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                                            Foreground="{TemplateBinding Foreground}"
+                                            Grid.Column="0"
+                                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                            Name="PART_CellValidationErrors"
+                                            Padding="{TemplateBinding Padding}"
+                                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                        <Rectangle
+                                            Grid.Column="0"
+                                            HorizontalAlignment="Stretch"
+                                            IsHitTestVisible="False"
+                                            IsVisible="False"
+                                            Stroke="{DynamicResource DataGridCellInvalidBrush}"
+                                            StrokeThickness="1"
+                                            VerticalAlignment="Stretch"
+                                            x:Name="InvalidVisualElement" />
+                                        <Rectangle
+                                            Fill="{DynamicResource DataGridFillerColumnGridLinesBrush}"
+                                            Grid.Column="1"
+                                            Name="PART_RightGridLine"
+                                            VerticalAlignment="Stretch"
+                                            Width="1" />
+                                    </Grid>
+                                </Border>
+                            </atom:FlyoutHost>
+                        </ControlTemplate>
+                    </Setter>
+                </Style>
+            </DataGrid.Styles>
+            <DataGrid.Columns>
+                <controls:DataGridAtomNumericUpDownColumn
+                    Binding="{Binding Order, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Order"
+                    Increment="1"
+                    IsReadOnly="False"
+                    Minimum="1"
+                    Width="90" />
+                <controls:DataGridAtomAutoCompleteColumn
+                    Binding="{Binding Dataset, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Dataset"
+                    IsReadOnly="False"
+                    OptionsSource="{Binding DatasetOptions}"
+                    Width="180">
+                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                        <DataTemplate x:DataType="vm:ValueLevelAutoCompleteOption">
+                            <StackPanel Margin="0,2" Spacing="5">
+                                <atom:TextBlock
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Dataset.Name, FallbackValue=''}"
+                                    TextWrapping="Wrap" />
+                                <atom:TextBlock
+                                    FontSize="12"
+                                    Foreground="#1677ff"
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Dataset.Label, FallbackValue=''}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                </controls:DataGridAtomAutoCompleteColumn>
+                <controls:DataGridAtomAutoCompleteColumn
+                    Binding="{Binding Variable, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Variable"
+                    IsReadOnly="False"
+                    OptionsSource="{Binding VariableOptions}"
+                    Width="180">
+                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                        <DataTemplate x:DataType="vm:ValueLevelAutoCompleteOption">
+                            <StackPanel Margin="0,2" Spacing="5">
+                                <atom:TextBlock
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Variable.VariableName, FallbackValue=''}"
+                                    TextWrapping="Wrap" />
+                                <atom:TextBlock
+                                    FontSize="12"
+                                    Foreground="#1677ff"
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Variable.Label, FallbackValue=''}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                </controls:DataGridAtomAutoCompleteColumn>
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding WhereClause, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    CellStyleClasses="whereClauseColumn"
+                    Header="WhereClause"
+                    IsReadOnly="False"
+                    Width="220" />
+
+
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding Label, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Label"
+                    IsReadOnly="False"
+                    Width="180" />
+                <controls:DataGridAtomComboBoxColumn
+                    Binding="{Binding Type, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Type"
+                    IsReadOnly="False"
+                    ItemsSource="{Binding DataTypes}"
+                    Width="120" />
+                <controls:DataGridAtomNumericUpDownColumn
+                    Binding="{Binding Length, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Length"
+                    Increment="1"
+                    IsReadOnly="False"
+                    Maximum="200"
+                    Minimum="1"
+                    Width="100" />
+                <controls:DataGridAtomNumericUpDownColumn
+                    Binding="{Binding Digits, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Digits"
+                    Increment="1"
+                    IsReadOnly="False"
+                    Maximum="8"
+                    Minimum="1"
+                    Width="100" />
+                <DataGridTextColumn
+                    Binding="{Binding Format, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Format"
+                    Width="140" />
+                <!--  <DataGridTextColumn  -->
+                <!--  Binding="{Binding Mandatory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"  -->
+                <!--  Header="Mandatory"  -->
+                <!--  Width="120" />  -->
+
+                <controls:DataGridAtomComboBoxColumn
+                    Binding="{Binding Mandatory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Mandatory"
+                    IsReadOnly="False"
+                    ItemsSource="{Binding Yns}"
+                    Width="120" />
+                <controls:DataGridAtomAutoCompleteColumn
+                    Binding="{Binding CodeListUniqueId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="CodeList"
+                    IsReadOnly="False"
+                    OptionsSource="{Binding CodeListOptions}"
+                    Width="220">
+                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                        <DataTemplate x:DataType="vm:ValueLevelAutoCompleteOption">
+                            <StackPanel Margin="0,5">
+                                <atom:TextBlock
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Content}"
+                                    TextWrapping="Wrap" />
+                                <atom:TextBlock
+                                    FontSize="12"
+                                    Foreground="#1677ff"
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding CodeList.Name}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                </controls:DataGridAtomAutoCompleteColumn>
+                <controls:DataGridAtomComboBoxColumn
+                    Binding="{Binding Origin, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Origin"
+                    IsReadOnly="False"
+                    ItemsSource="{Binding Origins}"
+                    Width="140" />
+
+                <controls:DataGridAtomComboBoxColumn
+                    Binding="{Binding Source, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Source"
+                    IsReadOnly="False"
+                    ItemsSource="{Binding Sources}"
+                    Width="140" />
+
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding Pages, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Pages"
+                    IsReadOnly="False"
+                    Width="120" />
+                <controls:DataGridAtomAutoCompleteColumn
+                    Binding="{Binding MethodUniqueId, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                    Header="Method"
+                    IsReadOnly="False"
+                    OptionsSource="{Binding MethodOptions}"
+                    Width="220">
+                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                        <DataTemplate x:DataType="vm:ValueLevelAutoCompleteOption">
+                            <StackPanel Margin="0,5">
+                                <atom:TextBlock
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Content}"
+                                    TextWrapping="Wrap" />
+                                <atom:TextBlock
+                                    FontSize="12"
+                                    Foreground="#1677ff"
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Method.Name}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                </controls:DataGridAtomAutoCompleteColumn>
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding Predecessor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Predecessor"
+                    IsReadOnly="False"
+                    Width="160" />
+                <controls:DataGridAtomAutoCompleteColumn
+                    Binding="{Binding CommentUniqueId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="Comment"
+                    IsReadOnly="False"
+                    OptionsSource="{Binding CommentOptions}"
+                    Width="220">
+                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                        <DataTemplate x:DataType="vm:ValueLevelAutoCompleteOption">
+                            <StackPanel Margin="0,5">
+                                <atom:TextBlock
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Content}"
+                                    TextWrapping="Wrap" />
+                                <atom:TextBlock
+                                    FontSize="12"
+                                    Foreground="#1677ff"
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Comment.Description}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                </controls:DataGridAtomAutoCompleteColumn>
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding DeveloperNotes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    Header="DeveloperNotes"
+                    IsReadOnly="False"
+                    Width="220" />
+                <DataGridTemplateColumn Header="Options" Width="160">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel
+                                Margin="20,0,0,0"
+                                Orientation="Horizontal"
+                                Spacing="5">
+                                <atom:PopupConfirm Title="Sure to delete?">
+                                    <Interaction.Behaviors>
+                                        <EventTriggerBehavior EventName="Confirmed">
+                                            <InvokeCommandAction Command="{Binding $parent[DataGrid].((vm:ValueLevelsViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
+                                        </EventTriggerBehavior>
+                                    </Interaction.Behaviors>
+                                    <atom:HyperLinkTextBlock Text="Delete" VerticalAlignment="Center" />
+                                </atom:PopupConfirm>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        <StackPanel
+            Grid.Row="2"
+            HorizontalAlignment="Right"
+            Margin="0,0,15,0"
+            Orientation="Horizontal"
+            Spacing="15"
+            VerticalAlignment="Center">
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding SaveCommand}"
+                Content="保存"
+                IsEnabled="{Binding HasChanges}" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding DiscardCommand}"
+                Content="放弃"
+                IsDanger="True"
+                IsEnabled="{Binding HasChanges}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

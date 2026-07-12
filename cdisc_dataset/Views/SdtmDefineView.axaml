@@ -1,0 +1,56 @@
+<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.SdtmDefineView"
+    x:DataType="vm:SdtmDefineViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:model="using:cdisc_dataset.Models"
+    xmlns:regions="http://prismlibrary.com/"
+    xmlns:system="clr-namespace:System;assembly=System.Runtime"
+    xmlns:vm="using:cdisc_dataset.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Interaction.Behaviors>
+        <EventTriggerBehavior EventName="Loaded">
+            <InvokeCommandAction Command="{Binding LoadedCommand}" />
+        </EventTriggerBehavior>
+    </Interaction.Behaviors>
+    <Grid RowDefinitions="50,*">
+        <!-- <atom:Button Content="Click" Command="{Binding LoadCommand}"/> -->
+        <atom:TabStrip
+            Grid.Row="0"
+            ItemsSource="{Binding TabStripItemDataSource}"
+            SelectedItem="{Binding SelectedTabStripItem, Mode=TwoWay}">
+            <atom:TabStrip.ItemTemplate>
+                <DataTemplate x:DataType="atom:TabItemData">
+                    <atom:CountBadge
+                        Count="10"
+                        Margin="12,0"
+                        x:Name="CountBadge">
+                        <Interaction.Behaviors>
+                            <DataTriggerBehavior
+                                Binding="{Binding Header, FallbackValue='', TargetNullValue=''}"
+                                ComparisonCondition="NotEqual"
+                                Value="Datasets">
+                                <ChangePropertyAction
+                                    PropertyName="BadgeIsVisible"
+                                    TargetObject="CountBadge"
+                                    Value="False" />
+                            </DataTriggerBehavior>
+                        </Interaction.Behaviors>
+                        <atom:TextBlock Text="{Binding Header}" />
+                    </atom:CountBadge>
+                </DataTemplate>
+            </atom:TabStrip.ItemTemplate>
+        </atom:TabStrip>
+        <ContentControl
+            Grid.Row="1"
+            Margin="12,12,12,12"
+            regions:RegionManager.RegionName="SdtmDefineRegion" />
+    </Grid>
+
+</UserControl>

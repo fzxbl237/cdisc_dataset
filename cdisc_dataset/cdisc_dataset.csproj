@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="AtomUI.Desktop.Controls" Version="6.0.8" />
+        <PackageReference Include="AtomUI.Desktop.Controls.DataGrid" Version="6.0.8" />
+        <PackageReference Include="Avalonia" Version="12.0.5" />
+        <PackageReference Include="Avalonia.Desktop" Version="12.0.5" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.5" />
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="12.0.5" />
+        <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
+        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+        <PackageReference Include="DialogHost.Avalonia" Version="0.12.2" />
+        <PackageReference Include="DynamicData" Version="9.4.31" />
+        <PackageReference Include="FluentValidation" Version="12.1.1" />
+        <PackageReference Include="LiteDB" Version="6.0.0-prerelease.77" />
+        <PackageReference Include="Mapster" Version="9.0.0-pre01" />
+        <PackageReference Include="MiniExcel" Version="2.0.0-preview.2" />
+        <PackageReference Include="Prism.Avalonia" Version="9.0.537.11300-pre" />
+        <PackageReference Include="Prism.DryIoc.Avalonia" Version="9.0.537.11300-pre" />
+        <PackageReference Include="ReactiveUI.Avalonia" Version="12.0.3" />
+        <PackageReference Include="SqlSugarCore" Version="5.1.4.211-preview01" />
+        <PackageReference Include="Xaml.Behaviors.Avalonia" Version="12.0.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Update="Views\MainWindow.axaml.cs">
+        <DependentUpon>MainWindow.axaml</DependentUpon>
+        <SubType>Code</SubType>
+      </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Validator.Api\Validator.Api.csproj" />
+      <ProjectReference Include="..\Validator.Core\Validator.Core.csproj" />
+      <ProjectReference Include="..\Validator.Data\Validator.Data.csproj" />
+      <ProjectReference Include="..\WhereClause\WhereClause.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="Avalonia.Controls.DataGrid">
+        <HintPath>..\..\..\Desktop\prodatagrid_dll\avalonia12\Avalonia.Controls.DataGrid.dll</HintPath>
+      </Reference>
+      <Reference Include="ProDataGrid.FormulaEngine">
+        <HintPath>..\..\..\Desktop\prodatagrid_dll\avalonia12\ProDataGrid.FormulaEngine.dll</HintPath>
+      </Reference>
+      <Reference Include="ProDataGrid.FormulaEngine.Excel">
+        <HintPath>..\..\..\Desktop\prodatagrid_dll\avalonia12\ProDataGrid.FormulaEngine.Excel.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+</Project>

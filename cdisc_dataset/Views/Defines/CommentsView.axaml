@@ -1,0 +1,166 @@
+<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.Defines.CommentsView"
+    x:DataType="vm:CommentsViewModel"
+    x:Name="Root"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:controls="using:cdisc_dataset.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogs="clr-namespace:cdisc_dataset.ViewModels.Dialogs"
+    xmlns:dto="clr-namespace:cdisc_dataset.Models.Dto"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:cdisc_dataset.ViewModels.Defines"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid RowDefinitions="50,*,50">
+        <DockPanel>
+            <atom:LineEdit
+                DockPanel.Dock="Left"
+                IsAllowClear="True"
+                MinWidth="200"
+                PlaceholderText="Please input search string"
+                Text="{Binding SearchText}" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding AddCommentCommand}"
+                Content="新增"
+                DockPanel.Dock="Right"
+                HorizontalAlignment="Right"
+                Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+        </DockPanel>
+        <DataGrid
+            CanUserSortColumns="False"
+            Grid.Row="1"
+            GridLinesVisibility="Horizontal"
+            HeadersVisibility="Column"
+            HorizontalScrollBarVisibility="Visible"
+            IsReadOnly="False"
+            ItemsSource="{Binding Comments}"
+            SelectionUnit="FullRow">
+            <DataGrid.Styles>
+                <Style Selector="TextBlock">
+                    <Setter Property="TextWrapping" Value="Wrap" />
+                </Style>
+                <Style Selector="DataGridCell.template:cell-selected">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                </Style>
+                <!-- <Style Selector="DataGridRow"> -->
+                <!--     <Setter Property="ContextMenu"> -->
+                <!--         <atom:ContextMenu x:DataType="dto:CommentDto"> -->
+                <!--  <atom:MenuItem  -->
+                <!--  Command="{Binding #Root.((vm:CommentsViewModel)DataContext).DeleteCommand}"  -->
+                <!--  CommandParameter="{Binding}"  -->
+                <!--  Header="Delete" />  -->
+                <!--         </atom:ContextMenu> -->
+                <!--     </Setter> -->
+                <!-- </Style> -->
+            </DataGrid.Styles>
+            <DataGrid.Columns>
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding UniqueId}"
+                    Header="Id"
+                    IsReadOnly="False"
+                    Width="200" />
+
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding Description}"
+                    Header="Description"
+                    IsReadOnly="False"
+                    Width="300" />
+                <!--  <DataGridTextColumn  -->
+                <!--  Binding="{Binding DocumentUniqueId}"  -->
+                <!--  Header="Document"  -->
+                <!--  IsReadOnly="False"  -->
+                <!--  Width="200" />  -->
+
+                <controls:DataGridAtomAutoCompleteColumn
+                    Binding="{Binding DocumentUniqueId}"
+                    Header="Document"
+                    IsReadOnly="False"
+                    OptionsSource="{Binding DocumentOptions}"
+                    Width="200">
+                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                        <DataTemplate x:DataType="vm:DocumentAutoCompleteOption">
+                            <StackPanel Margin="0,5">
+                                <atom:TextBlock
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Content}"
+                                    TextWrapping="Wrap" />
+                                <atom:TextBlock
+                                    FontSize="12"
+                                    Foreground="#1677ff"
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Document.Title}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                </controls:DataGridAtomAutoCompleteColumn>
+
+
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding Pages}"
+                    Header="Pages"
+                    IsReadOnly="False"
+                    Width="200" />
+                <DataGridTemplateColumn Header="Options">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel
+                                HorizontalAlignment="Left"
+                                Margin="5,0,0,0"
+                                Orientation="Horizontal"
+                                Spacing="15">
+                                <atom:PopupConfirm Title="Sure to delete?">
+                                    <Interaction.Behaviors>
+                                        <EventTriggerBehavior EventName="Confirmed">
+                                            <InvokeCommandAction Command="{Binding $parent[DataGrid].((vm:CommentsViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
+                                        </EventTriggerBehavior>
+                                    </Interaction.Behaviors>
+                                    <atom:HyperLinkTextBlock
+                                        Background="Transparent"
+                                        Foreground="#ff4d4f"
+                                        Text="Delete"
+                                        VerticalAlignment="Center" />
+                                </atom:PopupConfirm>
+
+                                <atom:HyperLinkTextBlock
+                                    Background="Transparent"
+                                    Command="{Binding $parent[DataGrid].((vm:CommentsViewModel)DataContext).ModifyCommand}"
+                                    CommandParameter="{Binding}"
+                                    Text="Edit"
+                                    VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        <StackPanel
+            Grid.Row="2"
+            HorizontalAlignment="Right"
+            Margin="0,0,15,0"
+            Orientation="Horizontal"
+            Spacing="15"
+            VerticalAlignment="Center">
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding SaveCommand}"
+                Content="保存"
+                IsEnabled="{Binding HasChanges}"
+                atom:ToolTip.Tip="保存所有数据(Ctrl+S)" />
+
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding DiscardCommand}"
+                Content="放弃"
+                IsDanger="True"
+                IsEnabled="{Binding HasChanges}"
+                atom:ToolTip.Tip="撤销(Esc)" />
+        </StackPanel>
+    </Grid>
+</UserControl>

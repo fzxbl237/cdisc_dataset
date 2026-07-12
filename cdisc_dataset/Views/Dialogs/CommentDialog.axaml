@@ -1,0 +1,114 @@
+<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.Dialogs.CommentDialog"
+    x:DataType="vm:CommentViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:atom="https://atomui.net"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogs="using:cdisc_dataset.ViewModels.Dialogs"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:cdisc_dataset.ViewModels.Dialogs"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel
+        Margin="20"
+        MinWidth="700"
+        Spacing="15">
+        <atom:TextBlock
+            FontSize="18"
+            FontWeight="Bold"
+            HorizontalAlignment="Left"
+            Text="{Binding Title}" />
+
+        <atom:Form
+            HorizontalAlignment="Stretch"
+            LabelColInfo="5*"
+            WrapperColInfo="17*">
+            <Interaction.Behaviors>
+                <EventTriggerBehavior EventName="Submitted">
+                    <InvokeCommandAction Command="{Binding ConfirmCommand}" />
+                </EventTriggerBehavior>
+            </Interaction.Behaviors>
+
+            <atom:FormItem
+                FieldName="UniqueId"
+                IsRequired="True"
+                IsValidateFeedbackEnabled="True"
+                LabelText="Id"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:LineEdit
+                    IsEnabled="{Binding !IsInEditMode}"
+                    PlaceholderText="请输入Id"
+                    Text="{Binding Comment.UniqueId, Mode=TwoWay}" />
+            </atom:FormItem>
+
+            <atom:FormItem
+                FieldName="Description"
+                IsRequired="True"
+                IsValidateFeedbackEnabled="True"
+                LabelText="Description"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:TextArea PlaceholderText="请输入Description" Text="{Binding Comment.Description, Mode=TwoWay}" />
+            </atom:FormItem>
+
+            <atom:FormItem
+                FieldName="DocumentUniqueId"
+                IsValidateFeedbackEnabled="True"
+                LabelText="Document"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:Select
+                    Filter="{atom:ValueFilterProvider Contains}"
+                    FilterValueSelector="{Binding ValueFilterPropertySelector}"
+                    HorizontalAlignment="Stretch"
+                    IsAllowClear="True"
+                    IsFilterEnabled="True"
+                    Mode="Single"
+                    OptionsSource="{Binding DocumentOptions}"
+                    SelectedOption="{Binding SelectedDocumentOption, Mode=TwoWay}">
+                    <atom:Select.OptionTemplate>
+                        <DataTemplate x:DataType="dialogs:CommentDocumentSelectOption">
+                            <StackPanel Margin="0,5">
+                                <atom:TextBlock
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Header}"
+                                    TextWrapping="Wrap" />
+                                <atom:TextBlock
+                                    FontSize="12"
+                                    Foreground="#1677ff"
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Title}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </atom:Select.OptionTemplate>
+                </atom:Select>
+            </atom:FormItem>
+
+            <atom:FormItem
+                FieldName="Pages"
+                IsValidateFeedbackEnabled="True"
+                LabelText="Pages"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:LineEdit PlaceholderText="请输入Pages，多个页码请用空格分隔" Text="{Binding Comment.Pages, Mode=TwoWay}" />
+            </atom:FormItem>
+
+            <atom:FormActionsItem>
+                <StackPanel
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal"
+                    Spacing="15">
+                    <atom:Button
+                        ButtonType="Default"
+                        Command="{Binding CancelCommand}"
+                        Content="取消" />
+                    <atom:SubmitButton Content="确认" />
+                </StackPanel>
+            </atom:FormActionsItem>
+        </atom:Form>
+    </StackPanel>
+</UserControl>
