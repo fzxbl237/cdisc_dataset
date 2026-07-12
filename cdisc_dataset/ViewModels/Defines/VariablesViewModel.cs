@@ -131,89 +131,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
                 })
             .DisposeWith(_disposables);
         
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.MethodUniqueId, false)
-            .Subscribe(change =>
-            {
-                var variableDto = change.Sender;
-        
-                if (_frozenMethodDictionary != null && _frozenMethodDictionary.TryGetValue(variableDto.MethodUniqueId ?? string.Empty, out var method))
-                {
-                    variableDto.Method = method;
-                    variableDto.MethodId = method.Id;
-                }
-                else
-                {
-                    variableDto.Method = null;
-                    variableDto.MethodId = 0;
-                }
-        
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(variableDto, "MethodUnique Id");
-                    _sourceCache.AddOrUpdate(variableDto);
-                });
-            })
-            .DisposeWith(_disposables);
-        //
-        // _sourceCache.Connect()
-        //     .WhenPropertyChanged(o => o.CodeListUniqueId, false)
-        //     .Subscribe(change =>
-        //     {
-        //         var variableDto = change.Sender;
-        //         
-        //         if (_frozenDictionaryDictionary != null && _frozenDictionaryDictionary.TryGetValue(variableDto.CodeListUniqueId ?? string.Empty, out var dictionary))
-        //         {
-        //             variableDto.Dictionary = dictionary;
-        //             variableDto.DictionaryId = dictionary.Id;
-        //             variableDto.CodeList = null;
-        //             variableDto.CodeListId = 0;
-        //         }
-        //         else if (_frozenCodeListDictionary != null && _frozenCodeListDictionary.TryGetValue(variableDto.CodeListUniqueId ?? string.Empty, out var codeList))
-        //         {
-        //             variableDto.CodeList = codeList;
-        //             variableDto.CodeListId = codeList.Id;
-        //             variableDto.Dictionary = null;
-        //             variableDto.DictionaryId = 0;
-        //         }
-        //         else
-        //         {
-        //             variableDto.CodeList = null;
-        //             variableDto.CodeListId = 0;
-        //             variableDto.Dictionary = null;
-        //             variableDto.DictionaryId = 0;
-        //         }
-        //
-        //         Observable.StartAsync(async () =>
-        //         {
-        //             await _validator.ValidateDtoAsync(variableDto, "CodeListUniqueId");
-        //             _sourceCache.AddOrUpdate(variableDto);
-        //         });
-        //     })
-        //     .DisposeWith(_disposables);
-        //
-        // _sourceCache.Connect()
-        //     .WhenPropertyChanged(o => o.CommentUniqueId, false)
-        //     .Subscribe(change =>
-        //     {
-        //         var variableDto = change.Sender;
-        //
-        //         if (_frozenCommentDictionary != null && _frozenCommentDictionary.TryGetValue(variableDto.CommentUniqueId ?? string.Empty, out var comment))
-        //         {
-        //             variableDto.Comment = comment;
-        //             variableDto.CommentId = comment.Id;
-        //         }
-        //         else
-        //         {
-        //             variableDto.Comment = null;
-        //             variableDto.CommentId = 0;
-        //         }
-        //         Observable.StartAsync(async () =>
-        //         {
-        //             await _validator.ValidateDtoAsync(variableDto, "CommentUniqueId");
-        //             _sourceCache.AddOrUpdate(variableDto);
-        //         });
-        //     }).DisposeWith(_disposables);
+
     }
     private static Func<VariableDto, bool> BuildFilter(string? searchText)
     {
@@ -236,6 +154,13 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     {
         IsLoading = true;
         var sw = Stopwatch.StartNew();
+
+        // 取消旧数据的 PropertyChanged 订阅
+        foreach (var variableDto in _sourceCache.Items)
+        {
+            variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;
+        }
+
         var list = await _variableService.GetAllVariableDtosAsync();
         foreach (var variableDto in list)
         {
@@ -258,9 +183,73 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 
     private void VariableDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(VariableDto.DatasetName))
+        if (sender is not VariableDto variableDto) return;
+
+        switch (e.PropertyName)
         {
-            var xx = "xx";
+            case nameof(VariableDto.MethodUniqueId):
+                HandleMethodUniqueIdChanged(variableDto);
+                break;
+            case nameof(VariableDto.CodeListUniqueId):
+                HandleCodeListUniqueIdChanged(variableDto);
+                break;
+            case nameof(VariableDto.CommentUniqueId):
+                HandleCommentUniqueIdChanged(variableDto);
+                break;
+        }
+    }
+
+    private void HandleMethodUniqueIdChanged(VariableDto variableDto)
+    {
+        if (_frozenMethodDictionary != null && _frozenMethodDictionary.TryGetValue(variableDto.MethodUniqueId ?? string.Empty, out var method))
+        {
+            variableDto.Method = method;
+            variableDto.MethodId = method.Id;
+        }
+        else
+        {
+            variableDto.Method = null;
+            variableDto.MethodId = 0;
+        }
+        
+    }
+
+    private void HandleCodeListUniqueIdChanged(VariableDto variableDto)
+    {
+        if (_frozenDictionaryDictionary != null && _frozenDictionaryDictionary.TryGetValue(variableDto.CodeListUniqueId ?? string.Empty, out var dictionary))
+        {
+            variableDto.Dictionary = dictionary;
+            variableDto.DictionaryId = dictionary.Id;
+            variableDto.CodeList = null;
+            variableDto.CodeListId = 0;
+        }
+        else if (_frozenCodeListDictionary != null && _frozenCodeListDictionary.TryGetValue(variableDto.CodeListUniqueId ?? string.Empty, out var codeList))
+        {
+            variableDto.CodeList = codeList;
+            variableDto.CodeListId = codeList.Id;
+            variableDto.Dictionary = null;
+            variableDto.DictionaryId = 0;
+        }
+        else
+        {
+            variableDto.CodeList = null;
+            variableDto.CodeListId = 0;
+            variableDto.Dictionary = null;
+            variableDto.DictionaryId = 0;
+        }
+    }
+
+    private void HandleCommentUniqueIdChanged(VariableDto variableDto)
+    {
+        if (_frozenCommentDictionary != null && _frozenCommentDictionary.TryGetValue(variableDto.CommentUniqueId ?? string.Empty, out var comment))
+        {
+            variableDto.Comment = comment;
+            variableDto.CommentId = comment.Id;
+        }
+        else
+        {
+            variableDto.Comment = null;
+            variableDto.CommentId = 0;
         }
     }
 
@@ -431,6 +420,13 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     public override void OnNavigatedFrom(NavigationContext navigationContext)
     {
         base.OnNavigatedFrom(navigationContext);
+
+        // 取消所有 VariableDto 的 PropertyChanged 订阅
+        foreach (var variableDto in _sourceCache.Items)
+        {
+            variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;
+        }
+
         _disposables.Dispose();
     }
 

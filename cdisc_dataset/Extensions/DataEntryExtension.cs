@@ -1,24 +1,105 @@
-﻿namespace cdisc_dataset.Extensions;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using P21.Validator.Data;
+
+namespace cdisc_dataset.Extensions;
 
 public static class DataEntryExtension
 {
-    public static int GetDecimalPlaces(string text)
+    public static int? GetDecimalPlaces(this List<DataRecord> allRecords, string variableName)
     {
-        if (string.IsNullOrWhiteSpace(text))
-            return 0;
+        // 获取所有记录的 DataEntry
+        var entries = allRecords
+            .Select(o => o.GetValue(variableName))
+            .ToList();
 
-        // 去除首尾空格
-        text = text.Trim();
+        if (entries.Count == 0)
+        {
+            return null;
+        }
 
-        // 查找小数点位置
-        int dotIndex = text.IndexOf('.');
-        if (dotIndex == -1)
-            return 0; // 没有小数点
+        // 找出 Type 的最小值
+        return entries.Max(e =>
+        {
+            var s = e.ToString();
+            if (string.IsNullOrWhiteSpace(s)) return null;
+            var trim = s.Trim();
+            int dotIndex = trim.IndexOf('.');
+            if (dotIndex == -1)
+                return null; // 没有小数点
 
-        // 获取小数点后的部分
-        string decimalPart = text.Substring(dotIndex + 1);
-    
-        // 统计有效数字（去掉末尾的0）
-        return decimalPart.TrimEnd('0').Length;
+            // 获取小数点后的部分
+            string decimalPart = trim.Substring(dotIndex + 1);
+
+            // 统计有效数字（去掉末尾的0）
+            return decimalPart.TrimEnd('0').Length;
+        });
+        
     }
+
+    public static string? InferDataType(this List<DataRecord> allRecords, string variableName)
+    {
+        // 如果变量名以 DTC 结尾，返回 datetime
+        if (variableName.EndsWith("DTC", StringComparison.OrdinalIgnoreCase))
+        {
+            return "datetime";
+        }
+
+        // 获取所有记录的 DataEntry
+        var entries = allRecords
+            .Select(o => o.GetValue(variableName))
+            .ToList();
+
+        if (entries.Count == 0)
+        {
+            return null;
+        }
+
+        // 找出 Type 的最小值
+        var minType = entries.Min(e => e.Type);
+
+        // 转换为字符串返回
+        return minType.ToString().ToLowerInvariant();
+    }
+
+    public static string? InferOrigin(this string variableName)
+    {
+        if (string.IsNullOrWhiteSpace(variableName))
+        {
+            return null;
+        }
+
+        // 转换为标准格式用于比较
+        var upperName = variableName.ToUpperInvariant();
+
+        // DD0105: Study Day 变量 (--DY, --STDY, --ENDY) 必须设置为 Derived
+        if (upperName.EndsWith("DY") || upperName.EndsWith("STDY") || upperName.EndsWith("ENDY"))
+        {
+            return "Derived";
+        }
+
+        // DD0106: DOMAIN 变量应该设置为 Assigned
+        if (upperName == "DOMAIN")
+        {
+            return "Assigned";
+        }
+
+        // DD0107: RDOMAIN 变量应该设置为 Assigned
+        if (upperName == "RDOMAIN")
+        {
+            return "Assigned";
+        }
+
+        // DD0108: STUDYID 变量应该设置为 Protocol
+        if (upperName == "STUDYID")
+        {
+            return "Protocol";
+        }
+
+        // 其他变量返回 null
+        return null;
+    }
+
+
 }

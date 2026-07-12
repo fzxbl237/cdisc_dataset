@@ -233,49 +233,37 @@ public partial class FileViewModel : ObservableObject, INavigationAware
             };
             
             List<Variable> variables = [];
-            int order = 1;
             foreach (var variableName in variableNames)
             {
                 var standardVariable = await _variableService.GetStandardVariableByDatasetAndVariableNameAsync(name, variableName,CdiscDataType.Sdtm);
                 var dataEntries = allRecords.Select(o=>o.GetValue(variableName)).ToList();
                 var variableLabel = (string?)dataSource.GetVariableProperty(variableName,DataSource.VariableProperty.Label);
                 var type = (string?)dataSource.GetVariableProperty(variableName,DataSource.VariableProperty.Type);
-                var length = (double?)dataSource.GetVariableProperty(variableName,DataSource.VariableProperty.Length);
                 var format = (string?)dataSource.GetVariableProperty(variableName,DataSource.VariableProperty.Format);
                 var hasValue = dataEntries.Any(o=>o.HasValue);
-                int? digit = null;
-                string? dataType = string.Empty;
-                if (variableName.ToUpper().EndsWith("DTC"))
-                {
-                    dataType = "datetime";
-                }else if (type == "Char")
-                {
-                    dataType = "text";
-                }else if (type == "Num")
-                {
-                    var isFloat = dataEntries.Any(o=>o.Type == DataEntry.DataType.Float);
-                    dataType = isFloat?"float":"integer";
-                    if (isFloat)
-                    {
-                        var max = dataEntries.Max(o=>DataEntryExtension.GetDecimalPlaces(o.ToString()??string.Empty));
-                        if(max>0)
-                            digit = max;
-                    }
-                }
+                var order = Convert.ToInt32(
+                    dataSource.GetVariableProperty(variableName, DataSource.VariableProperty.Order) ?? 0);
+                var dataType = allRecords.InferDataType(variableName);
+                var digit=dataType == "float" ? allRecords.GetDecimalPlaces(variableName) : null;
+                int? length = dataType == "datetime" ? null:Convert.ToInt32(dataSource.GetVariableProperty(variableName,DataSource.VariableProperty.Length));
+                
+
                 var variable = new Variable()
                 {
-                    Order = order++,
+                    Order = order,
                     DatasetName = name,
                     VariableName = variableName.ToUpper(),
                     Label = variableLabel,
                     DataType = dataType,
-                    Length = dataType=="datetime"?null:Convert.ToInt32(length),
+                    Length = length,
                     SignificantDigits =  digit,
                     Format = format=="$"?"$"+length:format,
                     Mandatory = standardVariable?.Mandatory,
                     Role =  standardVariable?.Role,
                     HasNoData = hasValue?"No":"Yes",
                     ProjectId = CurrentProject.Id,
+                    Origin = variableName.InferOrigin(),
+                    Source = !string.IsNullOrWhiteSpace(variableName.InferOrigin())?"Sponsor":null,
                     CdiscDataType = CdiscDataType.Sdtm
                 };
                 if (await _codeListService.VariableHasCodeListAsync(variableName))
@@ -320,45 +308,6 @@ public partial class FileViewModel : ObservableObject, INavigationAware
         {
             Files.Add(file);
         }
-
-        if (SelectedFileType == ProjectFileType.Sdtm)
-        {
-            foreach (var projectFile in files)
-            {
-                var liteFileInfo = _liteDatabase.FileStorage.FindById(projectFile.StorageId.ToString());
-                if (liteFileInfo != null)
-                {
-                    var memoryStream = new MemoryStream();
-                    liteFileInfo.CopyTo(memoryStream);
-                    memoryStream.Position = 0;
-                    var validationOptions = ValidationOptions.CreateBuilder().Build();
-                    var factory = new DataEntryFactory(validationOptions);
-                    var options = SourceOptions.builder()
-                        .WithName("DM")
-                        .WithMemoryStream(memoryStream)
-                        .WithType(SourceOptions.StandardTypes.SasTransport)
-                        .Build();
-
-                    using var dataSource = new SasTransportDataSource(options, factory);
         
-        
-
-                    var variables = dataSource.GetVariables();
-                    var variableProperty = dataSource.GetVariableProperty("SEX",DataSource.VariableProperty.Length);
-                    var allRecords = new List<DataRecord>();
-
-                    while (true)
-                    {
-                        var records = dataSource.GetRecords();
-                        if (records.Count == 0)
-                        {
-                            break;
-                        }
-
-                        allRecords.AddRange(records);
-                    }
-                }
-            }
-        }
     }
 }
