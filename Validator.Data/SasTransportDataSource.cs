@@ -107,7 +107,7 @@ public sealed class SasTransportDataSource : AbstractDataSource
         while (HasRecords() && pending > 0)
         {
             var observation = GetBuffer(_recordSize);
-            if (observation == null)
+            if (observation == null || observation.Value.Length==0)
             {
                 break;
             }
@@ -120,7 +120,17 @@ public sealed class SasTransportDataSource : AbstractDataSource
                 var looksNull = true;
                 for (var i = 0; i < _recordSize && looksNull; ++i)
                 {
-                    looksNull = observation.Value.Span[i] == 32;
+                    try
+                    {
+
+                        looksNull = observation.Value.Span[i] == 32;
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e);
+                        throw;
+                    }
+
                 }
 
                 if (looksNull)

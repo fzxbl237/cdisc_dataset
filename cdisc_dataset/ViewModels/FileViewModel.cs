@@ -15,6 +15,7 @@ using cdisc_dataset.Services;
 using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Dm.util;
 using LiteDB;
 using P21.Validator.Api.Options;
 using P21.Validator.Data;
@@ -181,6 +182,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
         }
 
         var datasets = new List<Dataset>();
+        var codeLists = new List<CodeList>();
 
         foreach (var file in Files)
         {
@@ -205,15 +207,23 @@ public partial class FileViewModel : ObservableObject, INavigationAware
             var variableNames = dataSource.GetVariables();
             var allRecords = new List<DataRecord>();
 
-            while (true)
+            while (dataSource.HasRecords())
             {
-                var records = dataSource.GetRecords();
-                if (records.Count == 0)
+                try
                 {
-                    break;
+                    var records = dataSource.GetRecords();
+                    if (records.Count == 0)
+                    {
+                        break;
+                    }
+                    allRecords.AddRange(records);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    throw;
                 }
 
-                allRecords.AddRange(records);
             }
             var label = dataSource.GetDetails().GetString(SourceDetails.Property.DatasetLabel);
             var datasetStd = await _datasetService.GetStandardSdtmDatasetByNameAsync(name);
@@ -245,7 +255,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                     dataSource.GetVariableProperty(variableName, DataSource.VariableProperty.Order) ?? 0);
                 var dataType = allRecords.InferDataType(variableName);
                 var digit=dataType == "float" ? allRecords.GetDecimalPlaces(variableName) : null;
-                int? length = dataType == "datetime" ? null:Convert.ToInt32(dataSource.GetVariableProperty(variableName,DataSource.VariableProperty.Length));
+                int? length = Convert.ToInt32(dataSource.GetVariableProperty(variableName,DataSource.VariableProperty.Length));
                 
 
                 var variable = new Variable()
@@ -255,7 +265,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                     VariableName = variableName.ToUpper(),
                     Label = variableLabel,
                     DataType = dataType,
-                    Length = length,
+                    Length = dataType == "datetime" ? null:length,
                     SignificantDigits =  digit,
                     Format = format=="$"?"$"+length:format,
                     Mandatory = standardVariable?.Mandatory,
@@ -283,17 +293,40 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                     codeList.Type = variable.DataType;
                     // todo: need dynamic Terminology;
                     codeList.Terminology = "SDTM 2026-03-27";
-                    if (codeListRefName == "CL.NY")
-                    {
-                        codeList.UniqueId = entries.InferCodeListOid().Split(".").LastOrDefault();
-                        var codeListTerms = await _codeListService.GetCodeListTermsAsync(entries.InferCodeListOid());
-                    }
+                    var refName = codeListRefName?.Split(".").LastOrDefault();
+                    codeList.UniqueId = $"{name}.{variableName}.{refName}";
+                    var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeListRefName);
+                    codeList.Name = codeListReference?.CodeListName;
                     
+                    codeLists.add(codeList);
+                    // if (codeListRefName == "CL.NY")
+                    // {
+                    //     codeList.UniqueId = entries.InferCodeListOid().Split(".").LastOrDefault();
+                    //     var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeList.UniqueId);
+                    //     codeList.Name = codeListReference?.CodeListName;
+                    //     var codeListTerms = await _codeListService.GetCodeListTermsAsync(entries.InferCodeListOid());
+                    // }else if (codeListRefName == "CL.DOMAIN")
+                    // {
+                    //     codeList.UniqueId = $"DOMAIN.{name}";
+                    //     codeList.Name = $"Domain Abbreviation ({name})";
+                    // }
+                    int termOrder = 1;
+                    List<Term> terms = [];
                     foreach (var dataEntry in entries)
                     {
+                        var term = new Term();
+                        term.Order = termOrder++;
+                        term.Name = dataEntry;
                         var codeListTerm = await _codeListService.GetCodeListTermAsync(codeListRefName,dataEntry);
+                        term.Code = codeListTerm?.Code;
+                        term.DecodedValue = codeListTerm?.DecodedValue;
+                        term.CdiscDataType = CdiscDataType.Sdtm;
+                        term.ProjectId = CurrentProject.Id;
+                        terms.Add(term);
                     }
-                    
+
+                    codeList.Terms = terms;
+
                 }
                 // if (await _codeListService.VariableHasCodeListAsync(variableName))
                 // {
@@ -302,9 +335,201 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                 // }
                 variables.Add(variable);
             }
+
+            dataset.Variables = variables;
+            datasets.Add(dataset);
         }
 
+        var lists = codeLists.GroupBy(o=>o.UniqueId?.Split(".").LastOrDefault())
+            .Where(g=>g.Count()==1)
+            .SelectMany(g=>g)
+            .ToList();
+        Dictionary<string,string?> codeListDictionary = new Dictionary<string, string?>();
+        List<CodeList> finalCodeList = [];
+        foreach (var codeList in lists)
+        {
+            var variableWithDataset = codeList.UniqueId?.LastIndexOf('.') switch
+            {
+                > 0 and var idx => codeList.UniqueId.Substring(0, idx),
+                _ => codeList.UniqueId
+            };
+            var codeListRef = codeList.UniqueId?.Split(".").LastOrDefault();
+            codeList.UniqueId = codeListRef;
+            finalCodeList.Add(codeList);
+            if (!string.IsNullOrWhiteSpace(variableWithDataset))
+            {
+                codeListDictionary.Add(variableWithDataset, codeListRef);
+            }
+        }
+
+        var uniqueEachDomain = codeLists.GroupBy(o=>$"{o.UniqueId?.Split(".").FirstOrDefault()}.{o.UniqueId?.Split(".").LastOrDefault()}")
+            .Where(g=>g.Count()==1)
+            .SelectMany(g=>g)
+            .Where(o=>!lists.Contains(o))
+            .ToList();
+        
+        foreach (var codeList in uniqueEachDomain)
+        {
+            var variableWithDataset = codeList.UniqueId?.LastIndexOf('.') switch
+            {
+                > 0 and var idx => codeList.UniqueId.Substring(0, idx),
+                _ => codeList.UniqueId
+            };
+            var codeListRef = codeList.UniqueId?.Split(".").LastOrDefault();
+            var dataset = codeList.UniqueId?.Split(".").FirstOrDefault();
+
+            if (codeListRef == "Y" || codeListRef == "NY" || codeListRef == "ND")
+            {
+                var inferCodeListOid = codeList.Terms?.Select(o=>o.Name).ToList().InferCodeListOid();
+                switch (codeListRef)
+                {
+                    case "Y":inferCodeListOid = "CL.Y";break;
+                    case "ND":inferCodeListOid = "CL.ND";break;
+                }
+                var codeListTerms = await _codeListService.GetCodeListTermsAsync(inferCodeListOid);
+                List<Term> terms = [];
+                foreach (var codeListTerm in codeListTerms)
+                {
+                    var term = new Term
+                    {
+                        Name = codeListTerm.CodeValue,
+                        DecodedValue = codeListTerm.DecodedValue,
+                        CdiscDataType = CdiscDataType.Sdtm,
+                        ProjectId = CurrentProject.Id,
+                        Code = codeListTerm?.Code
+                    };
+                    terms.Add(term);
+                }
+                codeList.Terms = terms;
+                codeList.UniqueId =  codeListRef;
+                var codeListReference= await _codeListService.GetCodeListReferenceByOidAsync(inferCodeListOid);
+                codeList.Name = codeListReference?.CodeListName;
+            }else if (!string.IsNullOrWhiteSpace(dataset) && dataset.StartsWith("SUPP") && codeListRef=="DOMAIN")
+            {
+                var replace = dataset.Replace("SUPP","");
+                codeList.UniqueId = $"{codeListRef}.{replace}";
+                codeList.Name = $"{codeList.Name} ({replace})";
+            }else
+            {
+                codeList.UniqueId = $"{codeListRef}.{dataset}";
+                codeList.Name = $"{codeList.Name} ({dataset})";
+                
+            }
+
+            if (codeList.Terms?.Count > 0)
+            {
+                if (!codeListDictionary.Values.Contains(codeList.UniqueId))
+                {
+                    finalCodeList.Add(codeList);
+                }
+            
+                if (!string.IsNullOrWhiteSpace(variableWithDataset))
+                {
+                    codeListDictionary.Add(variableWithDataset, codeList.UniqueId);
+                }
+            }
+
+           
+        }
+
+        var others = codeLists.Where(o=>!lists.Contains(o) && !uniqueEachDomain.Contains(o))
+            .ToList();
+        
+        foreach (var codeList in others)
+        {
+            var variableWithDataset = codeList.UniqueId?.LastIndexOf('.') switch
+            {
+                > 0 and var idx => codeList.UniqueId.Substring(0, idx),
+                _ => codeList.UniqueId
+            };
+            var codeListRef = codeList.UniqueId?.Split(".").LastOrDefault();
+            var dataset = codeList.UniqueId?.Split(".").FirstOrDefault();
+            var variable = variableWithDataset?.Split(".").LastOrDefault();
+
+            if (codeListRef == "Y" || codeListRef == "NY")
+            {
+                var inferCodeListOid = codeList.Terms?.Select(o=>o.Name).ToList().InferCodeListOid();
+                switch (codeListRef)
+                {
+                    case "Y":inferCodeListOid = "CL.Y";break;
+                    case "NY":inferCodeListOid = "CL.NY";break;
+                }
+                var codeListTerms = await _codeListService.GetCodeListTermsAsync(inferCodeListOid);
+                List<Term> terms = [];
+                foreach (var codeListTerm in codeListTerms)
+                {
+                    var term = new Term
+                    {
+                        Name = codeListTerm.CodeValue,
+                        DecodedValue = codeListTerm.DecodedValue,
+                        CdiscDataType = CdiscDataType.Sdtm,
+                        ProjectId = CurrentProject.Id,
+                        Code = codeListTerm?.Code
+                    };
+                    terms.Add(term);
+                }
+                codeList.Terms = terms;
+                codeList.UniqueId =  codeListRef;
+                var codeListReference= await _codeListService.GetCodeListReferenceByOidAsync(codeListRef);
+                codeList.Name = codeListReference?.CodeListName;
+            }
+            else if (codeListRef == "DOMAIN")
+            {
+                codeList.UniqueId = $"{variable}.{dataset}";
+                codeList.Name = variable == "RDOMAIN" ? $"Related Domain Abbreviation ({dataset})" : $"{codeList.Name} ({dataset})";
+            }
+            else
+            {
+                codeList.UniqueId = $"{codeListRef}.{variable}";
+                codeList.Name = $"{codeList.Name} ({variable})";
+            }
+
+
+            
+            if (codeList.Terms?.Count > 0)
+            {
+                if (!codeListDictionary.Values.Contains(codeList.UniqueId))
+                {
+                    finalCodeList.Add(codeList);
+                }
+            
+                if (!string.IsNullOrWhiteSpace(variableWithDataset))
+                {
+                    codeListDictionary.Add(variableWithDataset, codeList.UniqueId);
+                }
+            }
+
+           
+        }
+
+        var dictionary = finalCodeList.ToDictionary(o=>o.UniqueId??string.Empty,o=>o);
+        
+        foreach (var dataset in datasets)
+        {
+            if (dataset.Variables == null)
+                return;
+            foreach (var variable in dataset.Variables)
+            {
+                var oid = $"{variable.DatasetName}.{variable.VariableName}";
+                codeListDictionary.TryGetValue(oid, out string? codeListRef);
+                if(string.IsNullOrWhiteSpace(codeListRef))
+                    continue;
+                dictionary.TryGetValue(codeListRef, out var codeList);
+                variable.CodeList = codeList;
+                variable.CodeListUniqueId = codeList?.UniqueId;
+            }
+        }
+
+        await _datasetService.InsertDatasetsAsync(datasets);
+        
         _messageService.Success($"Loaded {datasets.Count} dataset(s) from SDTM XPT files");
+    }
+
+    [RelayCommand]
+    private async Task DeleteProjectData()
+    {
+       await  _datasetService.DeleteDatasetsByProjectIdAsync(CurrentProject?.Id??0);
+       _messageService.Success($"Delete {CurrentProject?.ProjectCode} dataset(s) successfully");
     }
 
     public void OnNavigatedTo(NavigationContext navigationContext)

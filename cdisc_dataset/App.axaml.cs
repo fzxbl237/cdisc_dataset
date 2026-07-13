@@ -143,6 +143,7 @@ public class App : PrismApplication
                 }
             ]);
             
+            
             // SqlSugarScope sqlSugar = new SqlSugarScope(new ConnectionConfig()
             // {
             //     DbType = SqlSugar.DbType.Sqlite,

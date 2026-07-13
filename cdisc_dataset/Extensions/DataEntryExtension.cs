@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using P21.Validator.Api.Options;
 using P21.Validator.Data;
 
 namespace cdisc_dataset.Extensions;
@@ -56,8 +57,9 @@ public static class DataEntryExtension
             return null;
         }
 
+        var dataEntryFactory = new DataEntryFactory(ValidationOptions.CreateBuilder().Build());
         // 找出 Type 的最小值
-        var minType = entries.Min(e => e.Type);
+        var minType = entries.Min(o=>dataEntryFactory.Create(o.ToString()).Type);
 
         // 转换为字符串返回
         return minType.ToString().ToLowerInvariant();

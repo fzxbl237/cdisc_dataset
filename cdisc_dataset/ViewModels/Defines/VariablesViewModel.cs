@@ -52,7 +52,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     
     public AvaloniaList<string> Origins { get; set; } = [];
     
-    public AvaloniaList<string> Sources { get; set; } = ["", "Investigator", "Subject"];
+    public AvaloniaList<string> Sources { get; set; } = ["", "Investigator", "Subject","Protocol","Vendor"];
     
     private readonly SourceCache<VariableDto, int> _sourceCache = new(o => o.Id);
 
@@ -112,24 +112,24 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             .DisposeWith(_disposables);
         
         
-        _sourceCache
-            .Connect()
-            .WhenAnyPropertyChanged()
-            .Subscribe(variableDto =>
-                {
-                    
-                    Observable.StartAsync(async () =>
-                    {
-                        if (variableDto != null)
-                        {
-                            await _validator.ValidateDtoAsync(variableDto);
-                            _sourceCache.AddOrUpdate(variableDto);
-                        }
-                    });
-                    variableDto?.HasChanged = true;
-                    HasChanges = true;
-                })
-            .DisposeWith(_disposables);
+        // _sourceCache
+        //     .Connect()
+        //     .WhenAnyPropertyChanged()
+        //     .Subscribe(variableDto =>
+        //         {
+        //             
+        //             Observable.StartAsync(async () =>
+        //             {
+        //                 if (variableDto != null)
+        //                 {
+        //                     await _validator.ValidateDtoAsync(variableDto);
+        //                     _sourceCache.AddOrUpdate(variableDto);
+        //                 }
+        //             });
+        //             variableDto?.HasChanged = true;
+        //             HasChanges = true;
+        //         })
+        //     .DisposeWith(_disposables);
         
 
     }
@@ -155,7 +155,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         IsLoading = true;
         var sw = Stopwatch.StartNew();
 
-        // 取消旧数据的 PropertyChanged 订阅
+        // // 取消旧数据的 PropertyChanged 订阅
         foreach (var variableDto in _sourceCache.Items)
         {
             variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;
@@ -197,6 +197,19 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
                 HandleCommentUniqueIdChanged(variableDto);
                 break;
         }
+
+        if (e.PropertyName != nameof(VariableDto.HasChanged))
+        {
+            Observable.StartAsync(async () =>
+            {
+                await _validator.ValidateDtoAsync(variableDto,e.PropertyName);
+                _sourceCache.AddOrUpdate(variableDto);
+            });
+            variableDto.HasChanged = true;
+            HasChanges = true;
+        }
+        
+
     }
 
     private void HandleMethodUniqueIdChanged(VariableDto variableDto)

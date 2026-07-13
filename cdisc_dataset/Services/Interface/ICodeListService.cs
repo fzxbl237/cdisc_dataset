@@ -9,7 +9,7 @@ namespace cdisc_dataset.Services.Interface;
 
 public interface ICodeListService
 {
-    Task<List<CodeListDto>> GetAllCodeListDtosAsync(int projectId,CdiscDataType dataType);
+    Task<List<CodeListDto>> GetAllCodeListDtosAsync();
     Task<List<CodeListDto>> GetAllCodeListDtosWithoutErorrAsync(int projectId, CdiscDataType dataType);
     Task<List<CodeList>> GetAllCodeListsWithoutErorrAsync(int projectId, CdiscDataType dataType);
     Task<List<CodeList>> GetAllCodeListsAsync(int projectId,CdiscDataType dataType);

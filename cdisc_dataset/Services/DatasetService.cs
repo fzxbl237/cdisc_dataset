@@ -177,6 +177,15 @@ public class DatasetService(
         return mapper.Map<DatasetDto>(entity);
     }
 
+    public async Task<bool> InsertDatasetsAsync(List<Dataset> datasets)
+    {
+        return await sqlSugar.InsertNav(datasets)
+            .Include(o=>o.Variables)
+            .ThenInclude(v=>v.CodeList)
+            .ThenInclude(c=>c.Terms)
+            .ExecuteCommandAsync();
+    }
+
     public async Task<int> UpdateDatasetAsync(DatasetDto datasetDto)
     {
         return await sqlSugar.Updateable(mapper.Map<Dataset>(datasetDto)).ExecuteCommandAsync();
@@ -198,6 +207,15 @@ public class DatasetService(
     {
         return await sqlSugar.DeleteNav(mapper.Map<Dataset>(datasetDto))
             .Include(o => o.Variables)
+            .ExecuteCommandAsync();
+    }
+
+    public async Task<bool> DeleteDatasetsByProjectIdAsync(int projectId)
+    {
+        return await sqlSugar.DeleteNav<Dataset>(d=>d.ProjectId == projectId)
+            .Include(o=>o.Variables)
+            .ThenInclude(v=>v.CodeList)
+            .ThenInclude(c=>c.Terms)
             .ExecuteCommandAsync();
     }
 

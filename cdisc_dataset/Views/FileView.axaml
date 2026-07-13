@@ -19,12 +19,23 @@
                 ItemsSource="{Binding FileTypes}"
                 MinWidth="180"
                 SelectedItem="{Binding SelectedFileType}" />
-            <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+            <StackPanel
+                DockPanel.Dock="Right"
+                HorizontalAlignment="Right"
+                Orientation="Horizontal"
+                Spacing="8">
+                <atom:Button
+                    ButtonType="Default"
+                    Command="{Binding DeleteProjectDataCommand}"
+                    Content="清空项目"
+                    Icon="{antd-icons:AntDesignIconProvider Kind=DatabaseOutlined}"
+                    IsLoading="{Binding DeleteProjectDataCommand.IsRunning}" />
                 <atom:Button
                     ButtonType="Primary"
                     Command="{Binding LoadStandardSdtmDatasetsCommand}"
                     Content="读取SDTM"
-                    Icon="{antd-icons:AntDesignIconProvider Kind=DatabaseOutlined}" />
+                    Icon="{antd-icons:AntDesignIconProvider Kind=DatabaseOutlined}"
+                    IsLoading="{Binding LoadStandardSdtmDatasetsCommand.IsRunning}" />
                 <atom:Button
                     ButtonType="Primary"
                     Command="{Binding UploadCommand}"

@@ -90,7 +90,6 @@ public class DataGridAtomNumericUpDownColumn:DataGridBoundColumn
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(5, 2, 5, 2),
         };
-        
         SyncEditProperties(numericUpDown);
         
         return numericUpDown;

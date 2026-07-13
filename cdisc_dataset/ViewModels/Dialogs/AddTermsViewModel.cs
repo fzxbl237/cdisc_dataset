@@ -229,7 +229,7 @@ public partial class AddTermsViewModel: ObservableObject, IDialogHostAware
     
     private async Task LoadCodeLists()
     {
-        var codeLists = await _codeListService.GetAllCodeListDtosAsync(CurrentProjectId,CdiscDataType);
+        var codeLists = await _codeListService.GetAllCodeListDtosAsync();
         List<ISelectOption> res = [];
         foreach (var dto in codeLists)
         {

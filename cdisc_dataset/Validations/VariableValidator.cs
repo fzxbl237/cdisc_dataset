@@ -155,7 +155,7 @@ public class VariableValidator : AbstractValidator<VariableDto>
             .WithMessage("Pages must be a space-separated collection of unique ascending numbers");
 
         RuleFor(x => x.Length)
-            .ExclusiveBetween(1, 200)
+            .InclusiveBetween(1, 200)
             .When(x => x.Length.HasValue)
             .WithSeverity(Severity.Error)
             .WithMessage("Length must be between 1 and 200");

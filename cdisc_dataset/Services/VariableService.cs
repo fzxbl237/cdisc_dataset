@@ -30,8 +30,15 @@ public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
             .Includes(o=>o.Method)
             .Includes(o=>o.CodeList)
             .Includes(o=>o.Dictionary)
-            .Where(x => x.ProjectId == currentProjectId && x.CdiscDataType == currentDataType).ToListAsync();
-        return mapper.Map<List<VariableDto>>(list);
+            .Where(x => x.ProjectId == currentProjectId && x.CdiscDataType == currentDataType)
+            .Select(o=> new VariableDto(){
+                CodeList = o.CodeList,
+                Method = o.Method,
+                Dictionary = o.Dictionary,
+                Comment = o.Comment
+            },true).ToListAsync();
+        //var allVariableDtos = mapper.Map<List<VariableDto>>(list);
+        return list;
     }
 
     public async Task<List<VariableDto>> GetAllVariableDtosWithoutErorrAsync()

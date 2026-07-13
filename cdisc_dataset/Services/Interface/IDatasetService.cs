@@ -18,8 +18,14 @@ public interface IDatasetService
     Task<Dataset?> GetStandardSdtmDatasetByNameAsync(string? datasetName);
     Task<List<DatasetDto>> GetAllDatasetDtosWithoutErrorAsync();
     Task<DatasetDto> InsertDatasetAsync(DatasetDto datasetDto);
+    
+    Task<bool> InsertDatasetsAsync(List<Dataset> datasets);
+    
     Task<int> UpdateDatasetAsync(DatasetDto datasetDto);
     Task<int> SaveDatasetsAsync(IReadOnlyList<DatasetDto> datasetDtos);
     Task<bool> DeleteDatasetAsync(DatasetDto datasetDto);
+    
+    Task<bool> DeleteDatasetsByProjectIdAsync(int projectId);
+    
     Task InsertDatasetsWithVariablesAsync(IReadOnlyList<Dataset> datasets);
 }

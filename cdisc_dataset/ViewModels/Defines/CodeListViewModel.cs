@@ -246,7 +246,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     
     private async Task LoadCodeLists(int id,CdiscDataType cdiscDataType)
     {
-        var list = await _codeListService.GetAllCodeListDtosAsync(id,cdiscDataType);
+        var list = await _codeListService.GetAllCodeListDtosAsync();
         foreach (var codeListDto in list)
         {
             await ValidateCodeListDtoAsync(codeListDto);
@@ -406,7 +406,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         CdiscDataType = cdiscDataType;
         if (_currentProjectService.CurrentProject != null)
         {
-            _ = Task.Run(() => LoadCodeLists(_currentProjectService.CurrentProject.Id,CdiscDataType));
+            LoadCodeLists(_currentProjectService.CurrentProject.Id,CdiscDataType).Await();
             LoadComments(_currentProjectService.CurrentProject.Id,CdiscDataType).Await();
         }
         LoadTerminologies().Await();
