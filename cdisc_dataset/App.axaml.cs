@@ -157,7 +157,7 @@ public class App : PrismApplication
             sqlSugarProject.CodeFirst.InitTables<CodeList, Term, Comment, Method, ValueLevel>();
             sqlSugarProject.CodeFirst.InitTables<Dictionary, Issue,WhereClause,DictionaryVersion>();
             var sqlSugarSetting = sqlSugar.GetConnection("setting");
-            sqlSugarSetting.CodeFirst.InitTables<VariableCodeList,CodeListTerm>();
+            sqlSugarSetting.CodeFirst.InitTables<VariableCodeList,CodeListTerm,CodeListReference>();
             FixHasErrorsDefault(sqlSugar);
             return sqlSugar;
         });

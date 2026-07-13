@@ -123,10 +123,19 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
             .FirstAsync();
     }
 
-    // public async Task<bool> VariableHasCodeListAsync(string? variableName)
-    // {
-    //     return await _sqlSugar.Queryable<VariableCodeList>().AnyAsync(o => o.VariableName == variableName);
-    // }
+    public async Task<List<CodeListTerm>> GetCodeListTermsAsync(string? codeListOid)
+    {
+        return  await sqlSugar.Queryable<CodeListTerm>()
+            .AsWithAttr().Where(o=>o.CodeListRef == codeListOid)
+            .ToListAsync();
+    }
+
+    public async Task<CodeListReference?> GetCodeListReferenceByOidAsync(string? codeListOid)
+    {
+         return  await sqlSugar.Queryable<CodeListReference>()
+            .AsWithAttr().Where(o=>o.CodeListRef == codeListOid)
+            .FirstAsync();
+    }
     
     
 }

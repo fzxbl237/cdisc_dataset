@@ -269,7 +269,30 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                 var codeListRef = await _codeListService.GetCodeListRefByVariableAsync(variableName.ToUpper());
                 if (codeListRef != null)
                 {
+                    var codeList = new CodeList();
                     var codeListRefName = codeListRef.CodeListRef;
+                    var entries = allRecords
+                        .Select(o => o.GetValue(variableName).ToString())
+                        .Where(o=>!string.IsNullOrWhiteSpace(o))
+                        .Distinct()
+                        .ToList();
+                    
+                    codeList.CdiscDataType = CdiscDataType.Sdtm;
+                    codeList.ProjectId = CurrentProject.Id;
+                    codeList.Code = codeListRef.CodeListCode;
+                    codeList.Type = variable.DataType;
+                    // todo: need dynamic Terminology;
+                    codeList.Terminology = "SDTM 2026-03-27";
+                    if (codeListRefName == "CL.NY")
+                    {
+                        codeList.UniqueId = entries.InferCodeListOid().Split(".").LastOrDefault();
+                        var codeListTerms = await _codeListService.GetCodeListTermsAsync(entries.InferCodeListOid());
+                    }
+                    
+                    foreach (var dataEntry in entries)
+                    {
+                        var codeListTerm = await _codeListService.GetCodeListTermAsync(codeListRefName,dataEntry);
+                    }
                     
                 }
                 // if (await _codeListService.VariableHasCodeListAsync(variableName))

@@ -101,5 +101,42 @@ public static class DataEntryExtension
         return null;
     }
 
+    public static string InferCodeListOid(this List<string?>? values)
+    {
+        if (values == null || values.Count == 0)
+        {
+            return "CL.YN";
+        }
+
+        // 转换为 HashSet 进行集合操作，忽略大小写
+        var inputSet = new HashSet<string>(values.Select(v => v?.ToUpperInvariant() ?? string.Empty));
+        
+        // 定义基准集合
+        var nySet = new HashSet<string> { "Y", "N" };
+        var nynaSet = new HashSet<string> { "Y", "N", "NA" };
+        var nyuSet = new HashSet<string> { "Y", "N", "U" };
+
+        // 检查是否是 {"Y", "N"} 的子集
+        if (inputSet.IsSubsetOf(nySet))
+        {
+            return "CL.NYO";
+        }
+
+        // 检查是否是 {"Y", "N", "NA"} 的子集
+        if (inputSet.IsSubsetOf(nynaSet))
+        {
+            return "CL.NYNA";
+        }
+
+        // 检查是否是 {"Y", "N", "U"} 的子集
+        if (inputSet.IsSubsetOf(nyuSet))
+        {
+            return "CL.NYU";
+        }
+
+        // 其他情况
+        return "CL.YN";
+    }
+
 
 }
