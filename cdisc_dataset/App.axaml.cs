@@ -163,6 +163,7 @@ public class App : PrismApplication
             return sqlSugar;
         });
         containerRegistry.RegisterSingleton<ILiteDatabase>(_ => new LiteDatabase("Filename=cdisc_files.db;Connection=shared"));
+        containerRegistry.RegisterSingleton<ISettingsService, SettingsService>();
         containerRegistry.RegisterSingleton<ICurrentProjectService, CurrentProjectService>();
         containerRegistry.RegisterSingleton<ICommentService, CommentService>();
         containerRegistry.RegisterSingleton<IDatasetService, DatasetService>();

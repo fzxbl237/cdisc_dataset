@@ -26,6 +26,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly IRegionManager _regionManager;
     private readonly IProjectService _projectService;
     private readonly ICurrentProjectService _currentProjectService;
+    private readonly ISettingsService _settingsService;
 
     [ObservableProperty] private NavMenuNode? _selectedNavMenuItem;
 
@@ -35,14 +36,18 @@ public partial class MainWindowViewModel : ObservableObject
 
     public AvaloniaList<Project> Projects { get; set; } = [];
 
+    private const string CurrentProjectIdKey = "CurrentProjectId";
+
     public MainWindowViewModel(
         IRegionManager regionManager,
         IProjectService projectService,
-        ICurrentProjectService currentProjectService)
+        ICurrentProjectService currentProjectService,
+        ISettingsService settingsService)
     {
         _regionManager = regionManager;
         _projectService = projectService;
         _currentProjectService = currentProjectService;
+        _settingsService = settingsService;
         WeakReferenceMessenger.Default.Register<ProjectChangedMessage>(this, (_, message) =>
         {
             message.Reply(RefreshProjectsAsync());
@@ -74,6 +79,12 @@ public partial class MainWindowViewModel : ObservableObject
     partial void OnCurrentProjectChanged(Project? value)
     {
         _currentProjectService.CurrentProject = value;
+        
+        if (value?.Id != null)
+        {
+            _settingsService.SetAsync(CurrentProjectIdKey, value.Id).Await();
+            _settingsService.SaveAsync().Await();
+        }
     }
 
     private async Task LoadProjects()
@@ -83,21 +94,31 @@ public partial class MainWindowViewModel : ObservableObject
 
     private async Task<bool> RefreshProjectsAsync()
     {
-        var currentProjectId = CurrentProject?.Id;
-
         Projects.Clear();
         Projects.AddRange(await _projectService.GetAllProjectsAsync());
 
-        if (currentProjectId.HasValue)
-        {
-            var reloadedCurrentProject = Projects.FirstOrDefault(x => x.Id == currentProjectId.Value);
-            CurrentProject = reloadedCurrentProject ?? (Projects.Count > 0 ? Projects[0] : new Project());
-        }
-        else
-        {
-            CurrentProject = Projects.Count > 0 ? Projects[0] : new Project();
-        }
+        await SetCurrentProjectFromSettingsAsync();
 
         return true;
+    }
+
+    private async Task SetCurrentProjectFromSettingsAsync()
+    {
+        var savedProjectId = await _settingsService.GetAsync<int?>(CurrentProjectIdKey);
+        
+        if (savedProjectId.HasValue)
+        {
+            var project = Projects.FirstOrDefault(p => p.Id == savedProjectId.Value);
+            if (project != null)
+            {
+                CurrentProject = project;
+                return;
+            }
+        }
+        
+        if (Projects.Count > 0)
+        {
+            CurrentProject = Projects[0];
+        }
     }
 }
