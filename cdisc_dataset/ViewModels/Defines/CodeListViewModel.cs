@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -89,70 +90,6 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             .DisposeMany()
             .Subscribe();
         
-        _sourceCache.Connect()
-            .WhenAnyPropertyChanged()
-            .Subscribe((change) =>
-            {
-                if (!HasChanges)
-                    HasChanges = true;
-            });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.CommentUniqueId, false)
-            .Subscribe((change) =>
-            {
-                var codeListDto = change.Sender;
-                var changeValue = change.Value;
-                var first = Comments.FirstOrDefault(o=>o.UniqueId==changeValue);
-                if (first != null)
-                {
-                    codeListDto.CommentId = first.Id;
-                    codeListDto.Comment = first;
-                }
-
-                if (string.IsNullOrWhiteSpace(changeValue))
-                {
-                    codeListDto.CommentId = 0;
-                    codeListDto.Comment = null;
-                }
-                ValidateCodeListDtoAsync(codeListDto,"CommentUniqueId").Await();
-                _sourceCache.AddOrUpdate(codeListDto);
-            });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.UniqueId, false)
-            .Subscribe((change) =>
-            {
-                UpdateDuplicate();
-                if (string.IsNullOrWhiteSpace(change.Value))
-                {
-                    ValidateCodeListDtoAsync(change.Sender,"UniqueId").Await();
-                    _sourceCache.AddOrUpdate(change.Sender);
-                }
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Name, false)
-            .Subscribe((change) =>
-            {
-                UpdateNameDuplicate();
-                if (string.IsNullOrWhiteSpace(change.Value))
-                {
-                    ValidateCodeListDtoAsync(change.Sender,"Name").Await();
-                    _sourceCache.AddOrUpdate(change.Sender);
-                }
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Terminology, false)
-            .Subscribe((change) =>
-            {
-                ValidateCodeListDtoAsync(change.Sender,"Code").Await();
-                _sourceCache.AddOrUpdate(change.Sender);
-            });
-
-
-
     }
 
     private void UpdateNameDuplicate()
@@ -246,10 +183,17 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     
     public async Task LoadCodeLists()
     {
+        // 取消旧数据的 PropertyChanged 订阅
+        foreach (var codeListDto in _sourceCache.Items)
+        {
+            codeListDto.PropertyChanged -= CodeListDtoOnPropertyChanged;
+        }
+
         var list = await _codeListService.GetAllCodeListDtosAsync();
         foreach (var codeListDto in list)
         {
             await ValidateCodeListDtoAsync(codeListDto);
+            codeListDto.PropertyChanged += CodeListDtoOnPropertyChanged;
         }
         _sourceCache.Edit(o =>
         {
@@ -258,6 +202,54 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         });
         UpdateDuplicate();
         UpdateNameDuplicate();
+    }
+
+    private void CodeListDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not CodeListDto codeListDto) return;
+
+        switch (e.PropertyName)
+        {
+            case nameof(CodeListDto.CommentUniqueId):
+                HandleCommentUniqueIdChanged(codeListDto);
+                break;
+            case nameof(CodeListDto.UniqueId):
+                UpdateDuplicate();
+                break;
+            case nameof(CodeListDto.Name):
+                UpdateNameDuplicate();
+                break;
+        }
+
+        if (e.PropertyName == nameof(CodeListDto.HasChanged)
+            || e.PropertyName == nameof(CodeListDto.Comment)
+            || e.PropertyName == nameof(CodeListDto.CommentId)) return;
+        Observable.StartAsync(async () =>
+        {
+            await _validator.ValidateDtoAsync(codeListDto,e.PropertyName);
+            _sourceCache.AddOrUpdate(codeListDto);
+        });
+        codeListDto.HasChanged = true;
+        HasChanges = true;
+    }
+
+    private void HandleCommentUniqueIdChanged(CodeListDto codeListDto)
+    {
+        var changeValue = codeListDto.CommentUniqueId;
+        var first = Comments.FirstOrDefault(o => o.UniqueId == changeValue);
+        if (first != null)
+        {
+            codeListDto.CommentId = first.Id;
+            codeListDto.Comment = first;
+        }
+
+        if (string.IsNullOrWhiteSpace(changeValue))
+        {
+            codeListDto.CommentId = 0;
+            codeListDto.Comment = null;
+        }
+        // ValidateCodeListDtoAsync(codeListDto, "CommentUniqueId").Await();
+        // _sourceCache.AddOrUpdate(codeListDto);
     }
     
     public async Task LoadComments()
@@ -275,7 +267,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         CommentOptions.AddRange(res);
     }
 
-    private async Task LoadTerminologies()
+    public async Task LoadTerminologies()
     {
         var terminologies = await _codeListService.GetTerminologiesAsync();
         Terminologies.AddRange(terminologies);
@@ -409,7 +401,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         //     //LoadCodeLists(_currentProjectService.CurrentProject.Id,CdiscDataType).Await();
         //     //LoadComments().Await();
         // }
-        LoadTerminologies().Await();
+        //LoadTerminologies().Await();
     }
 
 
@@ -420,6 +412,12 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
 
     public override void OnNavigatedFrom(NavigationContext navigationContext)
     {
+        // 取消所有 CodeListDto 的 PropertyChanged 订阅
+        foreach (var codeListDto in _sourceCache.Items)
+        {
+            codeListDto.PropertyChanged -= CodeListDtoOnPropertyChanged;
+        }
+
         if(!HasChanges) return;
         _codeListService.SaveCodeListsAsync(CodeLists.ToList()).Await();
         _messageService.Success("CodeList Save Success");

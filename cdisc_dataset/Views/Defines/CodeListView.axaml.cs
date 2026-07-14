@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -18,8 +19,10 @@ public partial class CodeListView : UserControl,IActivatableView
             {
                 Observable.StartAsync(async () =>
                 {
+                    await Task.Delay(300);
                     await vm.LoadCodeLists();
                     await vm.LoadComments();
+                    await vm.LoadTerminologies();
                 });
 
             }
