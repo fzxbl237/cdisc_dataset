@@ -35,8 +35,7 @@ public class FormCommentValidator : AbstractFormValidator
 
         if (fieldName.Equals("UniqueId") && !IsInEditMode)
         {
-            bool exist = await _commentService.CommentExistsAsync(_currentProjectService.CurrentProject?.Id ?? 0,
-                _currentProjectService.CdiscDataType, CommentDto.UniqueId ?? string.Empty);
+            bool exist = await _commentService.CommentExistsAsync(CommentDto.UniqueId ?? string.Empty);
             if (exist)
             {
                 Message = "Comment Id already exists";

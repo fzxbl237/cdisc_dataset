@@ -2,23 +2,22 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
-using cdisc_dataset.Models.Enums;
 
 namespace cdisc_dataset.Services.Interface;
 
 public interface ICommentService
 {
-    Task<List<CommentDto>> GetAllSdtmCommentsAsync(int projectId);
+    Task<List<CommentDto>> GetAllSdtmCommentsAsync();
     
-    Task<List<CommentDto>> GetAllCommentDtosAsync(int projectId,CdiscDataType dataType);
+    Task<List<CommentDto>> GetAllCommentDtosAsync();
     
-    Task<List<CommentDto>> GetAllCommentDtosWithoutErorrAsync(int projectId, CdiscDataType dataType);
+    Task<List<CommentDto>> GetAllCommentDtosWithoutErorrAsync();
     
-    Task<bool> CommentExistsAsync(int projectId, CdiscDataType dataType,string commentUniqueId);
+    Task<bool> CommentExistsAsync(string commentUniqueId);
     
-    Task<List<Comment>> GetAllCommentsWithoutErorrAsync(int projectId,CdiscDataType dataType);
+    Task<List<Comment>> GetAllCommentsWithoutErorrAsync();
     
-    Task<List<Comment>> GetAllCommentsAsync(int projectId,CdiscDataType dataType);
+    Task<List<Comment>> GetAllCommentsAsync();
 
     Task<Dictionary<string,string>> ConfirmCommentRefenceAsync(Comment? comment);
     
@@ -34,5 +33,5 @@ public interface ICommentService
 
     Task<int> SaveCommentsAsync(List<CommentDto> comments);
     
-    List<CommentDto> GetAllSdtmComments(int projectId);
+    List<CommentDto> GetAllSdtmComments();
 }

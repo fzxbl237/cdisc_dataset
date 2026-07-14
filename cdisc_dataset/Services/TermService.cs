@@ -11,17 +11,23 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class TermService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService) : ITermService
+public class TermService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService, ICurrentProjectService currentProjectService) : ITermService
 {
     private readonly ISqlSugarClient _sqlSugar = sqlSugar;
     private readonly IMapper _mapper = mapper;
     private readonly IIssueService _issueService = issueService;
+    private readonly ICurrentProjectService _currentProjectService = currentProjectService;
 
-    public CdiscDataType CdiscDataType { get; set; }
-    public int CurrentProjectId { get; set; }
-
-    public async Task<List<TermDto>> GetAllTermDtosAsync(int projectId, CdiscDataType dataType)
+    private (int ProjectId, CdiscDataType DataType) GetCurrentProjectContext()
     {
+        var projectId = _currentProjectService.CurrentProject?.Id ?? 0;
+        var dataType = _currentProjectService.CdiscDataType;
+        return (projectId, dataType);
+    }
+
+    public async Task<List<TermDto>> GetAllTermDtosAsync()
+    {
+        var (projectId, dataType) = GetCurrentProjectContext();
         var list = await _sqlSugar.Queryable<Term>()
             .Includes(o=>o.CodeList)
             .Where(x => x.ProjectId == projectId && x.CdiscDataType==dataType).ToListAsync();
@@ -30,8 +36,9 @@ public class TermService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService
         return dtos;
     }
 
-    public async Task<List<TermDto>> GetAllTermDtosWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<TermDto>> GetAllTermDtosWithoutErorrAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         var list = await _sqlSugar.Queryable<Term>()
             .Includes(o=>o.CodeList)
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && !x.HasErrors)
@@ -39,8 +46,9 @@ public class TermService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService
         return _mapper.Map<List<TermDto>>(list);
     }
 
-    public async Task<List<Term>> GetAllTermsWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<Term>> GetAllTermsWithoutErorrAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         return await _sqlSugar.Queryable<Term>()
             .Includes(o=>o.CodeList)
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && !x.HasErrors)
@@ -57,10 +65,11 @@ public class TermService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService
 
     public async Task<List<string?>> GetTermCodesByCodeListIdAsync(string? codeListId)
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         var list = await _sqlSugar.Queryable<Term>()
             .Includes(o=>o.CodeList)
-            .Where(x => x.ProjectId == CurrentProjectId 
-                        && x.CdiscDataType==CdiscDataType
+            .Where(x => x.ProjectId == projectId 
+                        && x.CdiscDataType == dataType
                         && !string.IsNullOrWhiteSpace(x.Code)
                         && x.CodeListUniqueId==codeListId).ToListAsync();
         return list.Select(o=>o.Code).Distinct().ToList();

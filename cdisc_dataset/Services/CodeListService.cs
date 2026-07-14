@@ -39,27 +39,30 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
         await issueService.RestoreIssuesAsync(list.Cast<BaseDto>(), nameof(CodeListDto), dto => dto.Id);
         return list;
     }
-    public async Task<List<CodeListDto>> GetAllCodeListDtosWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<CodeListDto>> GetAllCodeListDtosWithoutErorrAsync()
     {
+        var (currentProjectId, currentDataType) = GetCurrentProjectContext();
         var list = await sqlSugar.Queryable<CodeList>()
             .Includes(o=>o.Comment)
             .Includes(o=>o.Terms)
-            .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && !x.HasErrors).ToListAsync();
+            .Where(x => x.ProjectId == currentProjectId && x.CdiscDataType == currentDataType && !x.HasErrors).ToListAsync();
         return mapper.Map<List<CodeListDto>>(list);
     }
-    public async Task<List<CodeList>> GetAllCodeListsWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<CodeList>> GetAllCodeListsWithoutErorrAsync()
     {
+        var (currentProjectId, currentDataType) = GetCurrentProjectContext();
         return await sqlSugar.Queryable<CodeList>()
             .Includes(o=>o.Comment)
             .Includes(o=>o.Terms)
-            .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && !x.HasErrors).ToListAsync();
+            .Where(x => x.ProjectId == currentProjectId && x.CdiscDataType == currentDataType && !x.HasErrors).ToListAsync();
     }
-    public async Task<List<CodeList>> GetAllCodeListsAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<CodeList>> GetAllCodeListsAsync()
     {
+        var (currentProjectId, currentDataType) = GetCurrentProjectContext();
         var list = await sqlSugar.Queryable<CodeList>()
             .Includes(o=>o.Comment)
             .Includes(o=>o.Terms)
-            .Where(x => x.ProjectId == projectId && x.CdiscDataType==dataType).ToListAsync();
+            .Where(x => x.ProjectId == currentProjectId && x.CdiscDataType==currentDataType).ToListAsync();
         return list;
     }
 

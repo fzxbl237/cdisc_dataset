@@ -215,7 +215,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     
     private async Task LoadMethods(int projectId, CdiscDataType cdiscDataType)
     {
-        var list = await _methodService.GetAllMethodDtosAsync(projectId, cdiscDataType);
+        var list = await _methodService.GetAllMethodDtosAsync();
 
         _sourceCache.Edit(o =>
         {
@@ -227,7 +227,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
 
     private async Task LoadDocuments(int projectId, CdiscDataType cdiscDataType)
     {
-        var list = await _documentService.GetAllDocumentsWithoutErorrAsync(projectId, cdiscDataType);
+        var list = await _documentService.GetAllDocumentsWithoutErorrAsync();
         List<IAutoCompleteOption> res = [];
         foreach (var document in list)
         {

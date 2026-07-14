@@ -10,33 +10,44 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class DocumentService(ISqlSugarClient sqlSugar, IMapper mapper) : IDocumentService
+public class DocumentService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentProjectService currentProjectService) : IDocumentService
 {
-    public async Task<List<DocumentDto>> GetAllDocumentDtosAsync(int projectId, CdiscDataType dataType)
+    private (int ProjectId, CdiscDataType DataType) GetCurrentProjectContext()
     {
+        var projectId = currentProjectService.CurrentProject?.Id ?? 0;
+        var dataType = currentProjectService.CdiscDataType;
+        return (projectId, dataType);
+    }
+
+    public async Task<List<DocumentDto>> GetAllDocumentDtosAsync()
+    {
+        var (projectId, dataType) = GetCurrentProjectContext();
         return await sqlSugar.Queryable<Document>()
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType)
             .Select<DocumentDto>()
             .ToListAsync();
     }
 
-    public async Task<List<DocumentDto>> GetAllDocumentDtosWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<DocumentDto>> GetAllDocumentDtosWithoutErorrAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         return await sqlSugar.Queryable<Document>()
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && !x.HasErrors)
             .Select<DocumentDto>()
             .ToListAsync();
     }
 
-    public async Task<List<Document>> GetAllDocumentsWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<Document>> GetAllDocumentsWithoutErorrAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         return await sqlSugar.Queryable<Document>()
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && !x.HasErrors)
             .ToListAsync();
     }
 
-    public async Task<List<Document>> GetAllDocumentsAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<Document>> GetAllDocumentsAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         return await sqlSugar.Queryable<Document>()
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType)
             .ToListAsync();

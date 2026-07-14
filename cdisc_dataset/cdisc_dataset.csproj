@@ -18,7 +18,7 @@
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
         <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
         <PackageReference Include="DialogHost.Avalonia" Version="0.12.2" />
-        <PackageReference Include="DynamicData" Version="9.4.31" />
+        <PackageReference Include="DynamicData" Version="9.4.33" />
         <PackageReference Include="FluentValidation" Version="12.1.1" />
         <PackageReference Include="LiteDB" Version="6.0.0-prerelease.77" />
         <PackageReference Include="Mapster" Version="9.0.0-pre01" />

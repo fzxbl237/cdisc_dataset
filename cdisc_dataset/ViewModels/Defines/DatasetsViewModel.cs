@@ -233,9 +233,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     {
         if (_currentProjectService.CurrentProject == null) return;
 
-        var comments = await _commentService.GetAllCommentsWithoutErorrAsync(
-            _currentProjectService.CurrentProject.Id,
-            _currentProjectService.CdiscDataType);
+        var comments = await _commentService.GetAllCommentsWithoutErorrAsync();
 
         _frozenCommentDictionary = comments
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))

@@ -11,10 +11,18 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class ValueLevelService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService) : IValueLevelService
+public class ValueLevelService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService, ICurrentProjectService currentProjectService) : IValueLevelService
 {
-    public async Task<List<ValueLevelDto>> GetAllValueLevelDtosAsync(int projectId, CdiscDataType dataType)
+    private (int ProjectId, CdiscDataType DataType) GetCurrentProjectContext()
     {
+        var projectId = currentProjectService.CurrentProject?.Id ?? 0;
+        var dataType = currentProjectService.CdiscDataType;
+        return (projectId, dataType);
+    }
+
+    public async Task<List<ValueLevelDto>> GetAllValueLevelDtosAsync()
+    {
+        var (projectId, dataType) = GetCurrentProjectContext();
         var list = await sqlSugar.Queryable<ValueLevel>()
             .Includes(o => o.DatasetEntity)
             .Includes(o => o.VariableEntity)
@@ -31,8 +39,9 @@ public class ValueLevelService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueS
         return dtos;
     }
 
-    public async Task<List<ValueLevelDto>> GetAllValueLevelDtosWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<ValueLevelDto>> GetAllValueLevelDtosWithoutErorrAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         var list = await sqlSugar.Queryable<ValueLevel>()
             .Includes(o => o.CodeList)
             .Includes(o => o.WhereClauses)
@@ -44,8 +53,9 @@ public class ValueLevelService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueS
         return mapper.Map<List<ValueLevelDto>>(list);
     }
 
-    public async Task<List<ValueLevel>> GetAllValueLevelsWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<ValueLevel>> GetAllValueLevelsWithoutErorrAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         return await sqlSugar.Queryable<ValueLevel>()
             .Includes(o => o.CodeList)
             .Includes(o => o.Method)

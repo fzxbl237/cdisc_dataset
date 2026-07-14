@@ -70,8 +70,6 @@ public partial class PairTermsViewModel:ObservableObject,IDialogHostAware
         CdiscDataType = cdiscDataType;
         if (_currentProjectService.CurrentProject != null) 
             CurrentProjectId = _currentProjectService.CurrentProject.Id;
-        _termService.CdiscDataType = CdiscDataType;
-        _termService.CurrentProjectId = CurrentProjectId;
         LoadCodeLists().Await();
     }
 

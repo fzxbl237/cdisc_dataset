@@ -298,7 +298,7 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     private async Task LoadComments()
     {
         if(_currentProjectService.CurrentProject==null) return;
-        var comments =  await _commentService.GetAllCommentsAsync(_currentProjectService.CurrentProject.Id,CdiscDataType);
+        var comments =  await _commentService.GetAllCommentsAsync();
         List<ISelectOption> res = [];
         foreach (var comment in comments)
         {

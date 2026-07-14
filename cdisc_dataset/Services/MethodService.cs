@@ -11,11 +11,18 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class MethodService(ISqlSugarClient sqlSugar, IMapper mapper,IIssueService issueService) : IMethodService
+public class MethodService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService, ICurrentProjectService currentProjectService) : IMethodService
 {
-
-    public async Task<List<MethodDto>> GetAllMethodDtosAsync(int projectId, CdiscDataType dataType)
+    private (int ProjectId, CdiscDataType DataType) GetCurrentProjectContext()
     {
+        var projectId = currentProjectService.CurrentProject?.Id ?? 0;
+        var dataType = currentProjectService.CdiscDataType;
+        return (projectId, dataType);
+    }
+
+    public async Task<List<MethodDto>> GetAllMethodDtosAsync()
+    {
+        var (projectId, dataType) = GetCurrentProjectContext();
         var list = await sqlSugar.Queryable<Method>()
             .Includes(o=>o.Document)
             .Where(x => x.ProjectId == projectId && x.CdiscDataType==dataType)
@@ -27,8 +34,9 @@ public class MethodService(ISqlSugarClient sqlSugar, IMapper mapper,IIssueServic
         return dtos;
     }
 
-    public async Task<List<MethodDto>> GetAllMethodDtosWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<MethodDto>> GetAllMethodDtosWithoutErorrAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         var list = await sqlSugar.Queryable<Method>()
             .Includes(o=>o.Document)
             .Where(x => x.ProjectId == projectId && x.CdiscDataType==dataType && !x.HasErrors)
@@ -37,8 +45,9 @@ public class MethodService(ISqlSugarClient sqlSugar, IMapper mapper,IIssueServic
         return mapper.Map<List<MethodDto>>(list);
     }
 
-    public async Task<List<Method>> GetAllMethodsWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<Method>> GetAllMethodsWithoutErorrAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         var list = await sqlSugar.Queryable<Method>()
             .Includes(o=>o.Document)
             .Where(x => x.ProjectId == projectId && x.CdiscDataType==dataType && !x.HasErrors)

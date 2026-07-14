@@ -199,7 +199,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         if (CurrentProject == null)
             return;
 
-        var comment = (await _commentService.GetAllCommentsAsync(CurrentProject.Id, CdiscDataType))
+        var comment = (await _commentService.GetAllCommentsAsync())
             .FirstOrDefault(o => o.Id == commentDto.Id);
         if (comment == null)
             return;
@@ -285,7 +285,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 
     private async Task LoadComments(int id, CdiscDataType cdiscDataType)
     {
-        var list = await _commentService.GetAllCommentDtosAsync(id, cdiscDataType);
+        var list = await _commentService.GetAllCommentDtosAsync();
         _commentSourceCache.Edit(o =>
         {
             o.Clear();
@@ -297,7 +297,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
     
     private async Task LoadDocuments(int id, CdiscDataType cdiscDataType)
     {
-        var list = await _documentService.GetAllDocumentsWithoutErorrAsync(id, cdiscDataType);
+        var list = await _documentService.GetAllDocumentsWithoutErorrAsync();
         List<IAutoCompleteOption> res = [];
         foreach (var document in list)
         {

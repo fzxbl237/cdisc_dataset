@@ -292,7 +292,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                     codeList.Code = codeListRef.CodeListCode;
                     codeList.Type = variable.DataType;
                     // todo: need dynamic Terminology;
-                    codeList.Terminology = "SDTM 2026-03-27";
+                    codeList.Terminology = "SDTM 2025-09-26";
                     var refName = codeListRefName?.Split(".").LastOrDefault();
                     codeList.UniqueId = $"{name}.{variableName}.{refName}";
                     var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeListRefName);

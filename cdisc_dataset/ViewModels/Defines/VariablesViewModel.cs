@@ -269,7 +269,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 
     private async Task LoadLookups(int id, CdiscDataType cdiscDataType)
     {
-        var methods = await _methodService.GetAllMethodsWithoutErorrAsync(id, cdiscDataType);
+        var methods = await _methodService.GetAllMethodsWithoutErorrAsync();
         _frozenMethodDictionary = methods
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
             .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
@@ -284,7 +284,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
                 Method = o
             }));
 
-        var comments = await _commentService.GetAllCommentsWithoutErorrAsync(id, cdiscDataType);
+        var comments = await _commentService.GetAllCommentsWithoutErorrAsync();
         
         _frozenCommentDictionary = comments
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
@@ -300,7 +300,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
                 Comment = o
             }));
 
-        var codeLists = await _codeListService.GetAllCodeListsWithoutErorrAsync(id, cdiscDataType);
+        var codeLists = await _codeListService.GetAllCodeListsWithoutErorrAsync();
         var dictionaries = await _dictionaryService.GetAllDictionariesWithoutErorrAsync();
         _frozenCodeListDictionary = codeLists
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))

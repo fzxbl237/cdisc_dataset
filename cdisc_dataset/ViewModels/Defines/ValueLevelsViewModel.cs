@@ -493,7 +493,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
     private async Task LoadValueLevels(int id, CdiscDataType cdiscDataType)
     {
-        var dtoList = await _valueLevelService.GetAllValueLevelDtosAsync(id, cdiscDataType);
+        var dtoList = await _valueLevelService.GetAllValueLevelDtosAsync();
         foreach (var dto in dtoList)
         {
             await _validator.ValidateDtoAsync(dto);
@@ -535,9 +535,9 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         VariableOptions.Clear();
         VariableOptions.AddRange(VariableOptions);
 
-        var codeLists = await _codeListService.GetAllCodeListsWithoutErorrAsync(id, cdiscDataType);
-        var methods = await _methodService.GetAllMethodsWithoutErorrAsync(id, cdiscDataType);
-        var comments = await _commentService.GetAllCommentsWithoutErorrAsync(id, cdiscDataType);
+        var codeLists = await _codeListService.GetAllCodeListsWithoutErorrAsync();
+        var methods = await _methodService.GetAllMethodsWithoutErorrAsync();
+        var comments = await _commentService.GetAllCommentsWithoutErorrAsync();
 
         CodeListOptions.Clear();
         CodeListOptions.AddRange(codeLists.Select(o => new ValueLevelAutoCompleteOption

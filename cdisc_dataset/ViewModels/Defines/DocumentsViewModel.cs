@@ -213,7 +213,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     private async Task LoadDocuments(int id, CdiscDataType cdiscDataType)
     {
-        var dtoList = await _documentService.GetAllDocumentDtosAsync(id, cdiscDataType);
+        var dtoList = await _documentService.GetAllDocumentDtosAsync();
         foreach (var document in dtoList)
         {
             await _validator.ValidateDtoAsync(document);

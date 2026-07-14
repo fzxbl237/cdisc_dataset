@@ -244,7 +244,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         }
     }
     
-    private async Task LoadCodeLists(int id,CdiscDataType cdiscDataType)
+    public async Task LoadCodeLists()
     {
         var list = await _codeListService.GetAllCodeListDtosAsync();
         foreach (var codeListDto in list)
@@ -260,9 +260,9 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         UpdateNameDuplicate();
     }
     
-    private async Task LoadComments(int id, CdiscDataType cdiscDataType)
+    public async Task LoadComments()
     {
-        var list = await _commentService.GetAllCommentsAsync(id,cdiscDataType);
+        var list = await _commentService.GetAllCommentsAsync();
         List<IAutoCompleteOption> res = [];
         foreach (var comment in list)
         {
@@ -390,10 +390,10 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     }
     
     [RelayCommand]
-    private void Discard()
+    private async Task Discard()
     {
         if(!HasChanges) return;
-        LoadCodeLists(_currentProjectService.CurrentProject?.Id??0,CdiscDataType).Await();
+        await LoadCodeLists();
         HasChanges = false;
         
     }
@@ -401,14 +401,14 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     
     public override void OnNavigatedTo(NavigationContext navigationContext)
     {
-        var navigationContextParameters = navigationContext.Parameters;
-        navigationContextParameters.TryGetValue("CdiscDataType",out CdiscDataType cdiscDataType);
-        CdiscDataType = cdiscDataType;
-        if (_currentProjectService.CurrentProject != null)
-        {
-            LoadCodeLists(_currentProjectService.CurrentProject.Id,CdiscDataType).Await();
-            LoadComments(_currentProjectService.CurrentProject.Id,CdiscDataType).Await();
-        }
+        // var navigationContextParameters = navigationContext.Parameters;
+        // navigationContextParameters.TryGetValue("CdiscDataType",out CdiscDataType cdiscDataType);
+        // CdiscDataType = cdiscDataType;
+        // if (_currentProjectService.CurrentProject != null)
+        // {
+        //     //LoadCodeLists(_currentProjectService.CurrentProject.Id,CdiscDataType).Await();
+        //     //LoadComments().Await();
+        // }
         LoadTerminologies().Await();
     }
 

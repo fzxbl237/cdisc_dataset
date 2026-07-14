@@ -16,6 +16,7 @@ public class SettingsService : ISettingsService
     public SettingsService()
     {
         var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        //todo: maybe change name - CdiscDataset;
         var appFolder = Path.Combine(appDataPath, "CdiscDataset");
         Directory.CreateDirectory(appFolder);
         _settingsFilePath = Path.Combine(appFolder, "settings.json");

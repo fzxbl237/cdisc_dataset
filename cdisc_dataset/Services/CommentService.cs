@@ -12,45 +12,58 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService) : ICommentService
+public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService, ICurrentProjectService currentProjectService) : ICommentService
 {
-    public async Task<List<CommentDto>> GetAllSdtmCommentsAsync(int projectId)
+    private (int ProjectId, CdiscDataType DataType) GetCurrentProjectContext()
     {
+        var projectId = currentProjectService.CurrentProject?.Id ?? 0;
+        var dataType = currentProjectService.CdiscDataType;
+        return (projectId, dataType);
+    }
+
+    public async Task<List<CommentDto>> GetAllSdtmCommentsAsync()
+    {
+        var (projectId, _) = GetCurrentProjectContext();
         var comments = await sqlSugar.Queryable<Comment>()
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == CdiscDataType.Sdtm).Select<CommentDto>().ToListAsync();
         await RestoreCommentErrorsAsync(comments);
         return comments;
     }
 
-    public async Task<List<CommentDto>> GetAllCommentDtosAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<CommentDto>> GetAllCommentDtosAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         var comments = await sqlSugar.Queryable<Comment>().Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType).Select<CommentDto>().ToListAsync();
         await RestoreCommentErrorsAsync(comments);
         return comments;
     }
 
-    public async Task<List<CommentDto>> GetAllCommentDtosWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<CommentDto>> GetAllCommentDtosWithoutErorrAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         return await sqlSugar.Queryable<Comment>()
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && !x.HasErrors)
             .Select<CommentDto>()
             .ToListAsync();
     }
 
-    public async Task<bool> CommentExistsAsync(int projectId, CdiscDataType dataType, string commentUniqueId)
+    public async Task<bool> CommentExistsAsync(string commentUniqueId)
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         return await sqlSugar.Queryable<Comment>().AnyAsync(x => x.ProjectId == projectId && x.CdiscDataType == dataType && x.UniqueId == commentUniqueId);
     }
 
-    public async Task<List<Comment>> GetAllCommentsWithoutErorrAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<Comment>> GetAllCommentsWithoutErorrAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         return await sqlSugar.Queryable<Comment>()
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && !x.HasErrors)
             .ToListAsync();
     }
     
-    public async Task<List<Comment>> GetAllCommentsAsync(int projectId, CdiscDataType dataType)
+    public async Task<List<Comment>> GetAllCommentsAsync()
     {
+        var (projectId, dataType) = GetCurrentProjectContext();
         return await sqlSugar.Queryable<Comment>().Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType).ToListAsync();
     }
 
@@ -147,8 +160,9 @@ public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueServ
     }
 
 
-    public List<CommentDto> GetAllSdtmComments(int projectId)
+    public List<CommentDto> GetAllSdtmComments()
     {
+        var (projectId, _) = GetCurrentProjectContext();
         var comments = sqlSugar.Queryable<Comment>().Where(x => x.ProjectId == projectId && x.CdiscDataType == CdiscDataType.Sdtm).Select<CommentDto>().ToList();
         RestoreCommentErrorsAsync(comments).GetAwaiter().GetResult();
         return comments;

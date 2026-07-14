@@ -267,7 +267,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     
     private async Task LoadTerms(int id,CdiscDataType cdiscDataType)
     {
-        var list = await _termService.GetAllTermDtosAsync(id,cdiscDataType);
+        var list = await _termService.GetAllTermDtosAsync();
         // list.MarkDuplicates(
         //     o => new {Name=o.Name,
         //         CodeListId=o.CodeListUniqueId},
@@ -282,7 +282,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
 
     private async Task LoadCodeLists(int id, CdiscDataType cdiscDataType)
     {
-        var list = await _codeListService.GetAllCodeListsWithoutErorrAsync(id,cdiscDataType);
+        var list = await _codeListService.GetAllCodeListsWithoutErorrAsync();
         List<IAutoCompleteOption> res = [];
         foreach (var codeList in list)
         {

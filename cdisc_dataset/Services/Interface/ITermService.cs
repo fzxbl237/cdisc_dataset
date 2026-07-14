@@ -2,18 +2,14 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
-using cdisc_dataset.Models.Enums;
 
 namespace cdisc_dataset.Services.Interface;
 
 public interface ITermService
 {
-    CdiscDataType CdiscDataType { get; set; }
-    
-    int CurrentProjectId { get; set; }
-    Task<List<TermDto>> GetAllTermDtosAsync(int projectId,CdiscDataType dataType);
-    Task<List<TermDto>> GetAllTermDtosWithoutErorrAsync(int projectId, CdiscDataType dataType);
-    Task<List<Term>> GetAllTermsWithoutErorrAsync(int projectId, CdiscDataType dataType);
+    Task<List<TermDto>> GetAllTermDtosAsync();
+    Task<List<TermDto>> GetAllTermDtosWithoutErorrAsync();
+    Task<List<Term>> GetAllTermsWithoutErorrAsync();
     
     Task<List<Term>?> GetTermsByCodeListIdAsync(int? codeListId);
     Task<List<string?>> GetTermCodesByCodeListIdAsync(string? codeListId);

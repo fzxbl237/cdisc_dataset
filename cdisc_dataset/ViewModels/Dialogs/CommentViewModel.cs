@@ -107,7 +107,7 @@ public partial class CommentViewModel : ObservableObject, IDialogHostAware
 
     private async Task LoadDocuments()
     {
-        var documents = await _documentService.GetAllDocumentsWithoutErorrAsync(_currentProjectService.CurrentProject?.Id??0, _currentProjectService.CdiscDataType);
+        var documents = await _documentService.GetAllDocumentsWithoutErorrAsync();
         _frozenDocumentDictionary = documents
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
             .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
