@@ -18,12 +18,12 @@ public partial class ConfirmViewModel : ObservableObject, IDialogHostAware
 
     public void OnDialogOpened(IDialogParameters parameters)
     {
-        if (parameters.TryGetValue("Title", out string title) && !string.IsNullOrWhiteSpace(title))
+        if (parameters.TryGetValue("Title", out string? title) && !string.IsNullOrWhiteSpace(title))
         {
             Title = title;
         }
 
-        if (parameters.TryGetValue("Message", out string message) && !string.IsNullOrWhiteSpace(message))
+        if (parameters.TryGetValue("Message", out string? message) && !string.IsNullOrWhiteSpace(message))
         {
             Message = message;
         }

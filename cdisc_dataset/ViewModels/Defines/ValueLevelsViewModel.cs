@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -347,8 +347,16 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     }
     
     [RelayCommand]
-    private async Task Delete(ValueLevelDto valueLevelDto)
+    private async Task DeleteAsync(ValueLevelDto valueLevelDto)
     {
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Value Level" },
+            { "Message", $"Are you sure you want to delete value level {valueLevelDto.Dataset}/{valueLevelDto.Variable}?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
         await _valueLevelService.DeleteValueLevelAsync(valueLevelDto);
         _sourceCache.Remove(valueLevelDto);
         HasChanges = true;
@@ -389,7 +397,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             { "WhereClauses", valueLevel.WhereClauses?.ToList() ?? [new WhereClauseDto()] }
         };
 
-        var result = await _dialogHostService.ShowDialog("WhereClauseEditorDialog", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("WhereClauseEditorDialog", dialogParameters);
         if (result.Result != ButtonResult.Yes)
             return;
 

@@ -5,5 +5,5 @@ namespace cdisc_dataset.Services;
 
 public interface IDialogHostService: IDialogService
 {
-    Task<IDialogResult> ShowDialog(string name, IDialogParameters parameters, string dialogHostName = "Root");
+    Task<IDialogResult> ShowDialogAsync(string name, IDialogParameters parameters, string dialogHostName = "Root");
 }

@@ -1,4 +1,4 @@
-锘縰sing System;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -172,13 +172,13 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
             { "Title", "Add Dictionary" }
         };
 
-        var result = await _dialogHostService.ShowDialog("DictionaryDialog", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("DictionaryDialog", dialogParameters);
         if (!result.Parameters.TryGetValue<DictionaryDto>("Model", out var dictionary) || CurrentProject == null)
             return;
 
         await _dictionaryService.InsertDictionaryAsync(dictionary);
         _sourceCache.AddOrUpdate(dictionary);
-        _messageService.Success("娣诲姞鎴愬姛");
+        _messageService.Success("添加成功");
         await LoadDictionaries();
     }
 
@@ -190,21 +190,29 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
             { "Title", "Modify Dictionary" },
             { "Model", dictionary }
         };
-        var result = await _dialogHostService.ShowDialog("DictionaryDialog", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("DictionaryDialog", dialogParameters);
         if (!result.Parameters.TryGetValue<DictionaryDto>("Model", out var model) || CurrentProject == null)
             return;
 
         await _dictionaryService.UpdateDictionaryAsync(model);
-        _messageService.Success("Dictionary鏇存柊鎴愬姛");
+        _messageService.Success("Dictionary更新成功");
         await LoadDictionaries();
     }
 
     [RelayCommand]
-    private async Task Delete(DictionaryDto dictionary)
+    private async Task DeleteAsync(DictionaryDto dictionary)
     {
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Dictionary" },
+            { "Message", $"Are you sure you want to delete dictionary {dictionary.UniqueId}?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
         await _dictionaryService.DeleteDictionaryAsync(dictionary);
         _sourceCache.Remove(dictionary);
-        _messageService.Success("鍒犻櫎鎴愬姛");
+        _messageService.Success("删除成功");
     }
 
     [RelayCommand]

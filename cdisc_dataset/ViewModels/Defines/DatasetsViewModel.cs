@@ -1,7 +1,8 @@
-锘縰sing System;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -83,99 +84,78 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             .SortAndBind(out _datasets, SortExpressionComparer<DatasetDto>.Ascending(o => o.Name ?? string.Empty))
             .DisposeMany()
             .Subscribe();
+    }
 
-        _sourceCache.Connect().WhenAnyPropertyChanged().Subscribe(o =>
+    private void DatasetDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not DatasetDto datasetDto) return;
+
+        if (e.PropertyName == nameof(DatasetDto.CommentUniqueId))
+            HandleCommentUniqueIdChanged(datasetDto);
+
+        if (e.PropertyName is nameof(DatasetDto.HasChanged) or nameof(DatasetDto.IsDuplicate))
+            return;
+
+        Observable.StartAsync(async () =>
         {
-            o?.HasChanged = true;
-            HasChanges = true;
-        });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Name, false)
-            .Subscribe(change =>
+            switch (e.PropertyName)
             {
-                var datasetDto = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(datasetDto, "Name");
-                    await _validator.ValidateDtoAsync(datasetDto, "Standard");
+                case nameof(DatasetDto.Name):
+                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Name));
+                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Standard));
                     _sourceCache.AddOrUpdate(datasetDto);
                     UpdateDuplicateFlags();
-                });
-            });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Label, false)
-            .Subscribe(change =>
-            {
-                var datasetDto = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(datasetDto, "Label");
+                    break;
+                case nameof(DatasetDto.Label):
+                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Label));
                     _sourceCache.AddOrUpdate(datasetDto);
-                });
-            });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Class, false)
-            .Subscribe(change =>
-            {
-                var datasetDto = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(datasetDto, "Class");
+                    break;
+                case nameof(DatasetDto.Class):
+                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Class));
                     _sourceCache.AddOrUpdate(datasetDto);
-                });
-            });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.SubClass, false)
-            .Subscribe(change =>
-            {
-                var datasetDto = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(datasetDto, "SubClass");
+                    break;
+                case nameof(DatasetDto.SubClass):
+                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.SubClass));
                     _sourceCache.AddOrUpdate(datasetDto);
-                });
-            });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Repeating, false)
-            .Subscribe(change =>
-            {
-                var datasetDto = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(datasetDto, "Repeating");
+                    break;
+                case nameof(DatasetDto.Repeating):
+                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Repeating));
                     _sourceCache.AddOrUpdate(datasetDto);
-                });
-            });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.CommentUniqueId, false)
-            .Subscribe(change =>
-            {
-                var datasetDto = change.Sender;
-
-                if (_frozenCommentDictionary != null &&
-                    _frozenCommentDictionary.TryGetValue(datasetDto.CommentUniqueId ?? string.Empty, out var comment))
-                {
-                    datasetDto.Comment = comment;
-                    datasetDto.CommentId = comment.Id;
-                }
-                else
-                {
-                    datasetDto.Comment = null;
-                    datasetDto.CommentId = 0;
-                }
-
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(datasetDto, "CommentUniqueId");
+                    break;
+                case nameof(DatasetDto.CommentUniqueId):
+                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.CommentUniqueId));
                     _sourceCache.AddOrUpdate(datasetDto);
-                });
-            });
+                    break;
+            }
+        });
+
+        datasetDto.HasChanged = true;
+        HasChanges = true;
+    }
+
+    private void HandleCommentUniqueIdChanged(DatasetDto datasetDto)
+    {
+        if (_frozenCommentDictionary != null &&
+            _frozenCommentDictionary.TryGetValue(datasetDto.CommentUniqueId ?? string.Empty, out var comment))
+        {
+            datasetDto.Comment = comment;
+            datasetDto.CommentId = comment.Id;
+        }
+        else
+        {
+            datasetDto.Comment = null;
+            datasetDto.CommentId = 0;
+        }
+    }
+
+    private void RegisterDatasetDtoPropertyChanged(DatasetDto datasetDto)
+    {
+        datasetDto.PropertyChanged += DatasetDtoOnPropertyChanged;
+    }
+
+    private void UnregisterDatasetDtoPropertyChanged(DatasetDto datasetDto)
+    {
+        datasetDto.PropertyChanged -= DatasetDtoOnPropertyChanged;
     }
 
     private void UpdateDuplicateFlags()
@@ -214,10 +194,15 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     public async Task LoadDatasets()
     {
         IsLoading = true;
+
+        foreach (var datasetDto in _sourceCache.Items)
+            UnregisterDatasetDtoPropertyChanged(datasetDto);
+
         var list = await _datasetService.GetAllDatasetsAsync();
         foreach (var datasetDto in list)
         {
             await _validator.ValidateDtoAsync(datasetDto);
+            RegisterDatasetDtoPropertyChanged(datasetDto);
         }
         _sourceCache.Edit(o =>
         {
@@ -251,11 +236,20 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
-    private async Task Delete(DatasetDto dataset)
+    private async Task DeleteAsync(DatasetDto dataset)
     {
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Dataset" },
+            { "Message", $"Are you sure you want to delete dataset {dataset.Name}?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
+        UnregisterDatasetDtoPropertyChanged(dataset);
         await _datasetService.DeleteDatasetAsync(dataset);
         _sourceCache.Edit(o => o.Remove(dataset));
-        _messageService.Success("鍒犻櫎鎴愬姛");
+        _messageService.Success("删除成功");
     }
 
     [RelayCommand]
@@ -264,7 +258,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         if (!HasChanges) return;
         await _datasetService.SaveDatasetsAsync(_sourceCache.Items.Where(o => o.HasChanged).ToList());
         HasChanges = false;
-        _messageService.Success("淇濆瓨鎴愬姛");
+        _messageService.Success("保存成功");
         await LoadDatasets();
     }
 
@@ -279,7 +273,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     private async Task EditKeyVariables(DatasetDto dataset)
     {
         var dialogParameters = new DialogParameters { { "DatasetDto", dataset } };
-        var result = await _dialogHostService.ShowDialog("EditKeyVariables", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("EditKeyVariables", dialogParameters);
         if (result.Parameters.TryGetValue<string>("KeyVariables", out string? keyVariables))
         {
             dataset.KeyVariables = keyVariables;
@@ -295,7 +289,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             { "Title", "Add Comment" },
             { "DefaultId", $"COM.{dataset.Name}" }
         };
-        var result = await _dialogHostService.ShowDialog("CommentDialog", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("CommentDialog", dialogParameters);
         if (result.Parameters.TryGetValue<CommentDto>("Model", out CommentDto? comment))
         {
             var entity = await _commentService.InsertCommentAsync(comment);
@@ -304,7 +298,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             dataset.CommentUniqueId = entity.UniqueId;
             _sourceCache.AddOrUpdate(dataset);
             await _datasetService.UpdateDatasetAsync(dataset);
-            _messageService.Success("Comment娣诲姞鎴愬姛");
+            _messageService.Success("Comment添加成功");
         }
     }
 
@@ -318,7 +312,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             { "Title", "Modify Comment" },
             { "Model", commentDto }
         };
-        var result = await _dialogHostService.ShowDialog("CommentDialog", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("CommentDialog", dialogParameters);
         if (result.Parameters.TryGetValue<CommentDto>("Model", out CommentDto? model))
         {
             var entity = await _commentService.UpdateCommentAsync(model);
@@ -327,7 +321,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             dataset.CommentUniqueId = entity.UniqueId;
             _sourceCache.AddOrUpdate(dataset);
             await _datasetService.UpdateDatasetAsync(dataset);
-            _messageService.Success("Comment鏇存柊鎴愬姛");
+            _messageService.Success("Comment更新成功");
         }
     }
 
@@ -336,7 +330,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     {
         if (_currentProjectService.CurrentProject == null) return;
 
-        var result = await _dialogHostService.ShowDialog("DatasetDialog", new DialogParameters());
+        var result = await _dialogHostService.ShowDialogAsync("DatasetDialog", new DialogParameters());
         if (result.Result != ButtonResult.Yes ||
             !result.Parameters.TryGetValue<List<Dataset>>("Datasets", out var datasets) ||
             datasets.Count == 0)
@@ -352,7 +346,15 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
         await _datasetService.InsertDatasetsWithVariablesAsync(datasets);
         await LoadDatasets();
-        _messageService.Success("Datasets娣诲姞鎴愬姛");
+        _messageService.Success("Datasets添加成功");
+    }
+
+    public override void OnNavigatedFrom(NavigationContext navigationContext)
+    {
+        base.OnNavigatedFrom(navigationContext);
+
+        foreach (var datasetDto in _sourceCache.Items)
+            UnregisterDatasetDtoPropertyChanged(datasetDto);
     }
 
     public override void OnNavigatedTo(NavigationContext navigationContext)

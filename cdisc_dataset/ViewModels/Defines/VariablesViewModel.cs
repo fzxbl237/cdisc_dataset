@@ -155,7 +155,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         IsLoading = true;
         var sw = Stopwatch.StartNew();
 
-        // // å–æ¶ˆæ—§æ•°æ®çš„ PropertyChanged è®¢é˜…
+        // // È¡Ïû¾ÉÊı¾İµÄ PropertyChanged ¶©ÔÄ
         foreach (var variableDto in _sourceCache.Items)
         {
             variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;
@@ -338,13 +338,21 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task DeleteAsync(VariableDto variable)
     {
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Variable" },
+            { "Message", $"Are you sure you want to delete variable {variable.VariableName}?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
         variable.PropertyChanged -= VariableDtoOnPropertyChanged;
         await _variableService.DeleteVariableAsync(variable);
         _sourceCache.Edit(o =>
         {
             o.Remove(variable);
         });
-        _messageService.Success("åˆ é™¤æˆåŠŸ");
+        _messageService.Success("É¾³ı³É¹¦");
     }
     
     [RelayCommand]
@@ -356,7 +364,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         {
             { "DatasetName", DatasetFilter }
         };
-        var result = await _dialogHostService.ShowDialog("VariableDialog", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("VariableDialog", dialogParameters);
         if (result.Result != ButtonResult.Yes ||
             !result.Parameters.TryGetValue<List<VariableDto>>("Variables", out var variables) ||
             variables.Count == 0)
@@ -365,7 +373,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         }
         await _variableService.SaveVariablesAsync(variables);
         await LoadVariablesAsync();
-        _messageService.Success("Variableæ·»åŠ æˆåŠŸ");
+        _messageService.Success("VariableÌí¼Ó³É¹¦");
     }
     
     [RelayCommand]
@@ -375,7 +383,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         await _variableService.SaveVariablesAsync(_sourceCache.Items.Where(o=>o.HasChanged).ToList());
         //await _variableService.SaveVariablesAsync(_sourceCache.Items);
         HasChanges = false;
-        _messageService.Success("ä¿å­˜æˆåŠŸ");
+        _messageService.Success("±£´æ³É¹¦");
         await LoadVariablesAsync();
     }
     
@@ -394,7 +402,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             { "Title", "Add Comment" },
             { "DefaultId",$"COM.{variable.VariableName}"}
         };
-        var result = await _dialogHostService.ShowDialog("CommentDialog",dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
         if (result.Parameters.TryGetValue<CommentDto>("Model",out CommentDto? comment))
         {
             var commentDto = await _commentService.InsertCommentAsync(comment);
@@ -404,7 +412,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             variable.CommentUniqueId = entity.UniqueId;
             _sourceCache.Edit(o=>o.AddOrUpdate(variable));
             await _variableService.UpdateVariableAsync(variable);
-            _messageService.Success("Commentæ·»åŠ æˆåŠŸ");
+            _messageService.Success("CommentÌí¼Ó³É¹¦");
         }
     }
     
@@ -418,7 +426,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             { "Title", "Modify Comment" },
             { "Model", commentDto }
         };
-        var result = await _dialogHostService.ShowDialog("CommentDialog",dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
         if (result.Parameters.TryGetValue<CommentDto>("Model",out CommentDto? model))
         {
             var entity = await _commentService.UpdateCommentAsync(model);
@@ -427,7 +435,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             variable.CommentUniqueId = entity.UniqueId;
             _sourceCache.Edit(o=>o.AddOrUpdate(variable));
             await _variableService.UpdateVariableAsync(variable);
-            _messageService.Success("Commentæ›´æ–°æˆåŠŸ");
+            _messageService.Success("Comment¸üĞÂ³É¹¦");
         }
     }
 
@@ -435,7 +443,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     {
         base.OnNavigatedFrom(navigationContext);
 
-        //å–æ¶ˆæ‰€æœ‰ VariableDto çš„ PropertyChanged è®¢é˜…
+        //È¡ÏûËùÓĞ VariableDto µÄ PropertyChanged ¶©ÔÄ
         foreach (var variableDto in _sourceCache.Items)
         {
             variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;

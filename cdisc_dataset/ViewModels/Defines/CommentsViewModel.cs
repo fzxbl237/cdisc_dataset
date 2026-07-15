@@ -1,4 +1,4 @@
-锘縰sing System;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -169,14 +169,14 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
             dialogParameters.Add("CdiscDataType", CdiscDataType);
         }
 
-        var result = await _dialogHostService.ShowDialog("CommentDialog", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("CommentDialog", dialogParameters);
         if (!result.Parameters.TryGetValue<CommentDto>("Model", out var commentDto) || CurrentProject == null)
             return;
 
         commentDto.ProjectId = CurrentProject.Id;
         commentDto.CdiscDataType = CdiscDataType;
         await _commentService.InsertCommentAsync(commentDto);
-        _messageService.Success("娣诲姞鎴愬姛");
+        _messageService.Success("添加成功");
         await LoadComments(CurrentProject.Id, CdiscDataType);
     }
     
@@ -189,16 +189,24 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
             { "ProjectId", CurrentProject!.Id },
             { "Model", comment }
         };
-        var result = await _dialogHostService.ShowDialog("CommentDialog",dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
         if (!result.Parameters.TryGetValue<CommentDto>("Model", out var commentDto) || CurrentProject == null)
             return;
         await _commentService.UpdateCommentAsync(commentDto);
-        _messageService.Success("Comment鏇存柊鎴愬姛");
+        _messageService.Success("Comment更新成功");
     }
 
     [RelayCommand]
-    private async Task Delete(CommentDto commentDto)
+    private async Task DeleteAsync(CommentDto commentDto)
     {
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Comment" },
+            { "Message", $"Are you sure you want to delete comment {commentDto.UniqueId}?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
         if (CurrentProject == null)
             return;
 
@@ -210,7 +218,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         await _commentService.DeleteCommentAsync(comment);
         _commentSourceCache.Remove(commentDto);
         MarkDuplicates();
-        _messageService.Success("鍒犻櫎鎴愬姛");
+        _messageService.Success("删除成功");
     }
 
     private void MarkDuplicates()
@@ -271,7 +279,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
             { "Message", "Do you want to save changes before leaving?" }
         };
 
-        var result = await _dialogHostService.ShowDialog("UnsavedChangesDialog", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("UnsavedChangesDialog", dialogParameters);
         if (result.Result == ButtonResult.OK)
         {
             await SaveCommand.ExecuteAsync(null);

@@ -17,7 +17,7 @@ public class DialogHostService: DialogService, IDialogHostService
         this.containerExtension = containerExtension;
     }
     
-    public async Task<IDialogResult> ShowDialog(string name, IDialogParameters? parameters, string dialogHostName = "Root")
+    public async Task<IDialogResult> ShowDialogAsync(string name, IDialogParameters? parameters, string dialogHostName = "Root")
     {
         parameters ??= new DialogParameters();
 

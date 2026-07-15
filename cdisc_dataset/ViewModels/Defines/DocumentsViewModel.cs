@@ -1,4 +1,4 @@
-锘縰sing System;
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Concurrency;
@@ -10,11 +10,13 @@ using cdisc_dataset.Extensions;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Models.Enums;
+using cdisc_dataset.Services;
 using cdisc_dataset.Services.Interface;
 using cdisc_dataset.Validations;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DynamicData;
+using Prism.Dialogs;
 using DynamicData.Binding;
 using FluentValidation;
 using Prism.Navigation.Regions;
@@ -27,6 +29,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
     private readonly IMessageService _messageService;
     private readonly IDocumentService _documentService;
     private readonly IIssueService _issueService;
+    private readonly IDialogHostService _dialogHostService;
     private readonly IValidator<DocumentDto> _validator;
 
     [ObservableProperty]
@@ -53,11 +56,13 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         IMessageService messageService,
         IDocumentService documentService,
         IIssueService issueService,
+        IDialogHostService dialogHostService,
         IValidator<DocumentDto> validator)
     {
         _messageService = messageService;
         _documentService = documentService;
         _issueService = issueService;
+        _dialogHostService = dialogHostService;
         _validator = validator;
 
         var filter = this.WhenValueChanged(t => t.SearchText)
@@ -158,16 +163,24 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         _documentSourceCache.AddOrUpdate(dto);
         MarkDuplicates();
         HasChanges = true;
-        _messageService.Success("娣诲姞鎴愬姛");
+        _messageService.Success("添加成功");
     }
 
     [RelayCommand]
-    private async Task Delete(DocumentDto documentDto)
+    private async Task DeleteAsync(DocumentDto documentDto)
     {
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Document" },
+            { "Message", $"Are you sure you want to delete document {documentDto.Title}?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
         await _documentService.DeleteDocumentDtoAsync(documentDto);
         _documentSourceCache.Remove(documentDto);
         MarkDuplicates();
-        _messageService.Success("鍒犻櫎鎴愬姛");
+        _messageService.Success("删除成功");
     }
 
     [RelayCommand]

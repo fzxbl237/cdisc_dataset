@@ -111,7 +111,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
 
         if (SelectedFileType is ProjectFileType.Protocol or ProjectFileType.Acrf && existingFiles.Any())
         {
-            var replaceResult = await _dialogHostService.ShowDialog(
+            var replaceResult = await _dialogHostService.ShowDialogAsync(
                 "ConfirmDialog",
                 new DialogParameters
                 {
@@ -183,95 +183,51 @@ public partial class FileViewModel : ObservableObject, INavigationAware
 
         var datasets = new List<Dataset>();
         var codeLists = new List<CodeList>();
+        var projectId = CurrentProject.Id;
+        var files = Files.ToList();
 
-        foreach (var file in Files)
+        foreach (var file in files)
         {
-            var localPath = _liteDatabase.FileStorage.FindById(file.StorageId.ToString());
-            if (localPath == null)
+            var parsedFile = await Task.Run(() => ParseStandardSdtmFile(file));
+            if (parsedFile == null)
                 continue;
 
-            await using var memoryStream = new MemoryStream();
-            localPath.CopyTo(memoryStream);
-            memoryStream.Position = 0;
-
-            var validationOptions = ValidationOptions.CreateBuilder().Build();
-            var factory = new DataEntryFactory(validationOptions);
-            var name = Path.GetFileNameWithoutExtension(file.FileName).ToUpper();
-            var options = SourceOptions.builder()
-                .WithName(name)
-                .WithMemoryStream(memoryStream)
-                .WithType(SourceOptions.StandardTypes.SasTransport)
-                .Build();
-
-            using var dataSource = new SasTransportDataSource(options, factory);
-            var variableNames = dataSource.GetVariables();
-            var allRecords = new List<DataRecord>();
-
-            while (dataSource.HasRecords())
-            {
-                try
-                {
-                    var records = dataSource.GetRecords();
-                    if (records.Count == 0)
-                    {
-                        break;
-                    }
-                    allRecords.AddRange(records);
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e);
-                    throw;
-                }
-
-            }
-            var label = dataSource.GetDetails().GetString(SourceDetails.Property.DatasetLabel);
+            var name = parsedFile.Name;
             var datasetStd = await _datasetService.GetStandardSdtmDatasetByNameAsync(name);
             var dataset = new Dataset()
             {
                 Name = name,
-                Label = label,
+                Label = parsedFile.Label,
                 Class = datasetStd?.Class,
                 Structure =  datasetStd?.Structure,
                 KeyVariables = datasetStd?.KeyVariables,
                 Standard =  datasetStd?.Standard,
-                HasNoData =  dataSource.HasRecords()?"No":"Yes",
+                HasNoData = parsedFile.HasRecordsAfterRead?"No":"Yes",
                 Repeating = datasetStd?.Repeating,
                 ReferenceData =  datasetStd?.ReferenceData,
-                ProjectId = CurrentProject.Id,
+                ProjectId = projectId,
                 CdiscDataType = CdiscDataType.Sdtm
             };
             
             List<Variable> variables = [];
-            foreach (var variableName in variableNames)
+            foreach (var parsedVariable in parsedFile.Variables)
             {
+                var variableName = parsedVariable.Name;
                 var standardVariable = await _variableService.GetStandardVariableByDatasetAndVariableNameAsync(name, variableName,CdiscDataType.Sdtm);
-                var dataEntries = allRecords.Select(o=>o.GetValue(variableName)).ToList();
-                var variableLabel = (string?)dataSource.GetVariableProperty(variableName,DataSource.VariableProperty.Label);
-                var type = (string?)dataSource.GetVariableProperty(variableName,DataSource.VariableProperty.Type);
-                var format = (string?)dataSource.GetVariableProperty(variableName,DataSource.VariableProperty.Format);
-                var hasValue = dataEntries.Any(o=>o.HasValue);
-                var order = Convert.ToInt32(
-                    dataSource.GetVariableProperty(variableName, DataSource.VariableProperty.Order) ?? 0);
-                var dataType = allRecords.InferDataType(variableName);
-                var digit=dataType == "float" ? allRecords.GetDecimalPlaces(variableName) : null;
-                int? length = Convert.ToInt32(dataSource.GetVariableProperty(variableName,DataSource.VariableProperty.Length));
-                
-
                 var variable = new Variable()
                 {
-                    Order = order,
+                    Order = parsedVariable.Order,
                     DatasetName = name,
                     VariableName = variableName.ToUpper(),
-                    Label = variableLabel,
-                    DataType = dataType,
-                    Length = dataType == "datetime" ? null:length,
-                    SignificantDigits =  digit,
-                    Format = format=="$"?"$"+length:format,
+                    Label = parsedVariable.Label,
+                    DataType = parsedVariable.DataType,
+                    Length = parsedVariable.DataType == "datetime" ? null:parsedVariable.Length,
+                    SignificantDigits = parsedVariable.SignificantDigits,
+                    Format = parsedVariable.Format=="$"?"$"+parsedVariable.Length:parsedVariable.Format,
                     Mandatory = standardVariable?.Mandatory,
                     Role =  standardVariable?.Role,
-                    HasNoData = hasValue?"No":"Yes",
-                    ProjectId = CurrentProject.Id,
+                    HasNoData = parsedVariable.HasValue?"No":"Yes",
+                    ProjectId = projectId,
                     Origin = variableName.InferOrigin(),
                     Source = !string.IsNullOrWhiteSpace(variableName.InferOrigin())?"Sponsor":null,
                     CdiscDataType = CdiscDataType.Sdtm
@@ -281,14 +237,13 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                 {
                     var codeList = new CodeList();
                     var codeListRefName = codeListRef.CodeListRef;
-                    var entries = allRecords
-                        .Select(o => o.GetValue(variableName).ToString())
+                    var entries = parsedVariable.Entries
                         .Where(o=>!string.IsNullOrWhiteSpace(o))
                         .Distinct()
                         .ToList();
                     
                     codeList.CdiscDataType = CdiscDataType.Sdtm;
-                    codeList.ProjectId = CurrentProject.Id;
+                    codeList.ProjectId = projectId;
                     codeList.Code = codeListRef.CodeListCode;
                     codeList.Type = variable.DataType;
                     // todo: need dynamic Terminology;
@@ -321,7 +276,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                         term.Code = codeListTerm?.Code;
                         term.DecodedValue = codeListTerm?.DecodedValue;
                         term.CdiscDataType = CdiscDataType.Sdtm;
-                        term.ProjectId = CurrentProject.Id;
+                        term.ProjectId = projectId;
                         terms.Add(term);
                     }
 
@@ -397,7 +352,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                         Name = codeListTerm.CodeValue,
                         DecodedValue = codeListTerm.DecodedValue,
                         CdiscDataType = CdiscDataType.Sdtm,
-                        ProjectId = CurrentProject.Id,
+                        ProjectId = projectId,
                         Code = codeListTerm?.Code,
                         Order = order++
                     };
@@ -466,7 +421,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                         Name = codeListTerm.CodeValue,
                         DecodedValue = codeListTerm.DecodedValue,
                         CdiscDataType = CdiscDataType.Sdtm,
-                        ProjectId = CurrentProject.Id,
+                        ProjectId = projectId,
                         Code = codeListTerm?.Code
                     };
                     terms.Add(term);
@@ -538,6 +493,88 @@ public partial class FileViewModel : ObservableObject, INavigationAware
         
         _messageService.Success($"Loaded {datasets.Count} dataset(s) from SDTM XPT files");
     }
+
+    private ParsedSdtmFile? ParseStandardSdtmFile(ProjectFile file)
+    {
+        var storedFile = _liteDatabase.FileStorage.FindById(file.StorageId.ToString());
+        if (storedFile == null)
+            return null;
+
+        using var memoryStream = new MemoryStream();
+        storedFile.CopyTo(memoryStream);
+        memoryStream.Position = 0;
+
+        var validationOptions = ValidationOptions.CreateBuilder().Build();
+        var factory = new DataEntryFactory(validationOptions);
+        var name = Path.GetFileNameWithoutExtension(file.FileName).ToUpper();
+        var options = SourceOptions.builder()
+            .WithName(name)
+            .WithMemoryStream(memoryStream)
+            .WithType(SourceOptions.StandardTypes.SasTransport)
+            .Build();
+
+        using var dataSource = new SasTransportDataSource(options, factory);
+        var variableNames = dataSource.GetVariables().ToList();
+        var allRecords = new List<DataRecord>();
+
+        while (dataSource.HasRecords())
+        {
+            try
+            {
+                var records = dataSource.GetRecords();
+                if (records.Count == 0)
+                    break;
+
+                allRecords.AddRange(records);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                throw;
+            }
+        }
+
+        var variables = new List<ParsedSdtmVariable>(variableNames.Count);
+        foreach (var variableName in variableNames)
+        {
+            var dataEntries = allRecords.Select(o => o.GetValue(variableName)).ToList();
+            var dataType = allRecords.InferDataType(variableName);
+            var length = Convert.ToInt32(dataSource.GetVariableProperty(variableName, DataSource.VariableProperty.Length));
+            variables.Add(new ParsedSdtmVariable(
+                variableName,
+                (string?)dataSource.GetVariableProperty(variableName, DataSource.VariableProperty.Label),
+                (string?)dataSource.GetVariableProperty(variableName, DataSource.VariableProperty.Format),
+                Convert.ToInt32(dataSource.GetVariableProperty(variableName, DataSource.VariableProperty.Order) ?? 0),
+                dataType,
+                dataType == "float" ? allRecords.GetDecimalPlaces(variableName) : null,
+                length,
+                dataEntries.Any(o => o.HasValue),
+                dataEntries.Select(o => o.ToString()).ToList()));
+        }
+
+        return new ParsedSdtmFile(
+            name,
+            dataSource.GetDetails().GetString(SourceDetails.Property.DatasetLabel),
+            dataSource.HasRecords(),
+            variables);
+    }
+
+    private sealed record ParsedSdtmFile(
+        string Name,
+        string? Label,
+        bool HasRecordsAfterRead,
+        IReadOnlyList<ParsedSdtmVariable> Variables);
+
+    private sealed record ParsedSdtmVariable(
+        string Name,
+        string? Label,
+        string? Format,
+        int Order,
+        string? DataType,
+        int? SignificantDigits,
+        int? Length,
+        bool HasValue,
+        IReadOnlyList<string?>? Entries);
 
     [RelayCommand]
     private async Task DeleteProjectData()

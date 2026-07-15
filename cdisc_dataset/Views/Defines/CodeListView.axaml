@@ -60,6 +60,17 @@
                         <Setter Property="Background" Value="Transparent" />
                         <Setter Property="BorderThickness" Value="0" />
                     </Style>
+                    <Style Selector="DataGridRow">
+                        <Setter Property="ContextMenu">
+                            <atom:ContextMenu x:DataType="dto:CodeListDto">
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:CodeListViewModel)DataContext).DeleteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Delete"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                            </atom:ContextMenu>
+                        </Setter>
+                    </Style>
 
                     <Style Selector="DataGridCell.commentColumn">
                         <Setter Property="Template">
@@ -254,26 +265,7 @@
                         </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
                     </controls:DataGridAtomAutoCompleteColumn>
 
-                    <DataGridTemplateColumn CellStyleClasses="template" Header="Options">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel
-                                    Margin="15,0,0,0"
-                                    Orientation="Horizontal"
-                                    Spacing="15">
-                                    <!-- <atom:HyperLinkTextBlock Text="Modify" VerticalAlignment="Center" /> -->
-                                    <atom:PopupConfirm Title="Sure to delete?">
-                                        <Interaction.Behaviors>
-                                            <EventTriggerBehavior EventName="Confirmed">
-                                                <InvokeCommandAction Command="{Binding $parent[DataGrid].((vm:CodeListViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
-                                            </EventTriggerBehavior>
-                                        </Interaction.Behaviors>
-                                        <atom:HyperLinkTextBlock Text="Delete" VerticalAlignment="Center" />
-                                    </atom:PopupConfirm>
-                                </StackPanel>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
+
                 </DataGrid.Columns>
             </DataGrid>
             <StackPanel

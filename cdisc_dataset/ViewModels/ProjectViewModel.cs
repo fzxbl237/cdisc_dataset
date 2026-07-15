@@ -53,7 +53,7 @@ public partial class ProjectViewModel : ObservableObject
             { "IsNotEditMode", false }
         };
 
-        var result = await _dialogHostService.ShowDialog("ProjectDialog", parameters);
+        var result = await _dialogHostService.ShowDialogAsync("ProjectDialog", parameters);
         if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Project"))
             return;
 
@@ -72,7 +72,7 @@ public partial class ProjectViewModel : ObservableObject
             { "Title", "New Project" },
             { "IsNotEditMode", true }
         };
-        var result = await _dialogHostService.ShowDialog("ProjectDialog", parameters);
+        var result = await _dialogHostService.ShowDialogAsync("ProjectDialog", parameters);
         if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Project"))
             return;
 

@@ -1,4 +1,4 @@
-ï»¿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -184,7 +184,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     
     public async Task LoadCodeLists()
     {
-        // å–æ¶ˆæ—§æ•°æ®çš„ PropertyChanged è®¢é˜…
+        // È¡Ïû¾ÉÊı¾İµÄ PropertyChanged ¶©ÔÄ
         foreach (var codeListDto in _sourceCache.Items)
         {
             codeListDto.PropertyChanged -= CodeListDtoOnPropertyChanged;
@@ -275,14 +275,22 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     }
     
     [RelayCommand]
-    private async Task Delete(CodeListDto codeList)
+    private async Task DeleteAsync(CodeListDto codeList)
     {
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete CodeList" },
+            { "Message", $"Are you sure you want to delete code list {codeList.Name}?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
         await _codeListService.DeleteCodeListAsync(codeList);
         _sourceCache.Edit(o =>
         {
             o.Remove(codeList);
         });
-        _messageService.Success("åˆ é™¤æˆåŠŸ");
+        _messageService.Success("É¾³ı³É¹¦");
     }
     
     [RelayCommand]
@@ -294,7 +302,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             { "ProjectId", _currentProjectService.CurrentProject!.Id },
             { "DefaultId",$"COM.CL.{codeList.UniqueId}"}
         };
-        var result = await _dialogHostService.ShowDialog("CommentDialog",dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
         if (result.Parameters.TryGetValue<Comment>("Model",out Comment? comment))
         {
             Comment entity = await _commentService.InsertCommentAsync(comment);
@@ -304,7 +312,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             _sourceCache.Edit(o=>o.AddOrUpdate(codeList));
             var updateResult = await _codeListService.UpdateCodeListAsync(codeList);
             if(updateResult>0)
-                _messageService.Success("Commentæ·»åŠ æˆåŠŸ");
+                _messageService.Success("CommentÌí¼Ó³É¹¦");
         }
     }
     
@@ -317,11 +325,11 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             { "ProjectId", _currentProjectService.CurrentProject?.Id ?? 0 },
             { "Model", comment }
         };
-        var result = await _dialogHostService.ShowDialog("CommentDialog",dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
         if (result.Parameters.TryGetValue<Comment>("Model",out Comment? resultModel))
         {
             await _commentService.UpdateCommentAsync(resultModel);
-            _messageService.Success("Commentæ›´æ–°æˆåŠŸ");
+            _messageService.Success("Comment¸üĞÂ³É¹¦");
         }
     }
 
@@ -339,7 +347,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
                 { "Variables", variables??string.Empty },
                 { "Datasets",datasets??string.Empty}
             };
-            var result = await _dialogHostService.ShowDialog("DeleteCommentDialog",dialogParameters);
+            var result = await _dialogHostService.ShowDialogAsync("DeleteCommentDialog",dialogParameters);
             if (result.Result == ButtonResult.OK)
             {
                 await _commentService.DeleteCommentAsync(comment);
@@ -351,7 +359,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
                     codeList.Comment = null;
                 }
                 _sourceCache.Edit(o=>o.AddOrUpdate(codeLists));
-                _messageService.Success("åˆ é™¤æˆåŠŸ");
+                _messageService.Success("É¾³ı³É¹¦");
             }
         }
     }
@@ -364,13 +372,13 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         {
             { "CdiscDataType", CdiscDataType }
         };
-        var result = await _dialogHostService.ShowDialog("AddCodeListDialog",dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("AddCodeListDialog",dialogParameters);
         if (result.Parameters.TryGetValue<CodeList>("CodeList",out CodeList? codeList))
         {
             CodeListDto entity = await _codeListService.InsertCodeListAsync(codeList);
             await ValidateCodeListDtoAsync(entity);
             _sourceCache.Edit(o=>o.AddOrUpdate(entity));
-            _messageService.Success("CodeListæ·»åŠ æˆåŠŸ");
+            _messageService.Success("CodeListÌí¼Ó³É¹¦");
         }
     }
     
@@ -413,7 +421,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
 
     public override void OnNavigatedFrom(NavigationContext navigationContext)
     {
-        // å–æ¶ˆæ‰€æœ‰ CodeListDto çš„ PropertyChanged è®¢é˜…
+        // È¡ÏûËùÓĞ CodeListDto µÄ PropertyChanged ¶©ÔÄ
         foreach (var codeListDto in _sourceCache.Items)
         {
             codeListDto.PropertyChanged -= CodeListDtoOnPropertyChanged;

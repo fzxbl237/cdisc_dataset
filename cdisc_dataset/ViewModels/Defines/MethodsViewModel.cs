@@ -1,4 +1,4 @@
-ï»¿using System;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -276,13 +276,13 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
 
         var parameters = new DialogParameters
         {
-            { "Title", "æ–°å¢ž Method" },
+            { "Title", "ÐÂÔö Method" },
             { "ProjectId", _currentProjectService.CurrentProject.Id },
             { "CdiscDataType", CdiscDataType },
             { "Model", dto }
         };
 
-        var result = await _dialogHostService.ShowDialog("MethodDialog", parameters);
+        var result = await _dialogHostService.ShowDialogAsync("MethodDialog", parameters);
         if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Model"))
             return;
 
@@ -302,13 +302,13 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         
         var parameters = new DialogParameters
         {
-            { "Title", "ç¼–è¾‘ Method" },
+            { "Title", "±à¼­ Method" },
             { "ProjectId", _currentProjectService.CurrentProject.Id },
             { "CdiscDataType", CdiscDataType },
             { "Model", methodDto }
         };
 
-        var result = await _dialogHostService.ShowDialog("MethodDialog", parameters);
+        var result = await _dialogHostService.ShowDialogAsync("MethodDialog", parameters);
         if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Model"))
             return;
 
@@ -320,8 +320,16 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
-    private async Task Delete(MethodDto methodDto)
+    private async Task DeleteAsync(MethodDto methodDto)
     {
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Method" },
+            { "Message", $"Are you sure you want to delete method {methodDto.Name}?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
         await _methodService.DeleteMethodAsync(methodDto);
         _sourceCache.Remove(methodDto);
         MarkDuplicates();

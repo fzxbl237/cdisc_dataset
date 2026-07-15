@@ -54,16 +54,21 @@
                     <Setter Property="Background" Value="Transparent" />
                     <Setter Property="BorderThickness" Value="0" />
                 </Style>
-                <!-- <Style Selector="DataGridRow"> -->
-                <!--     <Setter Property="ContextMenu"> -->
-                <!--         <atom:ContextMenu x:DataType="dto:CommentDto"> -->
-                <!--  <atom:MenuItem  -->
-                <!--  Command="{Binding #Root.((vm:CommentsViewModel)DataContext).DeleteCommand}"  -->
-                <!--  CommandParameter="{Binding}"  -->
-                <!--  Header="Delete" />  -->
-                <!--         </atom:ContextMenu> -->
-                <!--     </Setter> -->
-                <!-- </Style> -->
+                <Style Selector="DataGridRow">
+                    <Setter Property="ContextMenu">
+                        <atom:ContextMenu x:DataType="dto:CommentDto">
+                            <atom:MenuItem
+                                Command="{Binding #Root.((vm:CommentsViewModel)DataContext).ModifyCommand}"
+                                CommandParameter="{Binding}"
+                                Header="Edit" />
+                            <atom:MenuItem
+                                Command="{Binding #Root.((vm:CommentsViewModel)DataContext).DeleteCommand}"
+                                CommandParameter="{Binding}"
+                                Header="Delete"
+                                Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                        </atom:ContextMenu>
+                    </Setter>
+                </Style>
             </DataGrid.Styles>
             <DataGrid.Columns>
                 <controls:DataGridAtomLineEditColumn
@@ -113,37 +118,6 @@
                     Header="Pages"
                     IsReadOnly="False"
                     Width="200" />
-                <DataGridTemplateColumn Header="Options">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <StackPanel
-                                HorizontalAlignment="Left"
-                                Margin="5,0,0,0"
-                                Orientation="Horizontal"
-                                Spacing="15">
-                                <atom:PopupConfirm Title="Sure to delete?">
-                                    <Interaction.Behaviors>
-                                        <EventTriggerBehavior EventName="Confirmed">
-                                            <InvokeCommandAction Command="{Binding $parent[DataGrid].((vm:CommentsViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
-                                        </EventTriggerBehavior>
-                                    </Interaction.Behaviors>
-                                    <atom:HyperLinkTextBlock
-                                        Background="Transparent"
-                                        Foreground="#ff4d4f"
-                                        Text="Delete"
-                                        VerticalAlignment="Center" />
-                                </atom:PopupConfirm>
-
-                                <atom:HyperLinkTextBlock
-                                    Background="Transparent"
-                                    Command="{Binding $parent[DataGrid].((vm:CommentsViewModel)DataContext).ModifyCommand}"
-                                    CommandParameter="{Binding}"
-                                    Text="Edit"
-                                    VerticalAlignment="Center" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
         <StackPanel

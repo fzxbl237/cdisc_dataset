@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -183,7 +183,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
             }
         }
 
-        //如果codelist发生改变 term需要重新录入;
+        //如果codelist发生改变 term需要重新录�?
         if(!string.IsNullOrWhiteSpace(changeSender.Name))
             changeSender.Name = string.Empty;
         Observable.StartAsync(async () =>
@@ -321,6 +321,14 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task DeleteAsync(TermDto termDto)
     {
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Term" },
+            { "Message", $"Are you sure you want to delete term {termDto.Name}?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
         await _termService.DeleteTermAsync(termDto);
         Detach(termDto);
         _sourceCache.Edit(o =>
@@ -387,7 +395,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         {
             { "CdiscDataType", CdiscDataType }
         };
-        var result = await _dialogHostService.ShowDialog("PairTermsDialog",dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("PairTermsDialog",dialogParameters);
         if (result.Result == ButtonResult.Yes)
         {
             await LoadTermsAsync();

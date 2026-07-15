@@ -276,6 +276,19 @@
                         </Setter>
                     </Style>
                 </DataGrid.Styles>
+                <DataGrid.Styles>
+                    <Style Selector="DataGridRow">
+                        <Setter Property="ContextMenu">
+                            <atom:ContextMenu x:DataType="model:VariableDto">
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:VariablesViewModel)DataContext).DeleteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Delete"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                            </atom:ContextMenu>
+                        </Setter>
+                    </Style>
+                </DataGrid.Styles>
                 <DataGrid.Columns>
                     <controls:DataGridAtomNumericUpDownColumn
                         Binding="{Binding Order}"
@@ -475,25 +488,6 @@
                         IsReadOnly="False"
                         Width="200" />
 
-                    <DataGridTemplateColumn CellStyleClasses="template" Header="Options">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel
-                                    Margin="15,0,0,0"
-                                    Orientation="Horizontal"
-                                    Spacing="15">
-                                    <atom:PopupConfirm Title="Sure to delete?">
-                                        <Interaction.Behaviors>
-                                            <EventTriggerBehavior EventName="Confirmed">
-                                                <InvokeCommandAction Command="{Binding $parent[DataGrid].((vm:VariablesViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
-                                            </EventTriggerBehavior>
-                                        </Interaction.Behaviors>
-                                        <atom:HyperLinkTextBlock Text="Delete" VerticalAlignment="Center" />
-                                    </atom:PopupConfirm>
-                                </StackPanel>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
                 </DataGrid.Columns>
             </DataGrid>
 
