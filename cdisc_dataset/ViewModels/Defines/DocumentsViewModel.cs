@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Concurrency;
@@ -37,6 +37,9 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty]
     private bool _hasChanges;
+
+    [ObservableProperty]
+    private bool _isLoading;
 
     [ObservableProperty]
     private string? _searchText;
@@ -196,10 +199,14 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         navigationContextParameters.TryGetValue("CurrentProject", out Project? currentProject);
         CdiscDataType = cdiscDataType;
         CurrentProject = currentProject;
-        if (CurrentProject != null)
-        {
-            LoadDocuments(CurrentProject.Id, CdiscDataType).Await();
-        }
+    }
+
+    public async Task LoadDataAsync()
+    {
+        if (CurrentProject == null)
+            return;
+
+        await LoadDocuments(CurrentProject.Id, CdiscDataType);
     }
 
     public override void OnNavigatedFrom(NavigationContext navigationContext)
@@ -211,7 +218,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         continuationCallback(true);
     }
 
-    private async Task LoadDocuments(int id, CdiscDataType cdiscDataType)
+    public async Task LoadDocuments(int id, CdiscDataType cdiscDataType)
     {
         var dtoList = await _documentService.GetAllDocumentDtosAsync();
         foreach (var document in dtoList)

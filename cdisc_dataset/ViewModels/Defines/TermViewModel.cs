@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Reactive.Concurrency;
@@ -60,6 +61,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     [ObservableProperty] private string? _searchText;
     
     [ObservableProperty] private bool _hasChanges;
+    [ObservableProperty] private bool _isLoading;
     [ObservableProperty]
     private CdiscDataType _cdiscDataType;
     
@@ -107,119 +109,128 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
                 .ThenByAscending(o=>o.Order))
             .DisposeMany()
             .Subscribe();
-        
-        _sourceCache.Connect()
-            .WhenAnyPropertyChanged()
-            .Subscribe((change) =>
-            {
-                if (!HasChanges)
-                    HasChanges = true;
-            });
 
         _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.CodeListUniqueId, false)
-            .Subscribe((change) =>
+            .Subscribe(changes =>
             {
-                var changeSender = change.Sender;
-                var changeValue = change.Value;
-                // var autoCompleteOption = CodeListOptions.Where(o=>
-                // {
-                //     if (o.Content is string stringValue)
-                //     {
-                //         return stringValue == changeValue;
-                //     }
-                //     return false;
-                // }).FirstOrDefault();
-                // if (autoCompleteOption is null)
-                // {
-                //     changeSender.CodeList = null;
-                //     changeSender.CodeListId = 0;
-                // }else if (autoCompleteOption is CodeListAutoCompleteOption codeListAutoCompleteOption)
-                // {
-                //     changeSender.CodeList = codeListAutoCompleteOption.CodeList;
-                //     changeSender.CodeListId = codeListAutoCompleteOption.CodeList?.Id ?? 0;
-                // }
-                
-                if (!string.IsNullOrWhiteSpace(changeValue) && _codeListDictionary!=null)
+                foreach (var change in changes)
                 {
-                    _codeListDictionary.TryGetValue(changeValue, out CodeList? codeList);
-                    if (codeList != null)
+                    switch (change.Reason)
                     {
-                        changeSender.CodeList = codeList;
-                        changeSender.CodeListId = codeList.Id;
-                    }
-                    else
-                    {
-                        changeSender.CodeList = null;
-                        changeSender.CodeListId = 0;
+                        case ChangeReason.Add:
+                            Attach(change.Current);
+                            break;
+                        case ChangeReason.Remove:
+                            Detach(change.Current);
+                            break;
                     }
                 }
-                
-                //如果codelist发生改变 term需要重新录入;
-                if(!string.IsNullOrWhiteSpace(changeSender.Name))
-                    changeSender.Name = string.Empty;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender, "CodeListUniqueId");
-                    _sourceCache.AddOrUpdate(changeSender);
-                });
-                MarkNameDuplicates();
             });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.IsNameDuplicate, false)
-            .Subscribe((change) =>
-            {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender, "Name");
-                    _sourceCache.AddOrUpdate(changeSender);
-                });
-            });
+    }
 
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Name, false)
-            .Subscribe((change) =>
-            {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    var termStd = await _termService.GetTermStdAsync(changeSender.CodeList?.Code, change.Value);
-                    if (termStd!=null)
-                    {
-                        changeSender.Code = termStd.Code;
-                        if (!string.IsNullOrEmpty(termStd.Synonyms))
-                        {
-                            changeSender.DecodedValue = termStd.Synonyms.Split(";").First();
-                        }
-                    }
-                    else
-                    {
-                        changeSender.Code = string.Empty;
-                        changeSender.DecodedValue = string.Empty;
-                    }
-                    MarkNameDuplicates();
-                    await _validator.ValidateDtoAsync(changeSender,"Name");
-                    _sourceCache.AddOrUpdate(changeSender);
-    
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.DecodedValue, false)
-            .Subscribe((change) =>
-            {
+    private void Attach(TermDto termDto)
+    {
+        termDto.PropertyChanged += OnTermDtoPropertyChanged;
+    }
+
+    private void Detach(TermDto termDto)
+    {
+        termDto.PropertyChanged -= OnTermDtoPropertyChanged;
+    }
+
+    private void OnTermDtoPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not TermDto termDto) return;
+
+        if (!HasChanges)
+            HasChanges = true;
+
+        switch (e.PropertyName)
+        {
+            case nameof(TermDto.CodeListUniqueId):
+                HandleCodeListUniqueIdChanged(termDto);
+                break;
+            case nameof(TermDto.IsNameDuplicate):
+                HandleIsNameDuplicateChanged(termDto);
+                break;
+            case nameof(TermDto.Name):
+                HandleNameChanged(termDto);
+                break;
+            case nameof(TermDto.DecodedValue):
                 UpdateDecodedValueConsistent();
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Order, false)
-            .Subscribe((change) =>
+                break;
+            case nameof(TermDto.Order):
+                _sourceCache.AddOrUpdate(termDto);
+                break;
+        }
+    }
+
+    private void HandleCodeListUniqueIdChanged(TermDto changeSender)
+    {
+        var changeValue = changeSender.CodeListUniqueId;
+        if (!string.IsNullOrWhiteSpace(changeValue) && _codeListDictionary!=null)
+        {
+            _codeListDictionary.TryGetValue(changeValue, out CodeList? codeList);
+            if (codeList != null)
             {
-                var changeSender = change.Sender;
-                _sourceCache.AddOrUpdate(changeSender);
-            });
+                changeSender.CodeList = codeList;
+                changeSender.CodeListId = codeList.Id;
+            }
+            else
+            {
+                changeSender.CodeList = null;
+                changeSender.CodeListId = 0;
+            }
+        }
+
+        //如果codelist发生改变 term需要重新录入;
+        if(!string.IsNullOrWhiteSpace(changeSender.Name))
+            changeSender.Name = string.Empty;
+        Observable.StartAsync(async () =>
+        {
+            await _validator.ValidateDtoAsync(changeSender, "CodeListUniqueId");
+            _sourceCache.AddOrUpdate(changeSender);
+        });
+        MarkNameDuplicates();
+    }
+
+    private void HandleIsNameDuplicateChanged(TermDto changeSender)
+    {
+        Observable.StartAsync(async () =>
+        {
+            await _validator.ValidateDtoAsync(changeSender, "Name");
+            _sourceCache.AddOrUpdate(changeSender);
+        });
+    }
+
+    private void HandleNameChanged(TermDto changeSender)
+    {
+        Observable.StartAsync(async () =>
+        {
+            var termStd = await _termService.GetTermStdAsync(changeSender.CodeList?.Code, changeSender.Name);
+            if (termStd!=null)
+            {
+                changeSender.Code = termStd.Code;
+                if (!string.IsNullOrEmpty(termStd.Synonyms))
+                {
+                    changeSender.DecodedValue = termStd.Synonyms.Split(";").First();
+                }
+            }
+            else
+            {
+                changeSender.Code = string.Empty;
+                changeSender.DecodedValue = string.Empty;
+            }
+            MarkNameDuplicates();
+            await _validator.ValidateDtoAsync(changeSender,"Name");
+            _sourceCache.AddOrUpdate(changeSender);
+        });
+    }
+
+    private void DetachAll()
+    {
+        foreach (var item in _sourceCache.Items)
+            Detach(item);
     }
     
     private void UpdateDecodedValueConsistent()
@@ -311,6 +322,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     private async Task DeleteAsync(TermDto termDto)
     {
         await _termService.DeleteTermAsync(termDto);
+        Detach(termDto);
         _sourceCache.Edit(o =>
         {
             o.Remove(termDto);
@@ -409,9 +421,12 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
 
     public override void OnNavigatedFrom(NavigationContext navigationContext)
     {
-        if(!HasChanges) return;
-        _termService.SaveTermsAsync(Terms.ToList()).Await();
-        _messageService.Success("Terms Save Success");
+        if(HasChanges)
+        {
+            _termService.SaveTermsAsync(Terms.ToList()).Await();
+            _messageService.Success("Terms Save Success");
+        }
+        DetachAll();
     }
 }
 

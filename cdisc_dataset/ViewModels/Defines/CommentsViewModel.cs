@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -46,6 +46,9 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty]
     private bool _hasChanges;
+
+    [ObservableProperty]
+    private bool _isLoading;
 
     [ObservableProperty]
     private string? _searchText;
@@ -246,11 +249,15 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         navigationContextParameters.TryGetValue("CurrentProject", out Project? currentProject);
         CdiscDataType = cdiscDataType;
         CurrentProject = currentProject;
-        if (CurrentProject != null)
-        {
-            LoadComments(CurrentProject.Id, CdiscDataType).Await();
-            LoadDocuments(CurrentProject.Id, CdiscDataType).Await();
-        }
+    }
+
+    public async Task LoadDataAsync()
+    {
+        if (CurrentProject == null)
+            return;
+
+        await LoadComments(CurrentProject.Id, CdiscDataType);
+        await LoadDocuments(CurrentProject.Id, CdiscDataType);
     }
 
     public override async void OnNavigatedFrom(NavigationContext navigationContext)
@@ -283,7 +290,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         continuationCallback(true);
     }
 
-    private async Task LoadComments(int id, CdiscDataType cdiscDataType)
+    public async Task LoadComments(int id, CdiscDataType cdiscDataType)
     {
         var list = await _commentService.GetAllCommentDtosAsync();
         _commentSourceCache.Edit(o =>
@@ -295,7 +302,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         HasChanges = false;
     }
     
-    private async Task LoadDocuments(int id, CdiscDataType cdiscDataType)
+    public async Task LoadDocuments(int id, CdiscDataType cdiscDataType)
     {
         var list = await _documentService.GetAllDocumentsWithoutErorrAsync();
         List<IAutoCompleteOption> res = [];

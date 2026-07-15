@@ -21,9 +21,11 @@ public partial class TermView : UserControl,IActivatableView
                 // 使用 Post 延迟到 Dispatcher 空闲时执行，让 TabStrip 动画先完成
                 Dispatcher.UIThread.InvokeAsync(async () =>
                 {
+                    vm.IsLoading = true;
                     await Task.Delay(250); // 延迟确保动画流畅
                     await vm.LoadTermsAsync();
                     await vm.LoadCodeListsAsync();
+                    vm.IsLoading = false;
                 }, DispatcherPriority.Background);
             }
         });

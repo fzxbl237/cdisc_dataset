@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -50,6 +50,9 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty]
     private bool _hasChanges;
+
+    [ObservableProperty]
+    private bool _isLoading;
 
     [ObservableProperty]
     private string? _searchText;
@@ -479,11 +482,15 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
                 "", "Derived", "Assigned", "Predecessor"
             ]);
         }
-        if (CurrentProject != null)
-        {
-            LoadLookups(CurrentProject.Id, CdiscDataType).Await();
-            LoadValueLevels(CurrentProject.Id, CdiscDataType).Await();
-        }
+    }
+
+    public async Task LoadDataAsync()
+    {
+        if (CurrentProject == null)
+            return;
+
+        await LoadLookups(CurrentProject.Id, CdiscDataType);
+        await LoadValueLevels(CurrentProject.Id, CdiscDataType);
     }
 
     public override void ConfirmNavigationRequest(NavigationContext navigationContext, Action<bool> continuationCallback)
@@ -491,7 +498,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         continuationCallback(true);
     }
 
-    private async Task LoadValueLevels(int id, CdiscDataType cdiscDataType)
+    public async Task LoadValueLevels(int id, CdiscDataType cdiscDataType)
     {
         var dtoList = await _valueLevelService.GetAllValueLevelDtosAsync();
         foreach (var dto in dtoList)
@@ -508,7 +515,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         HasChanges = false;
     }
 
-    private async Task LoadLookups(int id, CdiscDataType cdiscDataType)
+    public async Task LoadLookups(int id, CdiscDataType cdiscDataType)
     {
         var datasets = await _datasetService.GetAllDatasetsWithoutErrorAsync();
         DatasetOptions.Clear();

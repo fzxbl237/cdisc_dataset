@@ -58,6 +58,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     [ObservableProperty] private string? _searchText;
     
     [ObservableProperty] private bool _hasChanges;
+    [ObservableProperty] private bool _isLoading;
     [ObservableProperty]
     private CdiscDataType _cdiscDataType;
     

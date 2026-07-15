@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d"
@@ -18,7 +18,13 @@
         <KeyBinding Command="{Binding SaveCommand}" Gesture="Ctrl+S" />
         <KeyBinding Command="{Binding DiscardCommand}" Gesture="Escape" />
     </UserControl.KeyBindings>
-    <Grid RowDefinitions="50,*,50">
+    <atom:Skeleton
+        HorizontalAlignment="Stretch"
+        IsActive="True"
+        IsLoading="{Binding IsLoading}"
+        ParagraphRows="10"
+        VerticalAlignment="Stretch">
+        <Grid RowDefinitions="50,*,50">
         <DockPanel>
             <atom:LineEdit
                 DockPanel.Dock="Left"
@@ -113,5 +119,6 @@
                 IsEnabled="{Binding HasChanges}"
                 atom:ToolTip.Tip="撤销(Esc)" />
         </StackPanel>
-    </Grid>
+        </Grid>
+    </atom:Skeleton>
 </UserControl>

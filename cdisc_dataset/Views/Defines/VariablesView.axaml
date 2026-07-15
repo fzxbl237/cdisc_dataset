@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d"
@@ -21,11 +21,12 @@
     </UserControl.KeyBindings>
 
 
-    <atom:Spin
+    <atom:Skeleton
         HorizontalAlignment="Stretch"
-        IsSpinning="{Binding IsLoading}"
-        IsTipVisible="True"
-        Tip="Loading">
+        IsActive="True"
+        IsLoading="{Binding IsLoading}"
+        ParagraphRows="10"
+        VerticalAlignment="Stretch">
         <Grid RowDefinitions="50,*,50">
             <DockPanel Margin="10,8">
                 <atom:LineEdit
@@ -518,6 +519,6 @@
                     IsEnabled="{Binding HasChanges}" />
             </StackPanel>
         </Grid>
-    </atom:Spin>
+    </atom:Skeleton>
 
 </UserControl>

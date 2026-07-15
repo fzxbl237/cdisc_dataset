@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d"
@@ -15,7 +15,13 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="clr-namespace:cdisc_dataset.ViewModels.Defines"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid RowDefinitions="50,*,50">
+    <atom:Skeleton
+        HorizontalAlignment="Stretch"
+        IsActive="True"
+        IsLoading="{Binding IsLoading}"
+        ParagraphRows="10"
+        VerticalAlignment="Stretch">
+        <Grid RowDefinitions="50,*,50">
         <DockPanel>
             <atom:LineEdit
                 DockPanel.Dock="Left"
@@ -162,5 +168,6 @@
                 IsEnabled="{Binding HasChanges}"
                 atom:ToolTip.Tip="撤销(Esc)" />
         </StackPanel>
-    </Grid>
+        </Grid>
+    </atom:Skeleton>
 </UserControl>

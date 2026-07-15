@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -211,7 +211,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         return !string.IsNullOrWhiteSpace(value) && value.Contains(searchText!, StringComparison.OrdinalIgnoreCase);
     }
 
-    private async Task LoadDatasets()
+    public async Task LoadDatasets()
     {
         IsLoading = true;
         var list = await _datasetService.GetAllDatasetsAsync();
@@ -229,7 +229,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         IsLoading = false;
     }
 
-    private async Task LoadLookups()
+    public async Task LoadLookups()
     {
         if (_currentProjectService.CurrentProject == null) return;
 
@@ -369,14 +369,15 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             Standards.AddRange([.. ConstantOptions.SdtmStandards]);
         }
 
-        if (_currentProjectService.CurrentProject != null)
-        {
-            _ = Task.Run(async () =>
-            {
-                await LoadLookups();
-                await LoadDatasets();
-            });
-        }
+    }
+
+    public async Task LoadDataAsync()
+    {
+        if (_currentProjectService.CurrentProject == null)
+            return;
+
+        await LoadLookups();
+        await LoadDatasets();
     }
 
     public override void ConfirmNavigationRequest(NavigationContext navigationContext, Action<bool> continuationCallback)

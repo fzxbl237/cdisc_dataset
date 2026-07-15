@@ -19,278 +19,285 @@
         <KeyBinding Command="{Binding SaveCommand}" Gesture="Ctrl+S" />
         <KeyBinding Command="{Binding DiscardCommand}" Gesture="Escape" />
     </UserControl.KeyBindings>
-    <Grid RowDefinitions="50,*,50">
-        <StackPanel
-            HorizontalAlignment="Stretch"
-            Orientation="Horizontal"
-            Spacing="15"
-            VerticalAlignment="Center">
-            <atom:LineEdit
-                IsAllowClear="True"
-                MinWidth="200"
-                PlaceholderText="请输入搜索字段"
-                Text="{Binding SearchText}" />
-            <atom:Button
-                ButtonType="Primary"
-                Command="{Binding AddCodeListCommand}"
-                Content="新增"
-                HorizontalAlignment="Right"
-                Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
-        </StackPanel>
-        <DataGrid
-            CanUserSortColumns="False"
-            Grid.Row="1"
-            GridLinesVisibility="All"
-            HeadersVisibility="Column"
-            HorizontalScrollBarVisibility="Visible"
-            IsReadOnly="False"
-            ItemsSource="{Binding CodeLists}"
-            SelectionUnit="FullRow">
-            <DataGrid.Styles>
-                <Style Selector="TextBlock">
-                    <Setter Property="TextWrapping" Value="Wrap" />
-                </Style>
-                <Style Selector="DataGridCell.template:cell-selected">
-                    <Setter Property="Background" Value="Transparent" />
-                    <Setter Property="BorderThickness" Value="0" />
-                </Style>
+    <atom:Skeleton
+        HorizontalAlignment="Stretch"
+        IsActive="True"
+        IsLoading="{Binding IsLoading}"
+        ParagraphRows="10"
+        VerticalAlignment="Stretch">
+        <Grid RowDefinitions="50,*,50">
+            <StackPanel
+                HorizontalAlignment="Stretch"
+                Orientation="Horizontal"
+                Spacing="15"
+                VerticalAlignment="Center">
+                <atom:LineEdit
+                    IsAllowClear="True"
+                    MinWidth="200"
+                    PlaceholderText="请输入搜索字段"
+                    Text="{Binding SearchText}" />
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding AddCodeListCommand}"
+                    Content="新增"
+                    HorizontalAlignment="Right"
+                    Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+            </StackPanel>
+            <DataGrid
+                CanUserSortColumns="False"
+                Grid.Row="1"
+                GridLinesVisibility="All"
+                HeadersVisibility="Column"
+                HorizontalScrollBarVisibility="Visible"
+                IsReadOnly="False"
+                ItemsSource="{Binding CodeLists}"
+                SelectionUnit="FullRow">
+                <DataGrid.Styles>
+                    <Style Selector="TextBlock">
+                        <Setter Property="TextWrapping" Value="Wrap" />
+                    </Style>
+                    <Style Selector="DataGridCell.template:cell-selected">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderThickness" Value="0" />
+                    </Style>
 
-                <Style Selector="DataGridCell.commentColumn">
-                    <Setter Property="Template">
-                        <ControlTemplate>
-                            <atom:FlyoutHost
-                                IsArrowVisible="False"
-                                Placement="TopEdgeAlignedLeft"
-                                Trigger="Hover">
-                                <atom:FlyoutHost.Styles>
-                                    <Style Selector="atom|ArrowDecoratedBox">
-                                        <Setter Property="Background" Value="#262626" />
-                                        <Setter Property="Foreground" Value="White" />
-                                    </Style>
-                                    <Style Selector="atom|HyperLinkTextBlock[IsEnabled=True]">
-                                        <Setter Property="Foreground" Value="White" />
-                                    </Style>
-                                    <Style Selector="atom|HyperLinkTextBlock:pointerover">
-                                        <Setter Property="Foreground" Value="LightGray" />
-                                    </Style>
+                    <Style Selector="DataGridCell.commentColumn">
+                        <Setter Property="Template">
+                            <ControlTemplate>
+                                <atom:FlyoutHost
+                                    IsArrowVisible="False"
+                                    Placement="TopEdgeAlignedLeft"
+                                    Trigger="Hover">
+                                    <atom:FlyoutHost.Styles>
+                                        <Style Selector="atom|ArrowDecoratedBox">
+                                            <Setter Property="Background" Value="#262626" />
+                                            <Setter Property="Foreground" Value="White" />
+                                        </Style>
+                                        <Style Selector="atom|HyperLinkTextBlock[IsEnabled=True]">
+                                            <Setter Property="Foreground" Value="White" />
+                                        </Style>
+                                        <Style Selector="atom|HyperLinkTextBlock:pointerover">
+                                            <Setter Property="Foreground" Value="LightGray" />
+                                        </Style>
 
-                                    <Style Selector="atom|HyperLinkTextBlock:pressed">
-                                        <Setter Property="Foreground" Value="LightGray" />
-                                    </Style>
-                                </atom:FlyoutHost.Styles>
-                                <atom:FlyoutHost.Flyout>
-                                    <atom:Flyout>
-                                        <StackPanel>
-                                            <ContentPresenter x:Name="Presenter">
-                                                <ContentPresenter.Content>
-                                                    <StackPanel
-                                                        Name="StackPanel"
-                                                        Orientation="Horizontal"
-                                                        Spacing="15">
-                                                        <atom:HyperLinkTextBlock
-                                                            Command="{Binding #Root.((vm:CodeListViewModel)DataContext).ModifyCommentCommand}"
-                                                            CommandParameter="{Binding Comment}"
-                                                            IsVisible="{Binding CommentExist}"
-                                                            Text="Open in Editor"
-                                                            x:DataType="dto:CodeListDto" />
-                                                        <atom:HyperLinkTextBlock
-                                                            Command="{Binding #Root.((vm:CodeListViewModel)DataContext).DeleteCommentCommand}"
-                                                            CommandParameter="{Binding Comment}"
-                                                            IsVisible="{Binding CommentExist}"
-                                                            Text="Delete"
-                                                            x:DataType="dto:CodeListDto" />
-                                                        <atom:HyperLinkTextBlock
-                                                            Command="{Binding #Root.((vm:CodeListViewModel)DataContext).AddCommentCommand}"
-                                                            CommandParameter="{Binding}"
-                                                            IsVisible="{Binding !CommentExist}"
-                                                            Text="Add New"
-                                                            x:DataType="dto:CodeListDto" />
-                                                    </StackPanel>
-                                                </ContentPresenter.Content>
-                                            </ContentPresenter>
-                                        </StackPanel>
+                                        <Style Selector="atom|HyperLinkTextBlock:pressed">
+                                            <Setter Property="Foreground" Value="LightGray" />
+                                        </Style>
+                                    </atom:FlyoutHost.Styles>
+                                    <atom:FlyoutHost.Flyout>
+                                        <atom:Flyout>
+                                            <StackPanel>
+                                                <ContentPresenter x:Name="Presenter">
+                                                    <ContentPresenter.Content>
+                                                        <StackPanel
+                                                            Name="StackPanel"
+                                                            Orientation="Horizontal"
+                                                            Spacing="15">
+                                                            <atom:HyperLinkTextBlock
+                                                                Command="{Binding #Root.((vm:CodeListViewModel)DataContext).ModifyCommentCommand}"
+                                                                CommandParameter="{Binding Comment}"
+                                                                IsVisible="{Binding CommentExist}"
+                                                                Text="Open in Editor"
+                                                                x:DataType="dto:CodeListDto" />
+                                                            <atom:HyperLinkTextBlock
+                                                                Command="{Binding #Root.((vm:CodeListViewModel)DataContext).DeleteCommentCommand}"
+                                                                CommandParameter="{Binding Comment}"
+                                                                IsVisible="{Binding CommentExist}"
+                                                                Text="Delete"
+                                                                x:DataType="dto:CodeListDto" />
+                                                            <atom:HyperLinkTextBlock
+                                                                Command="{Binding #Root.((vm:CodeListViewModel)DataContext).AddCommentCommand}"
+                                                                CommandParameter="{Binding}"
+                                                                IsVisible="{Binding !CommentExist}"
+                                                                Text="Add New"
+                                                                x:DataType="dto:CodeListDto" />
+                                                        </StackPanel>
+                                                    </ContentPresenter.Content>
+                                                </ContentPresenter>
+                                            </StackPanel>
 
-                                    </atom:Flyout>
-                                </atom:FlyoutHost.Flyout>
-                                <Border
-                                    Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="{TemplateBinding CornerRadius}"
-                                    x:Name="CellBorder">
-                                    <Grid ColumnDefinitions="*,Auto" x:Name="PART_CellRoot">
-                                        <Rectangle
-                                            Fill="Transparent"
-                                            HorizontalAlignment="Stretch"
-                                            IsHitTestVisible="False"
-                                            IsVisible="False"
-                                            Stroke="{DynamicResource DataGridCurrencyVisualPrimaryBrush}"
-                                            StrokeThickness="1"
-                                            VerticalAlignment="Stretch"
-                                            x:Name="CurrencyVisual" />
-                                        <Grid
-                                            Grid.Column="0"
-                                            IsHitTestVisible="False"
-                                            IsVisible="False"
-                                            x:Name="FocusVisual">
+                                        </atom:Flyout>
+                                    </atom:FlyoutHost.Flyout>
+                                    <Border
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        CornerRadius="{TemplateBinding CornerRadius}"
+                                        x:Name="CellBorder">
+                                        <Grid ColumnDefinitions="*,Auto" x:Name="PART_CellRoot">
                                             <Rectangle
                                                 Fill="Transparent"
                                                 HorizontalAlignment="Stretch"
                                                 IsHitTestVisible="False"
-                                                Stroke="{DynamicResource DataGridCellFocusVisualPrimaryBrush}"
-                                                StrokeThickness="2"
-                                                VerticalAlignment="Stretch" />
-                                            <Rectangle
-                                                Fill="Transparent"
-                                                HorizontalAlignment="Stretch"
-                                                IsHitTestVisible="False"
-                                                Margin="2"
-                                                Stroke="{DynamicResource DataGridCellFocusVisualSecondaryBrush}"
+                                                IsVisible="False"
+                                                Stroke="{DynamicResource DataGridCurrencyVisualPrimaryBrush}"
                                                 StrokeThickness="1"
-                                                VerticalAlignment="Stretch" />
+                                                VerticalAlignment="Stretch"
+                                                x:Name="CurrencyVisual" />
+                                            <Grid
+                                                Grid.Column="0"
+                                                IsHitTestVisible="False"
+                                                IsVisible="False"
+                                                x:Name="FocusVisual">
+                                                <Rectangle
+                                                    Fill="Transparent"
+                                                    HorizontalAlignment="Stretch"
+                                                    IsHitTestVisible="False"
+                                                    Stroke="{DynamicResource DataGridCellFocusVisualPrimaryBrush}"
+                                                    StrokeThickness="2"
+                                                    VerticalAlignment="Stretch" />
+                                                <Rectangle
+                                                    Fill="Transparent"
+                                                    HorizontalAlignment="Stretch"
+                                                    IsHitTestVisible="False"
+                                                    Margin="2"
+                                                    Stroke="{DynamicResource DataGridCellFocusVisualSecondaryBrush}"
+                                                    StrokeThickness="1"
+                                                    VerticalAlignment="Stretch" />
+                                            </Grid>
+
+                                            <DataValidationErrors
+                                                Content="{TemplateBinding Content}"
+                                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                Foreground="{TemplateBinding Foreground}"
+                                                Grid.Column="0"
+                                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                Name="PART_CellValidationErrors"
+                                                Padding="{TemplateBinding Padding}"
+                                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+
+                                            <Rectangle
+                                                Grid.Column="0"
+                                                HorizontalAlignment="Stretch"
+                                                IsHitTestVisible="False"
+                                                IsVisible="False"
+                                                Stroke="{DynamicResource DataGridCellInvalidBrush}"
+                                                StrokeThickness="1"
+                                                VerticalAlignment="Stretch"
+                                                x:Name="InvalidVisualElement" />
+
+                                            <Rectangle
+                                                Fill="{DynamicResource DataGridFillerColumnGridLinesBrush}"
+                                                Grid.Column="1"
+                                                Name="PART_RightGridLine"
+                                                VerticalAlignment="Stretch"
+                                                Width="1" />
                                         </Grid>
+                                    </Border>
+                                </atom:FlyoutHost>
+                            </ControlTemplate>
+                        </Setter>
+                    </Style>
+                </DataGrid.Styles>
+                <DataGrid.Columns>
+                    <DataGridTextColumn
+                        Binding="{Binding UniqueId}"
+                        Header="ID"
+                        IsReadOnly="False"
+                        Width="150" />
+                    <DataGridTextColumn
+                        Binding="{Binding Name}"
+                        Header="Name"
+                        IsReadOnly="False"
+                        Width="300" />
+                    <DataGridTextColumn
+                        Binding="{Binding Code}"
+                        Header="NCI Code"
+                        IsReadOnly="True"
+                        Width="200" />
 
-                                        <DataValidationErrors
-                                            Content="{TemplateBinding Content}"
-                                            ContentTemplate="{TemplateBinding ContentTemplate}"
-                                            Foreground="{TemplateBinding Foreground}"
-                                            Grid.Column="0"
-                                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                            Name="PART_CellValidationErrors"
-                                            Padding="{TemplateBinding Padding}"
-                                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    <DataGridTemplateColumn Header="Type" Width="180">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <atom:ComboBox
+                                    HorizontalAlignment="Stretch"
+                                    ItemsSource="{Binding #Root.((vm:CodeListViewModel)DataContext).DataTypes}"
+                                    SelectedItem="{Binding Type}"
+                                    StyleVariant="Borderless"
+                                    VerticalAlignment="Stretch" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
 
-                                        <Rectangle
-                                            Grid.Column="0"
-                                            HorizontalAlignment="Stretch"
-                                            IsHitTestVisible="False"
-                                            IsVisible="False"
-                                            Stroke="{DynamicResource DataGridCellInvalidBrush}"
-                                            StrokeThickness="1"
-                                            VerticalAlignment="Stretch"
-                                            x:Name="InvalidVisualElement" />
+                    <DataGridTemplateColumn Header="Terminology" Width="200">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <atom:ComboBox
+                                    HorizontalAlignment="Stretch"
+                                    ItemsSource="{Binding #Root.((vm:CodeListViewModel)DataContext).Terminologies}"
+                                    SelectedItem="{Binding Terminology}"
+                                    StyleVariant="Borderless"
+                                    VerticalAlignment="Stretch" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
 
-                                        <Rectangle
-                                            Fill="{DynamicResource DataGridFillerColumnGridLinesBrush}"
-                                            Grid.Column="1"
-                                            Name="PART_RightGridLine"
-                                            VerticalAlignment="Stretch"
-                                            Width="1" />
-                                    </Grid>
-                                </Border>
-                            </atom:FlyoutHost>
-                        </ControlTemplate>
-                    </Setter>
-                </Style>
-            </DataGrid.Styles>
-            <DataGrid.Columns>
-                <DataGridTextColumn
-                    Binding="{Binding UniqueId}"
-                    Header="ID"
-                    IsReadOnly="False"
-                    Width="150" />
-                <DataGridTextColumn
-                    Binding="{Binding Name}"
-                    Header="Name"
-                    IsReadOnly="False"
-                    Width="300" />
-                <DataGridTextColumn
-                    Binding="{Binding Code}"
-                    Header="NCI Code"
-                    IsReadOnly="True"
-                    Width="200" />
+                    <controls:DataGridAtomAutoCompleteColumn
+                        Binding="{Binding CommentUniqueId, UpdateSourceTrigger=LostFocus}"
+                        CellStyleClasses="commentColumn"
+                        Header="Comment"
+                        IsReadOnly="False"
+                        OptionsSource="{Binding CommentOptions}"
+                        Width="200">
+                        <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                            <DataTemplate x:DataType="atom:AutoCompleteOption">
+                                <StackPanel Margin="0,5">
+                                    <atom:TextBlock HorizontalAlignment="Left" Text="{Binding Content}" />
+                                    <atom:TextBlock
+                                        FontSize="12"
+                                        Foreground="#1677ff"
+                                        HorizontalAlignment="Left"
+                                        Text="{Binding Header}"
+                                        TextWrapping="NoWrap" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn>
 
-                <DataGridTemplateColumn Header="Type" Width="180">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <atom:ComboBox
-                                HorizontalAlignment="Stretch"
-                                ItemsSource="{Binding #Root.((vm:CodeListViewModel)DataContext).DataTypes}"
-                                SelectedItem="{Binding Type}"
-                                StyleVariant="Borderless"
-                                VerticalAlignment="Stretch" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
+                    <DataGridTemplateColumn CellStyleClasses="template" Header="Options">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel
+                                    Margin="15,0,0,0"
+                                    Orientation="Horizontal"
+                                    Spacing="15">
+                                    <!-- <atom:HyperLinkTextBlock Text="Modify" VerticalAlignment="Center" /> -->
+                                    <atom:PopupConfirm Title="Sure to delete?">
+                                        <Interaction.Behaviors>
+                                            <EventTriggerBehavior EventName="Confirmed">
+                                                <InvokeCommandAction Command="{Binding $parent[DataGrid].((vm:CodeListViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
+                                            </EventTriggerBehavior>
+                                        </Interaction.Behaviors>
+                                        <atom:HyperLinkTextBlock Text="Delete" VerticalAlignment="Center" />
+                                    </atom:PopupConfirm>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+            <StackPanel
+                Grid.Row="2"
+                HorizontalAlignment="Right"
+                Margin="0,0,15,0"
+                Orientation="Horizontal"
+                Spacing="15"
+                VerticalAlignment="Center">
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding SaveCommand}"
+                    Content="保存"
+                    IsEnabled="{Binding HasChanges}"
+                    atom:ToolTip.Tip="保存所有数据(Ctrl+S)" />
 
-                <DataGridTemplateColumn Header="Terminology" Width="200">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <atom:ComboBox
-                                HorizontalAlignment="Stretch"
-                                ItemsSource="{Binding #Root.((vm:CodeListViewModel)DataContext).Terminologies}"
-                                SelectedItem="{Binding Terminology}"
-                                StyleVariant="Borderless"
-                                VerticalAlignment="Stretch" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <controls:DataGridAtomAutoCompleteColumn
-                    Binding="{Binding CommentUniqueId, UpdateSourceTrigger=LostFocus}"
-                    CellStyleClasses="commentColumn"
-                    Header="Comment"
-                    IsReadOnly="False"
-                    OptionsSource="{Binding CommentOptions}"
-                    Width="200">
-                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
-                        <DataTemplate x:DataType="atom:AutoCompleteOption">
-                            <StackPanel Margin="0,5">
-                                <atom:TextBlock HorizontalAlignment="Left" Text="{Binding Content}" />
-                                <atom:TextBlock
-                                    FontSize="12"
-                                    Foreground="#1677ff"
-                                    HorizontalAlignment="Left"
-                                    Text="{Binding Header}"
-                                    TextWrapping="NoWrap" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
-                </controls:DataGridAtomAutoCompleteColumn>
-
-                <DataGridTemplateColumn CellStyleClasses="template" Header="Options">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <StackPanel
-                                Margin="15,0,0,0"
-                                Orientation="Horizontal"
-                                Spacing="15">
-                                <!-- <atom:HyperLinkTextBlock Text="Modify" VerticalAlignment="Center" /> -->
-                                <atom:PopupConfirm Title="Sure to delete?">
-                                    <Interaction.Behaviors>
-                                        <EventTriggerBehavior EventName="Confirmed">
-                                            <InvokeCommandAction Command="{Binding $parent[DataGrid].((vm:CodeListViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
-                                        </EventTriggerBehavior>
-                                    </Interaction.Behaviors>
-                                    <atom:HyperLinkTextBlock Text="Delete" VerticalAlignment="Center" />
-                                </atom:PopupConfirm>
-                            </StackPanel>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-            </DataGrid.Columns>
-        </DataGrid>
-        <StackPanel
-            Grid.Row="2"
-            HorizontalAlignment="Right"
-            Margin="0,0,15,0"
-            Orientation="Horizontal"
-            Spacing="15"
-            VerticalAlignment="Center">
-            <atom:Button
-                ButtonType="Primary"
-                Command="{Binding SaveCommand}"
-                Content="保存"
-                IsEnabled="{Binding HasChanges}"
-                atom:ToolTip.Tip="保存所有数据(Ctrl+S)" />
-
-            <atom:Button
-                ButtonType="Primary"
-                Command="{Binding DiscardCommand}"
-                Content="放弃"
-                IsDanger="True"
-                IsEnabled="{Binding HasChanges}"
-                atom:ToolTip.Tip="撤销(Esc)" />
-        </StackPanel>
-    </Grid>
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding DiscardCommand}"
+                    Content="放弃"
+                    IsDanger="True"
+                    IsEnabled="{Binding HasChanges}"
+                    atom:ToolTip.Tip="撤销(Esc)" />
+            </StackPanel>
+        </Grid>
+    </atom:Skeleton>
 </UserControl>

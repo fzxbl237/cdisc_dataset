@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -43,6 +43,9 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty]
     private bool _hasChanges;
+
+    [ObservableProperty]
+    private bool _isLoading;
 
     [ObservableProperty]
     private string? _searchText;
@@ -213,7 +216,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
             x => x.Pages,
             x => x.DocumentUniqueId);
     
-    private async Task LoadMethods(int projectId, CdiscDataType cdiscDataType)
+    public async Task LoadMethods(int projectId, CdiscDataType cdiscDataType)
     {
         var list = await _methodService.GetAllMethodDtosAsync();
 
@@ -225,7 +228,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         HasChanges = false;
     }
 
-    private async Task LoadDocuments(int projectId, CdiscDataType cdiscDataType)
+    public async Task LoadDocuments(int projectId, CdiscDataType cdiscDataType)
     {
         var list = await _documentService.GetAllDocumentsWithoutErorrAsync();
         List<IAutoCompleteOption> res = [];
@@ -350,11 +353,15 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         var navigationContextParameters = navigationContext.Parameters;
         navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
         CdiscDataType = cdiscDataType;
-        if (_currentProjectService.CurrentProject != null)
-        {
-            LoadMethods(_currentProjectService.CurrentProject.Id, CdiscDataType).Await();
-            LoadDocuments(_currentProjectService.CurrentProject.Id, CdiscDataType).Await();
-        }
+    }
+
+    public async Task LoadDataAsync()
+    {
+        if (_currentProjectService.CurrentProject == null)
+            return;
+
+        await LoadMethods(_currentProjectService.CurrentProject.Id, CdiscDataType);
+        await LoadDocuments(_currentProjectService.CurrentProject.Id, CdiscDataType);
     }
 
     public override void ConfirmNavigationRequest(NavigationContext navigationContext, Action<bool> continuationCallback)

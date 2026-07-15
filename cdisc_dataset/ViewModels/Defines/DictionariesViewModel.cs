@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -43,6 +43,9 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty]
     private bool _hasChanges;
+
+    [ObservableProperty]
+    private bool _isLoading;
 
     [ObservableProperty]
     private string? _searchText;
@@ -233,11 +236,15 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
         navigationContextParameters.TryGetValue("CurrentProject", out Project? currentProject);
         CdiscDataType = cdiscDataType;
         CurrentProject = currentProject;
-        if (CurrentProject != null)
-        {
-            LoadDictionaries().Await();
-            LoadDictionaryNameOptions().Await();
-        }
+    }
+
+    public async Task LoadDataAsync()
+    {
+        if (CurrentProject == null)
+            return;
+
+        await LoadDictionaries();
+        await LoadDictionaryNameOptions();
     }
 
     public override void ConfirmNavigationRequest(NavigationContext navigationContext, Action<bool> continuationCallback)
@@ -245,7 +252,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
         continuationCallback(true);
     }
 
-    private async Task LoadDictionaries()
+    public async Task LoadDictionaries()
     {
         var list = await _dictionaryService.GetAllDictionaryDtosAsync();
         _sourceCache.Edit(o =>
@@ -257,7 +264,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
         HasChanges = false;
     }
 
-    private async Task LoadDictionaryNameOptions()
+    public async Task LoadDictionaryNameOptions()
     {
         var names = await _dictionaryService.GetAllDictionaryNamesAsync();
         DictionaryNameOptions.Clear();
