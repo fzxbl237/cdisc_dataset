@@ -42,6 +42,11 @@
                     Content="新增"
                     HorizontalAlignment="Right"
                     Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+                <atom:Button
+                    ButtonType="Default"
+                    Command="{Binding MergeSelectedCodeListsCommand}"
+                    Content="合并"
+                    Icon="{antd-icons:AntDesignIconProvider Kind=MergeCellsOutlined}" />
             </StackPanel>
             <DataGrid
                 CanUserSortColumns="False"
@@ -201,6 +206,20 @@
                     </Style>
                 </DataGrid.Styles>
                 <DataGrid.Columns>
+                    <DataGridTemplateColumn
+                        CanUserResize="False"
+                        Header=""
+                        IsReadOnly="True"
+                        Width="40">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <atom:CheckBox
+                                    HorizontalAlignment="Center"
+                                    IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                    VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn
                         Binding="{Binding UniqueId}"
                         Header="ID"

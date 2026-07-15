@@ -1,3 +1,4 @@
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -98,6 +99,94 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
     {
         var codeList = mapper.Map<CodeList>(codeListDto);
         return await InsertCodeListAsync(codeList);
+    }
+
+    public async Task MergeCodeListsAsync(CodeListDto mergedCodeList, List<int> sourceCodeListIds)
+    {
+        var sourceIds = sourceCodeListIds.Distinct().ToList();
+        if (sourceIds.Count < 2 || !sourceIds.Contains(mergedCodeList.Id))
+            throw new ArgumentException("At least two code lists, including the retained code list, are required.");
+
+        var (projectId, dataType) = GetCurrentProjectContext();
+        var sourceCodeLists = await sqlSugar.Queryable<CodeList>()
+            .Where(o => sourceIds.Contains(o.Id)
+                        && o.ProjectId == projectId
+                        && o.CdiscDataType == dataType)
+            .ToListAsync();
+        if (sourceCodeLists.Count != sourceIds.Count)
+            throw new InvalidOperationException("One or more code lists are no longer available.");
+
+        var retainedCodeList = sourceCodeLists.FirstOrDefault(o => o.Id == mergedCodeList.Id)
+                               ?? throw new InvalidOperationException("The retained code list is no longer available.");
+        retainedCodeList.UniqueId = mergedCodeList.UniqueId;
+        retainedCodeList.Name = mergedCodeList.Name;
+
+        var terms = (mergedCodeList.Terms ?? [])
+            .GroupBy(o => (o.Name, o.Code, o.DecodedValue))
+            .Select((group, index) =>
+            {
+                var term = group.First();
+                return new Term
+                {
+                    Name = term.Name,
+                    CommentId = term.CommentId,
+                    CommentUniqueId = term.CommentUniqueId,
+                    CodeListId = retainedCodeList.Id,
+                    CodeListUniqueId = retainedCodeList.UniqueId,
+                    Order = index + 1,
+                    Code = term.Code,
+                    DecodedValue = term.DecodedValue,
+                    HasErrors = term.HasErrors,
+                    IsNameDuplicate = term.IsNameDuplicate,
+                    DecodedValueConsistent = term.DecodedValueConsistent,
+                    CdiscDataType = dataType,
+                    ProjectId = projectId
+                };
+            })
+            .ToList();
+        var deletedCodeListIds = sourceIds.Where(o => o != retainedCodeList.Id).ToList();
+
+        sqlSugar.Ado.BeginTran();
+        try
+        {
+            await sqlSugar.Updateable(retainedCodeList).ExecuteCommandAsync();
+            await sqlSugar.Updateable<Variable>()
+                .SetColumns(o => new Variable
+                {
+                    CodeListId = retainedCodeList.Id,
+                    CodeListUniqueId = retainedCodeList.UniqueId
+                })
+                .Where(o => sourceIds.Contains(o.CodeListId)
+                            && o.ProjectId == projectId
+                            && o.CdiscDataType == dataType)
+                .ExecuteCommandAsync();
+            await sqlSugar.Updateable<ValueLevel>()
+                .SetColumns(o => new ValueLevel { CodeListId = retainedCodeList.Id })
+                .Where(o => sourceIds.Contains(o.CodeListId)
+                            && o.ProjectId == projectId
+                            && o.CdiscDataType == dataType)
+                .ExecuteCommandAsync();
+            await sqlSugar.Deleteable<Term>()
+                .Where(o => sourceIds.Contains(o.CodeListId)
+                            && o.ProjectId == projectId
+                            && o.CdiscDataType == dataType)
+                .ExecuteCommandAsync();
+            if (terms.Count > 0)
+                await sqlSugar.Insertable(terms).ExecuteCommandAsync();
+            if (deletedCodeListIds.Count > 0)
+                await sqlSugar.Deleteable<CodeList>()
+                    .Where(o => deletedCodeListIds.Contains(o.Id)
+                                && o.ProjectId == projectId
+                                && o.CdiscDataType == dataType)
+                    .ExecuteCommandAsync();
+
+            sqlSugar.Ado.CommitTran();
+        }
+        catch
+        {
+            sqlSugar.Ado.RollbackTran();
+            throw;
+        }
     }
 
     public async Task<List<string?>> GetTerminologiesAsync()

@@ -178,7 +178,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
 
         await _dictionaryService.InsertDictionaryAsync(dictionary);
         _sourceCache.AddOrUpdate(dictionary);
-        _messageService.Success("Ìí¼Ó³É¹¦");
+        _messageService.Success("ï¿½ï¿½ï¿½Ó³É¹ï¿½");
         await LoadDictionaries();
     }
 
@@ -195,7 +195,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
             return;
 
         await _dictionaryService.UpdateDictionaryAsync(model);
-        _messageService.Success("Dictionary¸üÐÂ³É¹¦");
+        _messageService.Success("Dictionaryï¿½ï¿½ï¿½Â³É¹ï¿½");
         await LoadDictionaries();
     }
 
@@ -212,7 +212,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
 
         await _dictionaryService.DeleteDictionaryAsync(dictionary);
         _sourceCache.Remove(dictionary);
-        _messageService.Success("É¾³ý³É¹¦");
+        _messageService.Success("É¾ï¿½ï¿½ï¿½É¹ï¿½");
     }
 
     [RelayCommand]

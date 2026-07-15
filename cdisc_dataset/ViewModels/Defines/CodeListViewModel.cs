@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -184,7 +184,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     
     public async Task LoadCodeLists()
     {
-        // È¡Ïû¾ÉÊý¾ÝµÄ PropertyChanged ¶©ÔÄ
+        // È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ýµï¿½ PropertyChanged ï¿½ï¿½ï¿½ï¿½
         foreach (var codeListDto in _sourceCache.Items)
         {
             codeListDto.PropertyChanged -= CodeListDtoOnPropertyChanged;
@@ -222,7 +222,8 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
                 break;
         }
 
-        if (e.PropertyName == nameof(CodeListDto.HasChanged)
+        if (e.PropertyName == nameof(CodeListDto.IsSelected)
+            || e.PropertyName == nameof(CodeListDto.HasChanged)
             || e.PropertyName == nameof(CodeListDto.Comment)
             || e.PropertyName == nameof(CodeListDto.CommentId)) return;
         Observable.StartAsync(async () =>
@@ -275,6 +276,38 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     }
     
     [RelayCommand]
+    private async Task MergeSelectedCodeListsAsync()
+    {
+        var selectedCodeLists = CodeLists.Where(o => o.IsSelected).ToList();
+        if (selectedCodeLists.Count < 2)
+        {
+            _messageService.Error("Please select at least two code lists to merge.");
+            return;
+        }
+
+        if (selectedCodeLists.Select(o => o.Code).Distinct().Count() != 1)
+        {
+            _messageService.Error("Selected NCI codes must be identical before merging.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("MergeCodeListsDialog", new DialogParameters
+        {
+            { "CodeLists", selectedCodeLists }
+        });
+        if (result.Result != ButtonResult.OK
+            || !result.Parameters.TryGetValue<CodeListDto>("MergedCodeList", out var mergedCodeList))
+        {
+            return;
+        }
+
+        await _codeListService.MergeCodeListsAsync(mergedCodeList, selectedCodeLists.Select(o => o.Id).ToList());
+        await LoadCodeLists();
+        HasChanges = false;
+        _messageService.Success("Code lists merged successfully.");
+    }
+
+    [RelayCommand]
     private async Task DeleteAsync(CodeListDto codeList)
     {
         var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
@@ -290,7 +323,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         {
             o.Remove(codeList);
         });
-        _messageService.Success("É¾³ý³É¹¦");
+        _messageService.Success("É¾ï¿½ï¿½ï¿½É¹ï¿½");
     }
     
     [RelayCommand]
@@ -312,7 +345,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             _sourceCache.Edit(o=>o.AddOrUpdate(codeList));
             var updateResult = await _codeListService.UpdateCodeListAsync(codeList);
             if(updateResult>0)
-                _messageService.Success("CommentÌí¼Ó³É¹¦");
+                _messageService.Success("Commentï¿½ï¿½ï¿½Ó³É¹ï¿½");
         }
     }
     
@@ -329,7 +362,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         if (result.Parameters.TryGetValue<Comment>("Model",out Comment? resultModel))
         {
             await _commentService.UpdateCommentAsync(resultModel);
-            _messageService.Success("Comment¸üÐÂ³É¹¦");
+            _messageService.Success("Commentï¿½ï¿½ï¿½Â³É¹ï¿½");
         }
     }
 
@@ -359,7 +392,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
                     codeList.Comment = null;
                 }
                 _sourceCache.Edit(o=>o.AddOrUpdate(codeLists));
-                _messageService.Success("É¾³ý³É¹¦");
+                _messageService.Success("É¾ï¿½ï¿½ï¿½É¹ï¿½");
             }
         }
     }
@@ -378,7 +411,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             CodeListDto entity = await _codeListService.InsertCodeListAsync(codeList);
             await ValidateCodeListDtoAsync(entity);
             _sourceCache.Edit(o=>o.AddOrUpdate(entity));
-            _messageService.Success("CodeListÌí¼Ó³É¹¦");
+            _messageService.Success("CodeListï¿½ï¿½ï¿½Ó³É¹ï¿½");
         }
     }
     
@@ -421,7 +454,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
 
     public override void OnNavigatedFrom(NavigationContext navigationContext)
     {
-        // È¡ÏûËùÓÐ CodeListDto µÄ PropertyChanged ¶©ÔÄ
+        // È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ CodeListDto ï¿½ï¿½ PropertyChanged ï¿½ï¿½ï¿½ï¿½
         foreach (var codeListDto in _sourceCache.Items)
         {
             codeListDto.PropertyChanged -= CodeListDtoOnPropertyChanged;

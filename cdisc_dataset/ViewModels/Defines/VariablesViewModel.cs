@@ -155,7 +155,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         IsLoading = true;
         var sw = Stopwatch.StartNew();
 
-        // // È¡Ïû¾ÉÊý¾ÝµÄ PropertyChanged ¶©ÔÄ
+        // // È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ýµï¿½ PropertyChanged ï¿½ï¿½ï¿½ï¿½
         foreach (var variableDto in _sourceCache.Items)
         {
             variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;
@@ -352,7 +352,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         {
             o.Remove(variable);
         });
-        _messageService.Success("É¾³ý³É¹¦");
+        _messageService.Success("É¾ï¿½ï¿½ï¿½É¹ï¿½");
     }
     
     [RelayCommand]
@@ -373,7 +373,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         }
         await _variableService.SaveVariablesAsync(variables);
         await LoadVariablesAsync();
-        _messageService.Success("VariableÌí¼Ó³É¹¦");
+        _messageService.Success("Variableï¿½ï¿½ï¿½Ó³É¹ï¿½");
     }
     
     [RelayCommand]
@@ -383,7 +383,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         await _variableService.SaveVariablesAsync(_sourceCache.Items.Where(o=>o.HasChanged).ToList());
         //await _variableService.SaveVariablesAsync(_sourceCache.Items);
         HasChanges = false;
-        _messageService.Success("±£´æ³É¹¦");
+        _messageService.Success("ï¿½ï¿½ï¿½ï¿½É¹ï¿½");
         await LoadVariablesAsync();
     }
     
@@ -412,7 +412,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             variable.CommentUniqueId = entity.UniqueId;
             _sourceCache.Edit(o=>o.AddOrUpdate(variable));
             await _variableService.UpdateVariableAsync(variable);
-            _messageService.Success("CommentÌí¼Ó³É¹¦");
+            _messageService.Success("Commentï¿½ï¿½ï¿½Ó³É¹ï¿½");
         }
     }
     
@@ -435,7 +435,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             variable.CommentUniqueId = entity.UniqueId;
             _sourceCache.Edit(o=>o.AddOrUpdate(variable));
             await _variableService.UpdateVariableAsync(variable);
-            _messageService.Success("Comment¸üÐÂ³É¹¦");
+            _messageService.Success("Commentï¿½ï¿½ï¿½Â³É¹ï¿½");
         }
     }
 
@@ -443,7 +443,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     {
         base.OnNavigatedFrom(navigationContext);
 
-        //È¡ÏûËùÓÐ VariableDto µÄ PropertyChanged ¶©ÔÄ
+        //È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ VariableDto ï¿½ï¿½ PropertyChanged ï¿½ï¿½ï¿½ï¿½
         foreach (var variableDto in _sourceCache.Items)
         {
             variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;

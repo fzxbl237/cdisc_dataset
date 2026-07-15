@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
@@ -23,6 +23,8 @@ public interface ICodeListService
     Task<CodeListDto> InsertCodeListAsync(CodeList codeList);
     
     Task<CodeListDto> InsertCodeListAsync(CodeListDto codeListDto);
+
+    Task MergeCodeListsAsync(CodeListDto mergedCodeList, List<int> sourceCodeListIds);
 
     Task<List<string?>> GetTerminologiesAsync();
     

@@ -249,7 +249,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         UnregisterDatasetDtoPropertyChanged(dataset);
         await _datasetService.DeleteDatasetAsync(dataset);
         _sourceCache.Edit(o => o.Remove(dataset));
-        _messageService.Success("É¾³ý³É¹¦");
+        _messageService.Success("É¾ï¿½ï¿½ï¿½É¹ï¿½");
     }
 
     [RelayCommand]
@@ -258,7 +258,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         if (!HasChanges) return;
         await _datasetService.SaveDatasetsAsync(_sourceCache.Items.Where(o => o.HasChanged).ToList());
         HasChanges = false;
-        _messageService.Success("±£´æ³É¹¦");
+        _messageService.Success("ï¿½ï¿½ï¿½ï¿½É¹ï¿½");
         await LoadDatasets();
     }
 
@@ -298,7 +298,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             dataset.CommentUniqueId = entity.UniqueId;
             _sourceCache.AddOrUpdate(dataset);
             await _datasetService.UpdateDatasetAsync(dataset);
-            _messageService.Success("CommentÌí¼Ó³É¹¦");
+            _messageService.Success("Commentï¿½ï¿½ï¿½Ó³É¹ï¿½");
         }
     }
 
@@ -321,7 +321,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             dataset.CommentUniqueId = entity.UniqueId;
             _sourceCache.AddOrUpdate(dataset);
             await _datasetService.UpdateDatasetAsync(dataset);
-            _messageService.Success("Comment¸üÐÂ³É¹¦");
+            _messageService.Success("Commentï¿½ï¿½ï¿½Â³É¹ï¿½");
         }
     }
 
@@ -346,7 +346,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
         await _datasetService.InsertDatasetsWithVariablesAsync(datasets);
         await LoadDatasets();
-        _messageService.Success("DatasetsÌí¼Ó³É¹¦");
+        _messageService.Success("Datasetsï¿½ï¿½ï¿½Ó³É¹ï¿½");
     }
 
     public override void OnNavigatedFrom(NavigationContext navigationContext)

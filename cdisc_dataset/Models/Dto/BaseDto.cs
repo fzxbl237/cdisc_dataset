@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -12,6 +12,7 @@ namespace cdisc_dataset.Models.Dto;
 public partial class BaseDto:ObservableObject,INotifyDataErrorInfo
 {
     [ObservableProperty] private int _id;
+    [ObservableProperty] private bool _isSelected;
     
     public CdiscDataType CdiscDataType { get; set; }
     

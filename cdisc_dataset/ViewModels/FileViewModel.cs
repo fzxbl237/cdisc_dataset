@@ -181,10 +181,20 @@ public partial class FileViewModel : ObservableObject, INavigationAware
             return;
         }
 
-        var datasets = new List<Dataset>();
-        var codeLists = new List<CodeList>();
-        var projectId = CurrentProject.Id;
-        var files = Files.ToList();
+        var (datasets, codeLists) = await BuildSdtmImportAsync(CurrentProject.Id, Files.ToList());
+        var (finalCodeLists, codeListDictionary) = await BuildFinalCodeListsAsync(codeLists, CurrentProject.Id);
+        LinkCodeListsToVariables(datasets, finalCodeLists, codeListDictionary);
+
+        await _datasetService.InsertDatasetsAsync(datasets);
+        _messageService.Success($"Loaded {datasets.Count} dataset(s) from SDTM XPT files");
+    }
+
+    private async Task<(List<Dataset> Datasets, List<CodeList> CodeLists)> BuildSdtmImportAsync(
+        int projectId,
+        List<ProjectFile> files)
+    {
+        List<Dataset> datasets = [];
+        List<CodeList> codeLists = [];
 
         foreach (var file in files)
         {
@@ -192,286 +202,313 @@ public partial class FileViewModel : ObservableObject, INavigationAware
             if (parsedFile == null)
                 continue;
 
-            var name = parsedFile.Name;
-            var datasetStd = await _datasetService.GetStandardSdtmDatasetByNameAsync(name);
-            var dataset = new Dataset()
-            {
-                Name = name,
-                Label = parsedFile.Label,
-                Class = datasetStd?.Class,
-                Structure =  datasetStd?.Structure,
-                KeyVariables = datasetStd?.KeyVariables,
-                Standard =  datasetStd?.Standard,
-                HasNoData = parsedFile.HasRecordsAfterRead?"No":"Yes",
-                Repeating = datasetStd?.Repeating,
-                ReferenceData =  datasetStd?.ReferenceData,
-                ProjectId = projectId,
-                CdiscDataType = CdiscDataType.Sdtm
-            };
-            
-            List<Variable> variables = [];
-            foreach (var parsedVariable in parsedFile.Variables)
-            {
-                var variableName = parsedVariable.Name;
-                var standardVariable = await _variableService.GetStandardVariableByDatasetAndVariableNameAsync(name, variableName,CdiscDataType.Sdtm);
-                var variable = new Variable()
-                {
-                    Order = parsedVariable.Order,
-                    DatasetName = name,
-                    VariableName = variableName.ToUpper(),
-                    Label = parsedVariable.Label,
-                    DataType = parsedVariable.DataType,
-                    Length = parsedVariable.DataType == "datetime" ? null:parsedVariable.Length,
-                    SignificantDigits = parsedVariable.SignificantDigits,
-                    Format = parsedVariable.Format=="$"?"$"+parsedVariable.Length:parsedVariable.Format,
-                    Mandatory = standardVariable?.Mandatory,
-                    Role =  standardVariable?.Role,
-                    HasNoData = parsedVariable.HasValue?"No":"Yes",
-                    ProjectId = projectId,
-                    Origin = variableName.InferOrigin(),
-                    Source = !string.IsNullOrWhiteSpace(variableName.InferOrigin())?"Sponsor":null,
-                    CdiscDataType = CdiscDataType.Sdtm
-                };
-                var codeListRef = await _codeListService.GetCodeListRefByVariableAsync(variableName.ToUpper());
-                if (codeListRef != null)
-                {
-                    var codeList = new CodeList();
-                    var codeListRefName = codeListRef.CodeListRef;
-                    var entries = parsedVariable.Entries
-                        ?.Where(o=>!string.IsNullOrWhiteSpace(o))
-                        .Distinct()
-                        .ToList();
-                    
-                    codeList.CdiscDataType = CdiscDataType.Sdtm;
-                    codeList.ProjectId = projectId;
-                    codeList.Code = codeListRef.CodeListCode;
-                    codeList.Type = variable.DataType;
-                    // todo: need dynamic Terminology;
-                    codeList.Terminology = "SDTM 2025-09-26";
-                    var refName = codeListRefName?.Split(".").LastOrDefault();
-                    codeList.UniqueId = $"{name}.{variableName}.{refName}";
-                    var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeListRefName);
-                    codeList.Name = codeListReference?.CodeListName;
-                    
-                    codeLists.add(codeList);
-                    // if (codeListRefName == "CL.NY")
-                    // {
-                    //     codeList.UniqueId = entries.InferCodeListOid().Split(".").LastOrDefault();
-                    //     var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeList.UniqueId);
-                    //     codeList.Name = codeListReference?.CodeListName;
-                    //     var codeListTerms = await _codeListService.GetCodeListTermsAsync(entries.InferCodeListOid());
-                    // }else if (codeListRefName == "CL.DOMAIN")
-                    // {
-                    //     codeList.UniqueId = $"DOMAIN.{name}";
-                    //     codeList.Name = $"Domain Abbreviation ({name})";
-                    // }
-                    int termOrder = 1;
-                    List<Term> terms = [];
-                    foreach (var dataEntry in entries)
-                    {
-                        var codeListTerm = await _codeListService.GetCodeListTermAsync(codeListRefName,dataEntry);
-                        var term = new Term
-                        {
-                            Order = termOrder++,
-                            Name = dataEntry,
-                            Code = codeListTerm?.Code,
-                            DecodedValue = codeListTerm?.DecodedValue,
-                            CdiscDataType = CdiscDataType.Sdtm,
-                            ProjectId = projectId
-                        };
-                        terms.Add(term);
-                    }
-
-                    codeList.Terms = terms;
-
-                }
-                // if (await _codeListService.VariableHasCodeListAsync(variableName))
-                // {
-                //     var terms = dataEntries.Where(o=>o.HasValue).Select(o=>o.ToString()).Distinct();
-                //     
-                // }
-                variables.Add(variable);
-            }
-
-            dataset.Variables = variables;
+            var dataset = await BuildDatasetAsync(parsedFile, projectId, codeLists);
             datasets.Add(dataset);
         }
 
+        return (datasets, codeLists);
+    }
+
+    private async Task<Dataset> BuildDatasetAsync(
+        ParsedSdtmFile parsedFile,
+        int projectId,
+        List<CodeList> codeLists)
+    {
+        var name = parsedFile.Name;
+        var datasetStd = await _datasetService.GetStandardSdtmDatasetByNameAsync(name);
+        var dataset = new Dataset
+        {
+            Name = name,
+            Label = parsedFile.Label,
+            Class = datasetStd?.Class,
+            Structure = datasetStd?.Structure,
+            KeyVariables = datasetStd?.KeyVariables,
+            Standard = datasetStd?.Standard,
+            HasNoData = parsedFile.HasRecordsAfterRead ? "No" : "Yes",
+            Repeating = datasetStd?.Repeating,
+            ReferenceData = datasetStd?.ReferenceData,
+            ProjectId = projectId,
+            CdiscDataType = CdiscDataType.Sdtm
+        };
+
+        List<Variable> variables = [];
+        foreach (var parsedVariable in parsedFile.Variables)
+        {
+            var variable = await BuildVariableAsync(name, parsedVariable, projectId);
+            var codeList = await BuildCodeListAsync(name, parsedVariable, variable, projectId);
+            if (codeList != null)
+                codeLists.Add(codeList);
+
+            variables.Add(variable);
+        }
+
+        dataset.Variables = variables;
+        return dataset;
+    }
+
+    private async Task<Variable> BuildVariableAsync(
+        string datasetName,
+        ParsedSdtmVariable parsedVariable,
+        int projectId)
+    {
+        var variableName = parsedVariable.Name;
+        var standardVariable = await _variableService.GetStandardVariableByDatasetAndVariableNameAsync(
+            datasetName,
+            variableName,
+            CdiscDataType.Sdtm);
+        var origin = variableName.InferOrigin();
+
+        return new Variable
+        {
+            Order = parsedVariable.Order,
+            DatasetName = datasetName,
+            VariableName = variableName.ToUpper(),
+            Label = parsedVariable.Label,
+            DataType = parsedVariable.DataType,
+            Length = parsedVariable.DataType == "datetime" ? null : parsedVariable.Length,
+            SignificantDigits = parsedVariable.SignificantDigits,
+            Format = parsedVariable.Format == "$" ? "$" + parsedVariable.Length : parsedVariable.Format,
+            Mandatory = standardVariable?.Mandatory,
+            Role = standardVariable?.Role,
+            HasNoData = parsedVariable.HasValue ? "No" : "Yes",
+            ProjectId = projectId,
+            Origin = origin,
+            Source = !string.IsNullOrWhiteSpace(origin) ? "Sponsor" : null,
+            CdiscDataType = CdiscDataType.Sdtm
+        };
+    }
+
+    private async Task<CodeList?> BuildCodeListAsync(
+        string datasetName,
+        ParsedSdtmVariable parsedVariable,
+        Variable variable,
+        int projectId)
+    {
+        var variableName = parsedVariable.Name;
+        var codeListRef = await _codeListService.GetCodeListRefByVariableAsync(variableName.ToUpper());
+        if (codeListRef == null)
+            return null;
+
+        var codeListRefName = codeListRef.CodeListRef;
+        var entries = parsedVariable.Entries
+            ?.Where(o => !string.IsNullOrWhiteSpace(o))
+            .Distinct()
+            .ToList();
+        var refName = codeListRefName?.Split(".").LastOrDefault();
+        var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeListRefName);
+        var codeList = new CodeList
+        {
+            CdiscDataType = CdiscDataType.Sdtm,
+            ProjectId = projectId,
+            Code = codeListRef.CodeListCode,
+            Type = variable.DataType,
+            // todo: need dynamic Terminology;
+            Terminology = "SDTM 2025-09-26",
+            UniqueId = $"{datasetName}.{variableName}.{refName}",
+            Name = codeListReference?.CodeListName,
+            Terms = await BuildTermsAsync(codeListRefName, entries, projectId)
+        };
+
+        // if (codeListRefName == "CL.NY")
+        // {
+        //     codeList.UniqueId = entries.InferCodeListOid().Split(".").LastOrDefault();
+        //     var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeList.UniqueId);
+        //     codeList.Name = codeListReference?.CodeListName;
+        //     var codeListTerms = await _codeListService.GetCodeListTermsAsync(entries.InferCodeListOid());
+        // }else if (codeListRefName == "CL.DOMAIN")
+        // {
+        //     codeList.UniqueId = $"DOMAIN.{datasetName}";
+        //     codeList.Name = $"Domain Abbreviation ({datasetName})";
+        // }
+        // if (await _codeListService.VariableHasCodeListAsync(variableName))
+        // {
+        //     var terms = dataEntries.Where(o=>o.HasValue).Select(o=>o.ToString()).Distinct();
+        //     
+        // }
+
+        return codeList;
+    }
+
+    private async Task<List<Term>> BuildTermsAsync(
+        string? codeListRefName,
+        IEnumerable<string?>? entries,
+        int projectId)
+    {
+        List<Term> terms = [];
+        var termOrder = 1;
+        foreach (var dataEntry in entries ?? [])
+        {
+            var codeListTerm = await _codeListService.GetCodeListTermAsync(codeListRefName, dataEntry);
+            terms.Add(new Term
+            {
+                Order = termOrder++,
+                Name = dataEntry,
+                Code = codeListTerm?.Code,
+                DecodedValue = codeListTerm?.DecodedValue,
+                CdiscDataType = CdiscDataType.Sdtm,
+                ProjectId = projectId
+            });
+        }
+
+        return terms;
+    }
+
+    private async Task<(List<CodeList> FinalCodeLists, Dictionary<string, string?> CodeListDictionary)>
+        BuildFinalCodeListsAsync(List<CodeList> codeLists, int projectId)
+    {
+        Dictionary<string, string?> codeListDictionary = new();
+        List<CodeList> finalCodeLists = [];
         var epochCodeLists = codeLists
             .Where(o => o.UniqueId?.EndsWith("EPOCH", StringComparison.OrdinalIgnoreCase) == true)
             .ToList();
         var codeListsForSplit = codeLists.Except(epochCodeLists).ToList();
 
-        Dictionary<string,string?> codeListDictionary = new Dictionary<string, string?>();
-        List<CodeList> finalCodeList = [];
-        if (epochCodeLists.Count > 0)
-        {
-            var epochVariableWithDatasets = epochCodeLists
-                .Select(o => o.UniqueId?.LastIndexOf('.') switch
-                {
-                    > 0 and var idx => o.UniqueId.Substring(0, idx),
-                    _ => o.UniqueId
-                })
-                .Where(o => !string.IsNullOrWhiteSpace(o))
-                .ToList();
+        AddEpochCodeList(epochCodeLists, finalCodeLists, codeListDictionary);
 
-            var epochCodeList = epochCodeLists[0];
-            epochCodeList.UniqueId = "EPOCH";
-            epochCodeList.Terms = epochCodeLists
-                .SelectMany(o => o.Terms ?? [])
-                .DistinctBy(o => (o.Name, o.Code, o.DecodedValue))
-                .Select((term, index) =>
-                {
-                    term.Order = index + 1;
-                    return term;
-                })
-                .ToList();
-            finalCodeList.Add(epochCodeList);
-
-            foreach (var variableWithDataset in epochVariableWithDatasets)
-            {
-                codeListDictionary[variableWithDataset!] = epochCodeList.UniqueId;
-            }
-        }
-
-        var lists = codeListsForSplit.GroupBy(o=>o.UniqueId?.Split(".").LastOrDefault())
-            .Where(g=>g.Count()==1)
-            .SelectMany(g=>g)
+        var singleReferenceCodeLists = codeListsForSplit
+            .GroupBy(o => o.UniqueId?.Split(".").LastOrDefault())
+            .Where(group => group.Count() == 1)
+            .SelectMany(group => group)
             .ToList();
-        foreach (var codeList in lists)
-        {
-            var variableWithDataset = codeList.UniqueId?.LastIndexOf('.') switch
+        AddSingleReferenceCodeLists(singleReferenceCodeLists, finalCodeLists, codeListDictionary);
+
+        var domainCodeLists = codeListsForSplit
+            .GroupBy(o => $"{o.UniqueId?.Split(".").FirstOrDefault()}.{o.UniqueId?.Split(".").LastOrDefault()}")
+            .Where(group => group.Count() == 1)
+            .SelectMany(group => group)
+            .Where(o => !singleReferenceCodeLists.Contains(o))
+            .ToList();
+        await AddDomainCodeListsAsync(domainCodeLists, projectId, finalCodeLists, codeListDictionary);
+
+        var variableCodeLists = codeListsForSplit
+            .Where(o => !singleReferenceCodeLists.Contains(o) && !domainCodeLists.Contains(o))
+            .ToList();
+        await AddVariableCodeListsAsync(variableCodeLists, projectId, finalCodeLists, codeListDictionary);
+
+        SetTermCodeListUniqueIds(finalCodeLists);
+        return (finalCodeLists, codeListDictionary);
+    }
+
+    private static void AddEpochCodeList(
+        List<CodeList> epochCodeLists,
+        List<CodeList> finalCodeLists,
+        Dictionary<string, string?> codeListDictionary)
+    {
+        if (epochCodeLists.Count == 0)
+            return;
+
+        var variableWithDatasets = epochCodeLists
+            .Select(GetVariableWithDataset)
+            .Where(o => !string.IsNullOrWhiteSpace(o))
+            .ToList();
+        var epochCodeList = epochCodeLists[0];
+        epochCodeList.UniqueId = "EPOCH";
+        epochCodeList.Terms = epochCodeLists
+            .SelectMany(o => o.Terms ?? [])
+            .DistinctBy(o => (o.Name, o.Code, o.DecodedValue))
+            .Select((term, index) =>
             {
-                > 0 and var idx => codeList.UniqueId.Substring(0, idx),
-                _ => codeList.UniqueId
-            };
+                term.Order = index + 1;
+                return term;
+            })
+            .ToList();
+        finalCodeLists.Add(epochCodeList);
+
+        foreach (var variableWithDataset in variableWithDatasets)
+            codeListDictionary[variableWithDataset!] = epochCodeList.UniqueId;
+    }
+
+    private static void AddSingleReferenceCodeLists(
+        List<CodeList> codeLists,
+        List<CodeList> finalCodeLists,
+        Dictionary<string, string?> codeListDictionary)
+    {
+        foreach (var codeList in codeLists)
+        {
+            var variableWithDataset = GetVariableWithDataset(codeList);
             var codeListRef = codeList.UniqueId?.Split(".").LastOrDefault();
             codeList.UniqueId = codeListRef;
-
-            finalCodeList.Add(codeList);
+            finalCodeLists.Add(codeList);
             if (!string.IsNullOrWhiteSpace(variableWithDataset))
-            {
                 codeListDictionary.Add(variableWithDataset, codeListRef);
-            }
         }
+    }
 
-        var uniqueEachDomain = codeListsForSplit.GroupBy(o=>$"{o.UniqueId?.Split(".").FirstOrDefault()}.{o.UniqueId?.Split(".").LastOrDefault()}")
-            .Where(g=>g.Count()==1)
-            .SelectMany(g=>g)
-            .Where(o=>!lists.Contains(o))
-            .ToList();
-        
-        foreach (var codeList in uniqueEachDomain)
+    private async Task AddDomainCodeListsAsync(
+        List<CodeList> codeLists,
+        int projectId,
+        List<CodeList> finalCodeLists,
+        Dictionary<string, string?> codeListDictionary)
+    {
+        foreach (var codeList in codeLists)
         {
-            var variableWithDataset = codeList.UniqueId?.LastIndexOf('.') switch
-            {
-                > 0 and var idx => codeList.UniqueId.Substring(0, idx),
-                _ => codeList.UniqueId
-            };
+            var variableWithDataset = GetVariableWithDataset(codeList);
             var codeListRef = codeList.UniqueId?.Split(".").LastOrDefault();
             var dataset = codeList.UniqueId?.Split(".").FirstOrDefault();
 
             if (codeListRef == "Y" || codeListRef == "NY" || codeListRef == "ND")
             {
-                var inferCodeListOid = codeList.Terms?.Select(o=>o.Name).ToList().InferCodeListOid();
+                var inferCodeListOid = codeList.Terms?.Select(o => o.Name).ToList().InferCodeListOid();
                 switch (codeListRef)
                 {
-                    case "Y":inferCodeListOid = "CL.Y";break;
-                    case "ND":inferCodeListOid = "CL.ND";break;
+                    case "Y": inferCodeListOid = "CL.Y"; break;
+                    case "ND": inferCodeListOid = "CL.ND"; break;
                 }
-                var codeListTerms = await _codeListService.GetCodeListTermsAsync(inferCodeListOid);
-                List<Term> terms = [];
-                int order = 1;
-                foreach (var codeListTerm in codeListTerms)
-                {
-                    var term = new Term
-                    {
-                        Name = codeListTerm.CodeValue,
-                        DecodedValue = codeListTerm.DecodedValue,
-                        CdiscDataType = CdiscDataType.Sdtm,
-                        ProjectId = projectId,
-                        Code = codeListTerm?.Code,
-                        Order = order++
-                    };
-                    terms.Add(term);
-                }
-                codeList.Terms = terms;
-                codeList.UniqueId =  codeListRef;
-                var codeListReference= await _codeListService.GetCodeListReferenceByOidAsync(inferCodeListOid);
+
+                codeList.Terms = await GetStandardTermsAsync(inferCodeListOid, projectId, true);
+                codeList.UniqueId = codeListRef;
+                var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(inferCodeListOid);
                 codeList.Name = codeListReference?.CodeListName;
-            }else if (!string.IsNullOrWhiteSpace(dataset) && dataset.StartsWith("SUPP") && codeListRef=="DOMAIN")
+            }
+            else if (!string.IsNullOrWhiteSpace(dataset) && dataset.StartsWith("SUPP") && codeListRef == "DOMAIN")
             {
-                var replace = dataset.Replace("SUPP","");
+                var replace = dataset.Replace("SUPP", "");
                 codeList.UniqueId = $"{codeListRef}.{replace}";
                 codeList.Name = $"{codeList.Name} ({replace})";
-            }else
+            }
+            else
             {
                 codeList.UniqueId = $"{codeListRef}.{dataset}";
                 codeList.Name = $"{codeList.Name} ({dataset})";
-                
             }
 
-            if (codeList.Terms?.Count > 0)
-            {
-                if (!codeListDictionary.Values.Contains(codeList.UniqueId))
-                {
-                    finalCodeList.Add(codeList);
-                }
-            
-                if (!string.IsNullOrWhiteSpace(variableWithDataset))
-                {
-                    codeListDictionary.Add(variableWithDataset, codeList.UniqueId);
-                }
-            }
-
-           
+            AddCodeListIfHasTerms(codeList, variableWithDataset, finalCodeLists, codeListDictionary);
         }
+    }
 
-        var others = codeListsForSplit.Where(o=>!lists.Contains(o) && !uniqueEachDomain.Contains(o))
-            .ToList();
-        
-        foreach (var codeList in others)
+    private async Task AddVariableCodeListsAsync(
+        List<CodeList> codeLists,
+        int projectId,
+        List<CodeList> finalCodeLists,
+        Dictionary<string, string?> codeListDictionary)
+    {
+        foreach (var codeList in codeLists)
         {
-            var variableWithDataset = codeList.UniqueId?.LastIndexOf('.') switch
-            {
-                > 0 and var idx => codeList.UniqueId.Substring(0, idx),
-                _ => codeList.UniqueId
-            };
+            var variableWithDataset = GetVariableWithDataset(codeList);
             var codeListRef = codeList.UniqueId?.Split(".").LastOrDefault();
             var dataset = codeList.UniqueId?.Split(".").FirstOrDefault();
             var variable = variableWithDataset?.Split(".").LastOrDefault();
 
             if (codeListRef == "Y" || codeListRef == "NY")
             {
-                var inferCodeListOid = codeList.Terms?.Select(o=>o.Name).ToList().InferCodeListOid();
+                var inferCodeListOid = codeList.Terms?.Select(o => o.Name).ToList().InferCodeListOid();
                 switch (codeListRef)
                 {
-                    case "Y":inferCodeListOid = "CL.Y";break;
-                    case "NY":inferCodeListOid = "CL.NY";break;
+                    case "Y": inferCodeListOid = "CL.Y"; break;
+                    case "NY": inferCodeListOid = "CL.NY"; break;
                 }
-                var codeListTerms = await _codeListService.GetCodeListTermsAsync(inferCodeListOid);
-                List<Term> terms = [];
-                foreach (var codeListTerm in codeListTerms)
-                {
-                    var term = new Term
-                    {
-                        Name = codeListTerm.CodeValue,
-                        DecodedValue = codeListTerm.DecodedValue,
-                        CdiscDataType = CdiscDataType.Sdtm,
-                        ProjectId = projectId,
-                        Code = codeListTerm?.Code
-                    };
-                    terms.Add(term);
-                }
-                codeList.Terms = terms;
-                codeList.UniqueId =  codeListRef;
-                var codeListReference= await _codeListService.GetCodeListReferenceByOidAsync(codeListRef);
+
+                codeList.Terms = await GetStandardTermsAsync(inferCodeListOid, projectId, false);
+                codeList.UniqueId = codeListRef;
+                var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeListRef);
                 codeList.Name = codeListReference?.CodeListName;
             }
             else if (codeListRef == "DOMAIN")
             {
                 codeList.UniqueId = $"{variable}.{dataset}";
-                codeList.Name = variable == "RDOMAIN" ? $"Related Domain Abbreviation ({dataset})" : $"{codeList.Name} ({dataset})";
+                codeList.Name = variable == "RDOMAIN"
+                    ? $"Related Domain Abbreviation ({dataset})"
+                    : $"{codeList.Name} ({dataset})";
             }
             else
             {
@@ -479,58 +516,92 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                 codeList.Name = $"{codeList.Name} ({variable})";
             }
 
-
-            
-            if (codeList.Terms?.Count > 0)
-            {
-                if (!codeListDictionary.Values.Contains(codeList.UniqueId))
-                {
-                    finalCodeList.Add(codeList);
-                }
-            
-                if (!string.IsNullOrWhiteSpace(variableWithDataset))
-                {
-                    codeListDictionary.Add(variableWithDataset, codeList.UniqueId);
-                }
-            }
-
-           
+            AddCodeListIfHasTerms(codeList, variableWithDataset, finalCodeLists, codeListDictionary);
         }
-        
-        foreach (var codeList in finalCodeList)
+    }
+
+    private async Task<List<Term>> GetStandardTermsAsync(string? codeListOid, int projectId, bool assignOrder)
+    {
+        var codeListTerms = await _codeListService.GetCodeListTermsAsync(codeListOid);
+        List<Term> terms = [];
+        var order = 1;
+        foreach (var codeListTerm in codeListTerms)
         {
-            if (codeList.Terms != null)
+            terms.Add(new Term
             {
-                foreach (var codeListTerm in codeList.Terms)
-                {
-                    codeListTerm.CodeListUniqueId = codeList.UniqueId;
-                }
-            }
+                Name = codeListTerm.CodeValue,
+                DecodedValue = codeListTerm.DecodedValue,
+                CdiscDataType = CdiscDataType.Sdtm,
+                ProjectId = projectId,
+                Code = codeListTerm.Code,
+                Order = assignOrder ? order++ : 0
+            });
         }
 
-        var dictionary = finalCodeList.ToDictionary(o=>o.UniqueId??string.Empty,o=>o);
-        
+        return terms;
+    }
+
+    private static void AddCodeListIfHasTerms(
+        CodeList codeList,
+        string? variableWithDataset,
+        List<CodeList> finalCodeLists,
+        Dictionary<string, string?> codeListDictionary)
+    {
+        if (codeList.Terms?.Count <= 0)
+            return;
+
+        if (!codeListDictionary.Values.Contains(codeList.UniqueId))
+            finalCodeLists.Add(codeList);
+
+        if (!string.IsNullOrWhiteSpace(variableWithDataset))
+            codeListDictionary.Add(variableWithDataset, codeList.UniqueId);
+    }
+
+    private static string? GetVariableWithDataset(CodeList codeList)
+    {
+        return codeList.UniqueId?.LastIndexOf('.') switch
+        {
+            > 0 and var idx => codeList.UniqueId.Substring(0, idx),
+            _ => codeList.UniqueId
+        };
+    }
+
+    private static void SetTermCodeListUniqueIds(List<CodeList> codeLists)
+    {
+        foreach (var codeList in codeLists)
+        {
+            if (codeList.Terms == null)
+                continue;
+
+            foreach (var term in codeList.Terms)
+                term.CodeListUniqueId = codeList.UniqueId;
+        }
+    }
+
+    private static void LinkCodeListsToVariables(
+        List<Dataset> datasets,
+        List<CodeList> codeLists,
+        Dictionary<string, string?> codeListDictionary)
+    {
+        var codeListByUniqueId = codeLists.ToDictionary(o => o.UniqueId ?? string.Empty, o => o);
         foreach (var dataset in datasets)
         {
             if (dataset.Variables == null)
                 return;
+
             foreach (var variable in dataset.Variables)
             {
                 var oid = $"{variable.DatasetName}.{variable.VariableName}";
-                codeListDictionary.TryGetValue(oid, out string? codeListRef);
-                if(string.IsNullOrWhiteSpace(codeListRef))
+                codeListDictionary.TryGetValue(oid, out var codeListRef);
+                if (string.IsNullOrWhiteSpace(codeListRef))
                     continue;
-                dictionary.TryGetValue(codeListRef, out var codeList);
+
+                codeListByUniqueId.TryGetValue(codeListRef, out var codeList);
                 variable.CodeList = codeList;
                 variable.CodeListUniqueId = codeList?.UniqueId;
             }
         }
-
-        await _datasetService.InsertDatasetsAsync(datasets);
-        
-        _messageService.Success($"Loaded {datasets.Count} dataset(s) from SDTM XPT files");
     }
-
     private ParsedSdtmFile? ParseStandardSdtmFile(ProjectFile file)
     {
         var storedFile = _liteDatabase.FileStorage.FindById(file.StorageId.ToString());

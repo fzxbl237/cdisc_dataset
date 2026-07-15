@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using AtomUI;
 using AtomUI.Controls;
 using AtomUI.Desktop.Controls;
@@ -41,14 +41,14 @@ public class App : PrismApplication
     {
         base.Initialize();
         AvaloniaXamlLoader.Load(this);
-        this.UseAtomUI(builder =>
-        {
-            builder.WithDefaultLanguageVariant(LanguageVariant.zh_CN);
-            builder.WithDefaultTheme(IThemeManager.DEFAULT_THEME_ID);
-            builder.UseAlibabaSansFont();
-            builder.UseDesktopControls();
-            builder.UseDesktopDataGrid();
-        });
+        // this.UseAtomUI(builder =>
+        // {
+        //     builder.WithDefaultLanguageVariant(LanguageVariant.zh_CN);
+        //     builder.WithDefaultTheme(IThemeManager.DEFAULT_THEME_ID);
+        //     builder.UseAlibabaSansFont();
+        //     builder.UseDesktopControls();
+        //     builder.UseDesktopDataGrid();
+        // });
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -108,6 +108,7 @@ public class App : PrismApplication
         containerRegistry.RegisterForNavigation<PairTermsDialog,PairTermsViewModel>("PairTermsDialog");
         containerRegistry.RegisterForNavigation<UnsavedChangesDialog,UnsavedChangesViewModel>("UnsavedChangesDialog");
         containerRegistry.RegisterForNavigation<ConfirmDialog,ConfirmViewModel>("ConfirmDialog");
+        containerRegistry.RegisterForNavigation<MergeCodeListsDialog,MergeCodeListsViewModel>("MergeCodeListsDialog");
         
         containerRegistry.RegisterForNavigation<CommentsView,CommentsViewModel>("Comments");
         containerRegistry.RegisterForNavigation<DocumentsView,DocumentsViewModel>("Documents");

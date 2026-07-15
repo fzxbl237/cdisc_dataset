@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d"
@@ -106,7 +106,7 @@
                             <DataTemplate>
                                 <atom:CheckBox
                                     HorizontalAlignment="Center"
-                                    IsChecked="{Binding $parent[DataGridRow].IsSelected, Mode=TwoWay}"
+                                    IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                     VerticalAlignment="Center" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
