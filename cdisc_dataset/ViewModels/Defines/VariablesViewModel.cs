@@ -336,8 +336,9 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     }
     
     [RelayCommand]
-    private async Task Delete(VariableDto variable)
+    private async Task DeleteAsync(VariableDto variable)
     {
+        variable.PropertyChanged -= VariableDtoOnPropertyChanged;
         await _variableService.DeleteVariableAsync(variable);
         _sourceCache.Edit(o =>
         {

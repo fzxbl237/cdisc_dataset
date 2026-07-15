@@ -308,7 +308,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     // }
     
     [RelayCommand]
-    private async Task Delete(TermDto termDto)
+    private async Task DeleteAsync(TermDto termDto)
     {
         await _termService.DeleteTermAsync(termDto);
         _sourceCache.Edit(o =>
