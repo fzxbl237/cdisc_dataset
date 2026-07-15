@@ -1,0 +1,129 @@
+﻿<UserControl
+    d:DesignHeight="720"
+    d:DesignWidth="980"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.Dialogs.MergeCodeListsDialog"
+    x:DataType="vm:MergeCodeListsViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:cdisc_dataset.ViewModels.Dialogs"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid
+        Margin="36,28,36,50"
+        MinHeight="640"
+        RowDefinitions="Auto,Auto,*,Auto"
+        RowSpacing="24"
+        Width="900">
+        <Grid ColumnDefinitions="*,Auto">
+            <atom:TextBlock
+                FontSize="18"
+                FontWeight="Bold"
+                Text="合并 CodeList" />
+            <atom:Button
+                ButtonType="Text"
+                Command="{Binding CancelCommand}"
+                Foreground="#8C8C8C"
+                Grid.Column="1"
+                Icon="{antd-icons:AntDesignIconProvider Kind=CloseOutlined}"
+                Padding="0"
+                Width="32" />
+        </Grid>
+
+        <StackPanel
+            Grid.Row="1"
+            Margin="20,0,0,0"
+            Spacing="14">
+            <atom:TextBlock
+                FontSize="14"
+                FontWeight="SemiBold"
+                Text="合并信息" />
+            <Grid
+                ColumnDefinitions="170,*"
+                ColumnSpacing="28"
+                RowDefinitions="50,50,50"
+                RowSpacing="12">
+                <atom:TextBlock Grid.Row="0" Text="合并后 ID" />
+                <atom:LineEdit
+                    Grid.Column="1"
+                    Grid.Row="0"
+                    PlaceholderText="请输入合并后的 ID"
+                    Text="{Binding UniqueId, Mode=TwoWay}" />
+                <atom:TextBlock
+                    Grid.Column="0"
+                    Grid.Row="1"
+                    Text="合并后 Name" />
+                <atom:LineEdit
+                    Grid.Column="1"
+                    Grid.Row="1"
+                    PlaceholderText="请输入合并后的 Name"
+                    Text="{Binding Name, Mode=TwoWay}" />
+                <atom:TextBlock
+                    Grid.Column="0"
+                    Grid.Row="2"
+                    Text="NCI Code" />
+                <atom:LineEdit
+                    Grid.Column="1"
+                    Grid.Row="2"
+                    IsEnabled="False"
+                    Text="{Binding Code}" />
+            </Grid>
+        </StackPanel>
+
+        <StackPanel
+            Grid.Row="2"
+            Margin="20,0,0,0"
+            Spacing="14">
+            <atom:TextBlock
+                FontSize="14"
+                FontWeight="Bold"
+                Text="合并后的 Terms" />
+            <atom:DataGrid
+                AutoGenerateColumns="False"
+                CanUserResizeColumns="True"
+                CanUserSortColumns="False"
+                GridLinesVisibility="Horizontal"
+                HeadersVisibility="Column"
+                HorizontalScrollBarVisibility="Visible"
+                IsReadOnly="True"
+                ItemsSource="{Binding Terms}"
+                MinHeight="260">
+                <atom:DataGrid.Columns>
+                    <atom:DataGridTextColumn
+                        Binding="{Binding Order}"
+                        Header="Order"
+                        Width="90" />
+                    <atom:DataGridTextColumn
+                        Binding="{Binding Name}"
+                        Header="Term"
+                        Width="*" />
+                    <atom:DataGridTextColumn
+                        Binding="{Binding Code}"
+                        Header="NCI Code"
+                        Width="180" />
+                    <atom:DataGridTextColumn
+                        Binding="{Binding DecodedValue}"
+                        Header="Decoded Value"
+                        Width="260" />
+                </atom:DataGrid.Columns>
+            </atom:DataGrid>
+        </StackPanel>
+
+        <StackPanel
+            Grid.Row="3"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal"
+            Spacing="14">
+            <atom:Button
+                ButtonType="Default"
+                Command="{Binding CancelCommand}"
+                Content="取消" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding ConfirmCommand}"
+                Content="确认合并" />
+        </StackPanel>
+    </Grid>
+</UserControl>
