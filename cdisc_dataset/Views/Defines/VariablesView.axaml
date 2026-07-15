@@ -50,7 +50,7 @@
                 CanUserSortColumns="False"
                 FrozenColumnCount="3"
                 Grid.Row="1"
-                GridLinesVisibility="Horizontal"
+                GridLinesVisibility="All"
                 HeadersVisibility="Column"
                 HorizontalScrollBarVisibility="Visible"
                 IsReadOnly="False"

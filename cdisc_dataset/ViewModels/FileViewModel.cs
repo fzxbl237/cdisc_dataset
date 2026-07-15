@@ -355,6 +355,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
             };
             var codeListRef = codeList.UniqueId?.Split(".").LastOrDefault();
             codeList.UniqueId = codeListRef;
+
             finalCodeList.Add(codeList);
             if (!string.IsNullOrWhiteSpace(variableWithDataset))
             {
@@ -388,6 +389,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                 }
                 var codeListTerms = await _codeListService.GetCodeListTermsAsync(inferCodeListOid);
                 List<Term> terms = [];
+                int order = 1;
                 foreach (var codeListTerm in codeListTerms)
                 {
                     var term = new Term
@@ -396,7 +398,8 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                         DecodedValue = codeListTerm.DecodedValue,
                         CdiscDataType = CdiscDataType.Sdtm,
                         ProjectId = CurrentProject.Id,
-                        Code = codeListTerm?.Code
+                        Code = codeListTerm?.Code,
+                        Order = order++
                     };
                     terms.Add(term);
                 }
@@ -500,6 +503,17 @@ public partial class FileViewModel : ObservableObject, INavigationAware
             }
 
            
+        }
+        
+        foreach (var codeList in finalCodeList)
+        {
+            if (codeList.Terms != null)
+            {
+                foreach (var codeListTerm in codeList.Terms)
+                {
+                    codeListTerm.CodeListUniqueId = codeList.UniqueId;
+                }
+            }
         }
 
         var dictionary = finalCodeList.ToDictionary(o=>o.UniqueId??string.Empty,o=>o);

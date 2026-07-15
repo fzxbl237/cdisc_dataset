@@ -33,7 +33,7 @@ using ReactiveUI;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
-[RegionMemberLifetime(KeepAlive = true)]
+[RegionMemberLifetime(KeepAlive = false)]
 public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IVariableService _variableService;
@@ -267,7 +267,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     }
 
 
-    private async Task LoadLookups(int id, CdiscDataType cdiscDataType)
+    public async Task LoadLookups()
     {
         var methods = await _methodService.GetAllMethodsWithoutErorrAsync();
         _frozenMethodDictionary = methods
@@ -434,12 +434,12 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     {
         base.OnNavigatedFrom(navigationContext);
 
-        // 取消所有 VariableDto 的 PropertyChanged 订阅
+        //取消所有 VariableDto 的 PropertyChanged 订阅
         foreach (var variableDto in _sourceCache.Items)
         {
             variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;
         }
-
+        
         _disposables.Dispose();
     }
 
@@ -461,21 +461,6 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         }
 
         CdiscDataType = cdiscDataType;
-        if (_currentProjectService.CurrentProject != null)
-        {
-            LoadLookups(_currentProjectService.CurrentProject.Id, CdiscDataType).Await();
-            //LoadVariables(_currentProjectService.CurrentProject.Id, CdiscDataType).Await();
-            // _ = Task.Run(async () =>
-            // {
-            //     var sw = Stopwatch.StartNew();
-            //     await LoadLookups(_currentProjectService.CurrentProject.Id, CdiscDataType);
-            //     var loadLookupsCost = sw.ElapsedMilliseconds;
-            //     sw.Restart();
-            //     await LoadVariables(_currentProjectService.CurrentProject.Id, CdiscDataType);
-            //     var loadVariablesCost = sw.ElapsedMilliseconds;
-            //     Console.WriteLine(loadLookupsCost+"  "+loadVariablesCost);
-            // });
-        }
     }
 
 

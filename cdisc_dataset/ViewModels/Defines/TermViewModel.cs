@@ -265,14 +265,9 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
             x => x.CodeListUniqueId);
     
     
-    private async Task LoadTerms(int id,CdiscDataType cdiscDataType)
+    public async Task LoadTermsAsync()
     {
         var list = await _termService.GetAllTermDtosAsync();
-        // list.MarkDuplicates(
-        //     o => new {Name=o.Name,
-        //         CodeListId=o.CodeListUniqueId},
-        //     (term, isDuplicate) => term.IsNameDuplicate = isDuplicate,
-        //     key => !string.IsNullOrWhiteSpace(key.Name) && !string.IsNullOrWhiteSpace(key.CodeListId));
         _sourceCache.Edit(o =>
         {
             o.Clear();
@@ -280,7 +275,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         });
     }
 
-    private async Task LoadCodeLists(int id, CdiscDataType cdiscDataType)
+    public async Task LoadCodeListsAsync()
     {
         var list = await _codeListService.GetAllCodeListsWithoutErorrAsync();
         List<IAutoCompleteOption> res = [];
@@ -343,7 +338,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     {
         await _termService.SaveTermsAsync(Terms.ToList());
         _messageService.Success("Terms Save Success");
-        await LoadTerms(_currentProjectService.CurrentProject?.Id??0,CdiscDataType);
+        await LoadTermsAsync();
         HasChanges = false;
     }
     
@@ -351,7 +346,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     private async Task Discard()
     {
         if(!HasChanges) return;
-        await LoadTerms(_currentProjectService.CurrentProject?.Id??0,CdiscDataType);
+        await LoadTermsAsync();
         HasChanges = false;
     }
 
@@ -383,7 +378,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         var result = await _dialogHostService.ShowDialog("PairTermsDialog",dialogParameters);
         if (result.Result == ButtonResult.Yes)
         {
-            await LoadTerms(_currentProjectService.CurrentProject?.Id??0,CdiscDataType);
+            await LoadTermsAsync();
             _messageService.Success("Terms paired success");
         }
     }
@@ -404,12 +399,6 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         var navigationContextParameters = navigationContext.Parameters;
         navigationContextParameters.TryGetValue("CdiscDataType",out CdiscDataType cdiscDataType);
         CdiscDataType = cdiscDataType;
-        if (_currentProjectService.CurrentProject != null)
-        {
-            LoadTerms(_currentProjectService.CurrentProject.Id,CdiscDataType).Await();
-            //LoadComments(_currentProjectService.CurrentProject.Id,CdiscDataType).Await();
-            LoadCodeLists(_currentProjectService.CurrentProject.Id,CdiscDataType).Await();
-        }
     }
 
 
