@@ -1,4 +1,4 @@
-﻿<UserControl
+<UserControl
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d"
@@ -27,189 +27,206 @@
         ParagraphRows="10"
         VerticalAlignment="Stretch">
         <Grid RowDefinitions="50,*,50">
-        <DockPanel>
-            <atom:LineEdit
-                DockPanel.Dock="Left"
-                IsAllowClear="True"
-                MinWidth="200"
-                PlaceholderText="Please input search string"
-                Text="{Binding SearchText}" />
+            <DockPanel>
+                <atom:LineEdit
+                    DockPanel.Dock="Left"
+                    IsAllowClear="True"
+                    MinWidth="200"
+                    PlaceholderText="Please input search string"
+                    Text="{Binding SearchText}" />
+                <StackPanel
+                    DockPanel.Dock="Right"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal"
+                    Spacing="15">
+                    <atom:Button
+                        ButtonType="Primary"
+                        Command="{Binding AddTermCommand}"
+                        Content="Add New"
+                        Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+                    <atom:Button
+                        ButtonType="Default"
+                        Command="{Binding PairCommand}"
+                        Content="Pair"
+                        Icon="{antd-icons:AntDesignIconProvider Kind=ApiOutlined}" />
+                </StackPanel>
+
+            </DockPanel>
+            <DataGrid
+                CanUserSortColumns="False"
+                FrozenColumnCount="1"
+                Grid.Row="1"
+                GridLinesVisibility="Horizontal"
+                HeadersVisibility="Column"
+                HorizontalScrollBarVisibility="Visible"
+                IsReadOnly="False"
+                ItemsSource="{Binding Terms}"
+                SelectionMode="Extended"
+                SelectionUnit="FullRow">
+                <Interaction.Behaviors>
+                    <EventTriggerBehavior EventName="PreparingCellForEdit">
+                        <InvokeCommandAction Command="{Binding PreparingCellForEditCommand}" PassEventArgsToCommand="True" />
+                    </EventTriggerBehavior>
+                </Interaction.Behaviors>
+                <DataGrid.Styles>
+                    <Style Selector="TextBlock">
+                        <Setter Property="TextWrapping" Value="Wrap" />
+                    </Style>
+                    <Style Selector="DataGridCell.template:cell-selected">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderThickness" Value="0" />
+                    </Style>
+                    <Style Selector="DataGridRow">
+                        <Setter Property="ContextMenu">
+                            <atom:ContextMenu x:DataType="dto:TermDto">
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:TermViewModel)DataContext).DeleteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Delete"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                                <!-- <atom:PopupConfirm Title="Sure to delete?"> -->
+                                <!--     <Interaction.Behaviors> -->
+                                <!--         <EventTriggerBehavior EventName="Confirmed"> -->
+                                <!--             <InvokeCommandAction Command="{Binding #Root.((vm:TermViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" /> -->
+                                <!--         </EventTriggerBehavior> -->
+                                <!--     </Interaction.Behaviors> -->
+                                <!--     <atom:MenuItem Header="Delete" /> -->
+                                <!-- </atom:PopupConfirm> -->
+                            </atom:ContextMenu>
+                        </Setter>
+                    </Style>
+                </DataGrid.Styles>
+                <DataGrid.Columns>
+                    <DataGridTemplateColumn
+                        CanUserResize="False"
+                        Header=""
+                        IsReadOnly="True"
+                        Width="40">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <atom:CheckBox
+                                    HorizontalAlignment="Center"
+                                    IsChecked="{Binding $parent[DataGridRow].IsSelected, Mode=TwoWay}"
+                                    VerticalAlignment="Center" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <controls:DataGridAtomNumericUpDownColumn
+                        Binding="{Binding Order}"
+                        Header="Order"
+                        Increment="1"
+                        IsReadOnly="False"
+                        Minimum="1"
+                        Width="100" />
+
+                    <controls:DataGridAtomAutoCompleteColumn
+                        Binding="{Binding CodeListUniqueId}"
+                        Header="CodeList"
+                        IsReadOnly="False"
+                        OptionsSource="{Binding CodeListOptions}"
+                        Width="200">
+                        <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                            <DataTemplate x:DataType="vm:CodeListAutoCompleteOption">
+                                <StackPanel Margin="0,5">
+                                    <atom:TextBlock
+                                        HorizontalAlignment="Left"
+                                        Text="{Binding Content}"
+                                        TextWrapping="Wrap" />
+                                    <atom:TextBlock
+                                        FontSize="12"
+                                        Foreground="#1677ff"
+                                        HorizontalAlignment="Left"
+                                        Text="{Binding CodeList.Name}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn>
+
+                    <controls:DataGridAtomAutoCompleteColumn
+                        Binding="{Binding Name}"
+                        Header="Term"
+                        IsReadOnly="False"
+                        OptionsAsyncLoader="{Binding TermOptionsAsyncLoader}"
+                        Width="250">
+                        <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                            <DataTemplate x:DataType="dialogs:TermCompleteOption">
+                                <StackPanel Margin="0,5">
+                                    <atom:TextBlock
+                                        HorizontalAlignment="Left"
+                                        Text="{Binding Content}"
+                                        TextWrapping="Wrap" />
+                                    <atom:TextBlock
+                                        FontSize="12"
+                                        Foreground="#1677ff"
+                                        HorizontalAlignment="Left"
+                                        IsVisible="{Binding !SynonymsIsEmpty}"
+                                        Text="{Binding Header}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn>
+
+                    <controls:DataGridAtomLineEditColumn
+                        Binding="{Binding Code}"
+                        Header="NCI Code"
+                        IsReadOnly="True"
+                        Width="200" />
+                    <!--  <DataGridCheckBoxColumn  -->
+                    <!--  Binding="{Binding IsNameDuplicate}"  -->
+                    <!--  Header="Duplicate"  -->
+                    <!--  IsReadOnly="False" />  -->
+                    <!-- <DataGridTextColumn Binding="{Binding DecodedValue}" Header="Decoded Value" /> -->
+                    <controls:DataGridAtomLineEditColumn
+                        Binding="{Binding DecodedValue}"
+                        Header="Decoded Value"
+                        IsReadOnly="False"
+                        Width="450" />
+                    <!-- <DataGridTemplateColumn Header="Pop up"> -->
+                    <!--     ~1~ <DataGridTemplateColumn.CellTemplate> @1@ -->
+                    <!--     ~1~     <DataTemplate> @1@ -->
+                    <!--     ~1~         <atom:TextBlock Text="aaa" /> @1@ -->
+                    <!--     ~1~     </DataTemplate> @1@ -->
+                    <!--     ~1~ </DataGridTemplateColumn.CellTemplate> @1@ -->
+                    <!--     <DataGridTemplateColumn.CellTemplate> -->
+                    <!--         <DataTemplate> -->
+                    <!--             <atom:FlyoutHost IsShowArrow="True" Trigger="Click"> -->
+                    <!--                 <atom:FlyoutHost.Flyout> -->
+                    <!--                     <atom:Flyout> -->
+                    <!--                         <atom:LineEdit PlaceholderText="aaa" /> -->
+                    <!--                     </atom:Flyout> -->
+                    <!--                 </atom:FlyoutHost.Flyout> -->
+                    <!--                 <atom:HyperLinkTextBlock Text="aaa" VerticalAlignment="Center" /> -->
+                    <!--             </atom:FlyoutHost> -->
+                    <!--    -->
+                    <!--         </DataTemplate> -->
+                    <!--     </DataGridTemplateColumn.CellTemplate> -->
+                    <!-- </DataGridTemplateColumn> -->
+                </DataGrid.Columns>
+            </DataGrid>
             <StackPanel
-                DockPanel.Dock="Right"
+                Grid.Row="2"
                 HorizontalAlignment="Right"
+                Margin="0,0,15,0"
                 Orientation="Horizontal"
-                Spacing="15">
+                Spacing="15"
+                VerticalAlignment="Center">
                 <atom:Button
                     ButtonType="Primary"
-                    Command="{Binding AddTermCommand}"
-                    Content="新增"
-                    Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+                    Command="{Binding SaveCommand}"
+                    Content="Save"
+                    IsEnabled="{Binding HasChanges}"
+                    atom:ToolTip.Tip="Save(Ctrl+S)" />
+
                 <atom:Button
-                    ButtonType="Default"
-                    Command="{Binding PairCommand}"
-                    Content="配对"
-                    Icon="{antd-icons:AntDesignIconProvider Kind=ApiOutlined}" />
+                    ButtonType="Primary"
+                    Command="{Binding DiscardCommand}"
+                    Content="Discard"
+                    IsDanger="True"
+                    IsEnabled="{Binding HasChanges}"
+                    atom:ToolTip.Tip="Discard(Esc)" />
             </StackPanel>
-
-        </DockPanel>
-        <DataGrid
-            CanUserSortColumns="False"
-            FrozenColumnCountRight="1"
-            Grid.Row="1"
-            GridLinesVisibility="Horizontal"
-            HeadersVisibility="Column"
-            HorizontalScrollBarVisibility="Visible"
-            IsReadOnly="False"
-            ItemsSource="{Binding Terms}"
-            SelectionUnit="FullRow">
-            <Interaction.Behaviors>
-                <EventTriggerBehavior EventName="PreparingCellForEdit">
-                    <InvokeCommandAction Command="{Binding PreparingCellForEditCommand}" PassEventArgsToCommand="True" />
-                </EventTriggerBehavior>
-            </Interaction.Behaviors>
-            <DataGrid.Styles>
-                <Style Selector="TextBlock">
-                    <Setter Property="TextWrapping" Value="Wrap" />
-                </Style>
-                <Style Selector="DataGridCell.template:cell-selected">
-                    <Setter Property="Background" Value="Transparent" />
-                    <Setter Property="BorderThickness" Value="0" />
-                </Style>
-                <Style Selector="DataGridRow">
-                    <Setter Property="ContextMenu">
-                        <atom:ContextMenu x:DataType="dto:TermDto">
-                            <atom:MenuItem
-                                Command="{Binding #Root.((vm:TermViewModel)DataContext).DeleteCommand}"
-                                CommandParameter="{Binding}"
-                                Header="Delete"
-                                Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
-                            <!-- <atom:PopupConfirm Title="Sure to delete?"> -->
-                            <!--     <Interaction.Behaviors> -->
-                            <!--         <EventTriggerBehavior EventName="Confirmed"> -->
-                            <!--             <InvokeCommandAction Command="{Binding #Root.((vm:TermViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" /> -->
-                            <!--         </EventTriggerBehavior> -->
-                            <!--     </Interaction.Behaviors> -->
-                            <!--     <atom:MenuItem Header="Delete" /> -->
-                            <!-- </atom:PopupConfirm> -->
-                        </atom:ContextMenu>
-                    </Setter>
-                </Style>
-            </DataGrid.Styles>
-            <DataGrid.Columns>
-                <DataGridNumericColumn
-                    Binding="{Binding Order, UpdateSourceTrigger=LostFocus}"
-                    Header="Order"
-                    IsReadOnly="False"
-                    Width="150" />
-
-                <controls:DataGridAtomAutoCompleteColumn
-                    Binding="{Binding CodeListUniqueId}"
-                    Header="CodeList"
-                    IsReadOnly="False"
-                    OptionsSource="{Binding CodeListOptions}"
-                    Width="200">
-                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
-                        <DataTemplate x:DataType="vm:CodeListAutoCompleteOption">
-                            <StackPanel Margin="0,5">
-                                <atom:TextBlock
-                                    HorizontalAlignment="Left"
-                                    Text="{Binding Content}"
-                                    TextWrapping="Wrap" />
-                                <atom:TextBlock
-                                    FontSize="12"
-                                    Foreground="#1677ff"
-                                    HorizontalAlignment="Left"
-                                    Text="{Binding CodeList.Name}"
-                                    TextWrapping="Wrap" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
-                </controls:DataGridAtomAutoCompleteColumn>
-
-                <controls:DataGridAtomAutoCompleteColumn
-                    Binding="{Binding Name}"
-                    Header="Term"
-                    IsReadOnly="False"
-                    OptionsAsyncLoader="{Binding TermOptionsAsyncLoader}"
-                    Width="250">
-                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
-                        <DataTemplate x:DataType="dialogs:TermCompleteOption">
-                            <StackPanel Margin="0,5">
-                                <atom:TextBlock
-                                    HorizontalAlignment="Left"
-                                    Text="{Binding Content}"
-                                    TextWrapping="Wrap" />
-                                <atom:TextBlock
-                                    FontSize="12"
-                                    Foreground="#1677ff"
-                                    HorizontalAlignment="Left"
-                                    IsVisible="{Binding !SynonymsIsEmpty}"
-                                    Text="{Binding Header}"
-                                    TextWrapping="Wrap" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
-                </controls:DataGridAtomAutoCompleteColumn>
-
-                <DataGridTextColumn
-                    Binding="{Binding Code}"
-                    Header="NCI Code"
-                    IsReadOnly="True"
-                    Width="200" />
-                <!--  <DataGridCheckBoxColumn  -->
-                <!--  Binding="{Binding IsNameDuplicate}"  -->
-                <!--  Header="Duplicate"  -->
-                <!--  IsReadOnly="False" />  -->
-                <!-- <DataGridTextColumn Binding="{Binding DecodedValue}" Header="Decoded Value" /> -->
-                <controls:DataGridAtomLineEditColumn
-                    Binding="{Binding DecodedValue}"
-                    Header="Decoded Value"
-                    IsReadOnly="False"
-                    Width="450" />
-                <!-- <DataGridTemplateColumn Header="Pop up"> -->
-                <!--     ~1~ <DataGridTemplateColumn.CellTemplate> @1@ -->
-                <!--     ~1~     <DataTemplate> @1@ -->
-                <!--     ~1~         <atom:TextBlock Text="aaa" /> @1@ -->
-                <!--     ~1~     </DataTemplate> @1@ -->
-                <!--     ~1~ </DataGridTemplateColumn.CellTemplate> @1@ -->
-                <!--     <DataGridTemplateColumn.CellTemplate> -->
-                <!--         <DataTemplate> -->
-                <!--             <atom:FlyoutHost IsShowArrow="True" Trigger="Click"> -->
-                <!--                 <atom:FlyoutHost.Flyout> -->
-                <!--                     <atom:Flyout> -->
-                <!--                         <atom:LineEdit PlaceholderText="aaa" /> -->
-                <!--                     </atom:Flyout> -->
-                <!--                 </atom:FlyoutHost.Flyout> -->
-                <!--                 <atom:HyperLinkTextBlock Text="aaa" VerticalAlignment="Center" /> -->
-                <!--             </atom:FlyoutHost> -->
-                <!--    -->
-                <!--         </DataTemplate> -->
-                <!--     </DataGridTemplateColumn.CellTemplate> -->
-                <!-- </DataGridTemplateColumn> -->
-            </DataGrid.Columns>
-        </DataGrid>
-        <StackPanel
-            Grid.Row="2"
-            HorizontalAlignment="Right"
-            Margin="0,0,15,0"
-            Orientation="Horizontal"
-            Spacing="15"
-            VerticalAlignment="Center">
-            <atom:Button
-                ButtonType="Primary"
-                Command="{Binding SaveCommand}"
-                Content="保存"
-                IsEnabled="{Binding HasChanges}"
-                atom:ToolTip.Tip="保存所有数据(Ctrl+S)" />
-
-            <atom:Button
-                ButtonType="Primary"
-                Command="{Binding DiscardCommand}"
-                Content="放弃"
-                IsDanger="True"
-                IsEnabled="{Binding HasChanges}"
-                atom:ToolTip.Tip="撤销(Esc)" />
-        </StackPanel>
         </Grid>
     </atom:Skeleton>
 </UserControl>

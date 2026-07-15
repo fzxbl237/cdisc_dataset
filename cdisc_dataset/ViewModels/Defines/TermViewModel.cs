@@ -183,7 +183,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
             }
         }
 
-        //如果codelist发生改变 term需要重新录�?
+        //如果codelist发生改变 term需要重新录�?
         if(!string.IsNullOrWhiteSpace(changeSender.Name))
             changeSender.Name = string.Empty;
         Observable.StartAsync(async () =>
@@ -341,7 +341,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     }
     
     [RelayCommand]
-    private async Task AddTerm()
+    private async Task AddTermAsync()
     {
         var termDto = new TermDto()
         {
@@ -351,6 +351,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         };
         await _validator.ValidateDtoAsync(termDto);
         _sourceCache.AddOrUpdate(termDto);
+        HasChanges = true;
     }
     
     [RelayCommand]

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -238,7 +238,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                     var codeList = new CodeList();
                     var codeListRefName = codeListRef.CodeListRef;
                     var entries = parsedVariable.Entries
-                        .Where(o=>!string.IsNullOrWhiteSpace(o))
+                        ?.Where(o=>!string.IsNullOrWhiteSpace(o))
                         .Distinct()
                         .ToList();
                     
@@ -269,14 +269,16 @@ public partial class FileViewModel : ObservableObject, INavigationAware
                     List<Term> terms = [];
                     foreach (var dataEntry in entries)
                     {
-                        var term = new Term();
-                        term.Order = termOrder++;
-                        term.Name = dataEntry;
                         var codeListTerm = await _codeListService.GetCodeListTermAsync(codeListRefName,dataEntry);
-                        term.Code = codeListTerm?.Code;
-                        term.DecodedValue = codeListTerm?.DecodedValue;
-                        term.CdiscDataType = CdiscDataType.Sdtm;
-                        term.ProjectId = projectId;
+                        var term = new Term
+                        {
+                            Order = termOrder++,
+                            Name = dataEntry,
+                            Code = codeListTerm?.Code,
+                            DecodedValue = codeListTerm?.DecodedValue,
+                            CdiscDataType = CdiscDataType.Sdtm,
+                            ProjectId = projectId
+                        };
                         terms.Add(term);
                     }
 
@@ -295,12 +297,47 @@ public partial class FileViewModel : ObservableObject, INavigationAware
             datasets.Add(dataset);
         }
 
-        var lists = codeLists.GroupBy(o=>o.UniqueId?.Split(".").LastOrDefault())
+        var epochCodeLists = codeLists
+            .Where(o => o.UniqueId?.EndsWith("EPOCH", StringComparison.OrdinalIgnoreCase) == true)
+            .ToList();
+        var codeListsForSplit = codeLists.Except(epochCodeLists).ToList();
+
+        Dictionary<string,string?> codeListDictionary = new Dictionary<string, string?>();
+        List<CodeList> finalCodeList = [];
+        if (epochCodeLists.Count > 0)
+        {
+            var epochVariableWithDatasets = epochCodeLists
+                .Select(o => o.UniqueId?.LastIndexOf('.') switch
+                {
+                    > 0 and var idx => o.UniqueId.Substring(0, idx),
+                    _ => o.UniqueId
+                })
+                .Where(o => !string.IsNullOrWhiteSpace(o))
+                .ToList();
+
+            var epochCodeList = epochCodeLists[0];
+            epochCodeList.UniqueId = "EPOCH";
+            epochCodeList.Terms = epochCodeLists
+                .SelectMany(o => o.Terms ?? [])
+                .DistinctBy(o => (o.Name, o.Code, o.DecodedValue))
+                .Select((term, index) =>
+                {
+                    term.Order = index + 1;
+                    return term;
+                })
+                .ToList();
+            finalCodeList.Add(epochCodeList);
+
+            foreach (var variableWithDataset in epochVariableWithDatasets)
+            {
+                codeListDictionary[variableWithDataset!] = epochCodeList.UniqueId;
+            }
+        }
+
+        var lists = codeListsForSplit.GroupBy(o=>o.UniqueId?.Split(".").LastOrDefault())
             .Where(g=>g.Count()==1)
             .SelectMany(g=>g)
             .ToList();
-        Dictionary<string,string?> codeListDictionary = new Dictionary<string, string?>();
-        List<CodeList> finalCodeList = [];
         foreach (var codeList in lists)
         {
             var variableWithDataset = codeList.UniqueId?.LastIndexOf('.') switch
@@ -318,7 +355,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
             }
         }
 
-        var uniqueEachDomain = codeLists.GroupBy(o=>$"{o.UniqueId?.Split(".").FirstOrDefault()}.{o.UniqueId?.Split(".").LastOrDefault()}")
+        var uniqueEachDomain = codeListsForSplit.GroupBy(o=>$"{o.UniqueId?.Split(".").FirstOrDefault()}.{o.UniqueId?.Split(".").LastOrDefault()}")
             .Where(g=>g.Count()==1)
             .SelectMany(g=>g)
             .Where(o=>!lists.Contains(o))
@@ -390,7 +427,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
            
         }
 
-        var others = codeLists.Where(o=>!lists.Contains(o) && !uniqueEachDomain.Contains(o))
+        var others = codeListsForSplit.Where(o=>!lists.Contains(o) && !uniqueEachDomain.Contains(o))
             .ToList();
         
         foreach (var codeList in others)
