@@ -58,7 +58,6 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     [ObservableProperty] private string? _searchText;
     
     [ObservableProperty] private bool _hasChanges;
-    [ObservableProperty] private bool _isLoading;
     [ObservableProperty]
     private CdiscDataType _cdiscDataType;
     
@@ -323,7 +322,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         {
             o.Remove(codeList);
         });
-        _messageService.Success("ɾ���ɹ�");
+        _messageService.Success("Delete successfully");
     }
     
     [RelayCommand]
@@ -345,7 +344,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             _sourceCache.Edit(o=>o.AddOrUpdate(codeList));
             var updateResult = await _codeListService.UpdateCodeListAsync(codeList);
             if(updateResult>0)
-                _messageService.Success("Comment���ӳɹ�");
+                _messageService.Success("Comment add successfully");
         }
     }
     
@@ -362,7 +361,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         if (result.Parameters.TryGetValue<Comment>("Model",out Comment? resultModel))
         {
             await _commentService.UpdateCommentAsync(resultModel);
-            _messageService.Success("Comment���³ɹ�");
+            _messageService.Success("Comment update successfully");
         }
     }
 
@@ -392,7 +391,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
                     codeList.Comment = null;
                 }
                 _sourceCache.Edit(o=>o.AddOrUpdate(codeLists));
-                _messageService.Success("ɾ���ɹ�");
+                _messageService.Success("Comment delete successfully");
             }
         }
     }
@@ -411,7 +410,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             CodeListDto entity = await _codeListService.InsertCodeListAsync(codeList);
             await ValidateCodeListDtoAsync(entity);
             _sourceCache.Edit(o=>o.AddOrUpdate(entity));
-            _messageService.Success("CodeList���ӳɹ�");
+            _messageService.Success("CodeList add successfully");
         }
     }
     
@@ -419,7 +418,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     private async Task Save()
     {
         await _codeListService.SaveCodeListsAsync(CodeLists.ToList());
-        _messageService.Success("CodeList Save Success");
+        _messageService.Success("CodeList save successfully");
         HasChanges = false;
     }
     
@@ -462,7 +461,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
 
         if(!HasChanges) return;
         _codeListService.SaveCodeListsAsync(CodeLists.ToList()).Await();
-        _messageService.Success("CodeList Save Success");
+        _messageService.Success("CodeList save successfully");
     }
     
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -50,9 +50,6 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty]
     private bool _hasChanges;
-
-    [ObservableProperty]
-    private bool _isLoading;
 
     [ObservableProperty]
     private string? _searchText;

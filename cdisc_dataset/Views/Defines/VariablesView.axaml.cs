@@ -22,9 +22,12 @@ public partial class VariablesView : UserControl,IActivatableView
                 // 使用 Post 延迟到 Dispatcher 空闲时执行，让 TabStrip 动画先完成
                 Dispatcher.UIThread.InvokeAsync(async () =>
                 {
-                    await Task.Delay(250); // 延迟确保动画流畅
-                    await vm.LoadVariablesAsync();
-                    await vm.LoadLookups();
+                    await vm.ExecuteLoadingAsync(async () =>
+                    {
+                        await Task.Delay(250); // 延迟确保动画流畅
+                        await vm.LoadVariablesAsync();
+                        await vm.LoadLookups();
+                    });
                 }, DispatcherPriority.Background);
             }
         });

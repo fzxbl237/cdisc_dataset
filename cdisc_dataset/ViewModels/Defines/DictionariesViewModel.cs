@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -43,9 +43,6 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty]
     private bool _hasChanges;
-
-    [ObservableProperty]
-    private bool _isLoading;
 
     [ObservableProperty]
     private string? _searchText;

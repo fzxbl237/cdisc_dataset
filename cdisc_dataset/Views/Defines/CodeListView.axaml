@@ -26,28 +26,32 @@
         ParagraphRows="10"
         VerticalAlignment="Stretch">
         <Grid RowDefinitions="50,*,50">
-            <StackPanel
-                HorizontalAlignment="Stretch"
-                Orientation="Horizontal"
-                Spacing="15"
-                VerticalAlignment="Center">
+            <DockPanel Margin="10,8">
                 <atom:LineEdit
+                    DockPanel.Dock="Left"
                     IsAllowClear="True"
                     MinWidth="200"
-                    PlaceholderText="请输入搜索字段"
+                    PlaceholderText="Please input search string"
                     Text="{Binding SearchText}" />
-                <atom:Button
-                    ButtonType="Primary"
-                    Command="{Binding AddCodeListCommand}"
-                    Content="新增"
+                <StackPanel
+                    DockPanel.Dock="Right"
                     HorizontalAlignment="Right"
-                    Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
-                <atom:Button
-                    ButtonType="Default"
-                    Command="{Binding MergeSelectedCodeListsCommand}"
-                    Content="合并"
-                    Icon="{antd-icons:AntDesignIconProvider Kind=MergeCellsOutlined}" />
-            </StackPanel>
+                    Orientation="Horizontal"
+                    Spacing="10">
+                    <atom:Button
+                        ButtonType="Primary"
+                        Command="{Binding AddCodeListCommand}"
+                        Content="新增"
+                        HorizontalAlignment="Right"
+                        Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+                    <atom:Button
+                        ButtonType="Default"
+                        Command="{Binding MergeSelectedCodeListsCommand}"
+                        Content="合并"
+                        Icon="{antd-icons:AntDesignIconProvider Kind=MergeCellsOutlined}" />
+                </StackPanel>
+
+            </DockPanel>
             <DataGrid
                 CanUserSortColumns="False"
                 Grid.Row="1"

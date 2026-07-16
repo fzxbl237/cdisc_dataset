@@ -41,14 +41,14 @@ public class App : PrismApplication
     {
         base.Initialize();
         AvaloniaXamlLoader.Load(this);
-        // this.UseAtomUI(builder =>
-        // {
-        //     builder.WithDefaultLanguageVariant(LanguageVariant.zh_CN);
-        //     builder.WithDefaultTheme(IThemeManager.DEFAULT_THEME_ID);
-        //     builder.UseAlibabaSansFont();
-        //     builder.UseDesktopControls();
-        //     builder.UseDesktopDataGrid();
-        // });
+        this.UseAtomUI(builder =>
+        {
+            builder.WithDefaultLanguageVariant(LanguageVariant.zh_CN);
+            builder.WithDefaultTheme(IThemeManager.DEFAULT_THEME_ID);
+            builder.UseAlibabaSansFont();
+            builder.UseDesktopControls();
+            builder.UseDesktopDataGrid();
+        });
     }
 
     public override void OnFrameworkInitializationCompleted()

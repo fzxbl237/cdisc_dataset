@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -53,7 +53,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     [ObservableProperty] private string? _searchText;
     [ObservableProperty] private bool _hasChanges;
     [ObservableProperty] private CdiscDataType _cdiscDataType;
-    [ObservableProperty] private bool _isLoading;
 
     private readonly ReadOnlyObservableCollection<DatasetDto> _datasets;
     public ReadOnlyObservableCollection<DatasetDto> Datasets => _datasets;
@@ -193,8 +192,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
     public async Task LoadDatasets()
     {
-        IsLoading = true;
-
         foreach (var datasetDto in _sourceCache.Items)
             UnregisterDatasetDtoPropertyChanged(datasetDto);
 
@@ -211,7 +208,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         });
         UpdateDuplicateFlags();
         HasChanges = false;
-        IsLoading = false;
     }
 
     public async Task LoadLookups()

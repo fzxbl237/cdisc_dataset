@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -61,7 +61,6 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     [ObservableProperty] private string? _searchText;
     
     [ObservableProperty] private bool _hasChanges;
-    [ObservableProperty] private bool _isLoading;
     [ObservableProperty]
     private CdiscDataType _cdiscDataType;
     

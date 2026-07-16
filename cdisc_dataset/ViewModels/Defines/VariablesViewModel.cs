@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -62,7 +62,6 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     [ObservableProperty] private string? _datasetFilter;
     [ObservableProperty] private string? _variableFilter;
     
-    [ObservableProperty] private bool _isLoading;
     
     private FrozenDictionary<string, Method>? _frozenMethodDictionary;
     private FrozenDictionary<string, Comment>? _frozenCommentDictionary;
@@ -152,7 +151,6 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     
     public async Task LoadVariablesAsync()
     {
-        IsLoading = true;
         var sw = Stopwatch.StartNew();
 
         // // ȡ�������ݵ� PropertyChanged ����
@@ -178,7 +176,6 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         sw.Restart();
         Console.WriteLine(swElapsedMilliseconds+" "+swElapsedMilliseconds2+" ");
         HasChanges = false;
-        IsLoading = false;
     }
 
     private void VariableDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)

@@ -146,7 +146,7 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
             .ToList();
         var deletedCodeListIds = sourceIds.Where(o => o != retainedCodeList.Id).ToList();
 
-        sqlSugar.Ado.BeginTran();
+        await sqlSugar.Ado.BeginTranAsync();
         try
         {
             await sqlSugar.Updateable(retainedCodeList).ExecuteCommandAsync();
@@ -180,11 +180,11 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
                                 && o.CdiscDataType == dataType)
                     .ExecuteCommandAsync();
 
-            sqlSugar.Ado.CommitTran();
+            await sqlSugar.Ado.CommitTranAsync();
         }
         catch
         {
-            sqlSugar.Ado.RollbackTran();
+            await sqlSugar.Ado.RollbackTranAsync();
             throw;
         }
     }

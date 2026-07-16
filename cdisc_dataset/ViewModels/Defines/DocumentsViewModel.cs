@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Concurrency;
@@ -40,9 +40,6 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty]
     private bool _hasChanges;
-
-    [ObservableProperty]
-    private bool _isLoading;
 
     [ObservableProperty]
     private string? _searchText;
@@ -163,7 +160,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         _documentSourceCache.AddOrUpdate(dto);
         MarkDuplicates();
         HasChanges = true;
-        _messageService.Success("Ìí¼Ó³É¹¦");
+        _messageService.Success("ï¿½ï¿½ï¿½Ó³É¹ï¿½");
     }
 
     [RelayCommand]
@@ -180,7 +177,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         await _documentService.DeleteDocumentDtoAsync(documentDto);
         _documentSourceCache.Remove(documentDto);
         MarkDuplicates();
-        _messageService.Success("É¾³ý³É¹¦");
+        _messageService.Success("É¾ï¿½ï¿½ï¿½É¹ï¿½");
     }
 
     [RelayCommand]

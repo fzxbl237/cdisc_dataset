@@ -11,6 +11,7 @@ using Avalonia.Platform.Storage;
 using cdisc_dataset.Extensions;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Enums;
+using cdisc_dataset.Models.Settings;
 using cdisc_dataset.Services;
 using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -38,6 +39,11 @@ public partial class FileViewModel : ObservableObject, INavigationAware
     private readonly IDialogHostService _dialogHostService;
     private readonly IDatasetService _datasetService;
     private readonly ILiteCollection<ProjectFile> _files;
+    private readonly Dictionary<string, Variable?> _standardVariableCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, VariableCodeList?> _variableCodeListCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, CodeListReference?> _codeListReferenceCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<CodeListTerm>> _codeListTermsCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Dictionary<string, CodeListTerm>> _codeListTermIndexCache = new(StringComparer.OrdinalIgnoreCase);
 
     [ObservableProperty]
     private Project? _currentProject;
@@ -181,10 +187,10 @@ public partial class FileViewModel : ObservableObject, INavigationAware
             return;
         }
 
+        ClearSdtmImportCaches();
         var (datasets, codeLists) = await BuildSdtmImportAsync(CurrentProject.Id, Files.ToList());
         var (finalCodeLists, codeListDictionary) = await BuildFinalCodeListsAsync(codeLists, CurrentProject.Id);
         LinkCodeListsToVariables(datasets, finalCodeLists, codeListDictionary);
-
         await _datasetService.InsertDatasetsAsync(datasets);
         _messageService.Success($"Loaded {datasets.Count} dataset(s) from SDTM XPT files");
     }
@@ -252,10 +258,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
         int projectId)
     {
         var variableName = parsedVariable.Name;
-        var standardVariable = await _variableService.GetStandardVariableByDatasetAndVariableNameAsync(
-            datasetName,
-            variableName,
-            CdiscDataType.Sdtm);
+        var standardVariable = await GetCachedStandardVariableAsync(datasetName, variableName);
         var origin = variableName.InferOrigin();
 
         return new Variable
@@ -285,9 +288,11 @@ public partial class FileViewModel : ObservableObject, INavigationAware
         int projectId)
     {
         var variableName = parsedVariable.Name;
-        var codeListRef = await _codeListService.GetCodeListRefByVariableAsync(variableName.ToUpper());
+        var codeListRef = await GetCachedCodeListRefAsync(variableName.ToUpper());
         if (codeListRef == null)
+        {
             return null;
+        }
 
         var codeListRefName = codeListRef.CodeListRef;
         var entries = parsedVariable.Entries
@@ -295,7 +300,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
             .Distinct()
             .ToList();
         var refName = codeListRefName?.Split(".").LastOrDefault();
-        var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeListRefName);
+        var codeListReference = await GetCachedCodeListReferenceAsync(codeListRefName);
         var codeList = new CodeList
         {
             CdiscDataType = CdiscDataType.Sdtm,
@@ -338,7 +343,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
         var termOrder = 1;
         foreach (var dataEntry in entries ?? [])
         {
-            var codeListTerm = await _codeListService.GetCodeListTermAsync(codeListRefName, dataEntry);
+            var codeListTerm = await GetCachedCodeListTermAsync(codeListRefName, dataEntry);
             terms.Add(new Term
             {
                 Order = termOrder++,
@@ -457,7 +462,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
 
                 codeList.Terms = await GetStandardTermsAsync(inferCodeListOid, projectId, true);
                 codeList.UniqueId = codeListRef;
-                var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(inferCodeListOid);
+                var codeListReference = await GetCachedCodeListReferenceAsync(inferCodeListOid);
                 codeList.Name = codeListReference?.CodeListName;
             }
             else if (!string.IsNullOrWhiteSpace(dataset) && dataset.StartsWith("SUPP") && codeListRef == "DOMAIN")
@@ -500,7 +505,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
 
                 codeList.Terms = await GetStandardTermsAsync(inferCodeListOid, projectId, false);
                 codeList.UniqueId = codeListRef;
-                var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeListRef);
+                var codeListReference = await GetCachedCodeListReferenceAsync(codeListRef);
                 codeList.Name = codeListReference?.CodeListName;
             }
             else if (codeListRef == "DOMAIN")
@@ -522,7 +527,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
 
     private async Task<List<Term>> GetStandardTermsAsync(string? codeListOid, int projectId, bool assignOrder)
     {
-        var codeListTerms = await _codeListService.GetCodeListTermsAsync(codeListOid);
+        var codeListTerms = await GetCachedCodeListTermsAsync(codeListOid);
         List<Term> terms = [];
         var order = 1;
         foreach (var codeListTerm in codeListTerms)
@@ -555,6 +560,76 @@ public partial class FileViewModel : ObservableObject, INavigationAware
 
         if (!string.IsNullOrWhiteSpace(variableWithDataset))
             codeListDictionary.Add(variableWithDataset, codeList.UniqueId);
+    }
+
+    private async Task<Variable?> GetCachedStandardVariableAsync(string datasetName, string variableName)
+    {
+        var key = $"{datasetName}|{variableName}";
+        if (_standardVariableCache.TryGetValue(key, out var cached))
+            return cached;
+
+        var standardVariable = await _variableService.GetStandardVariableByDatasetAndVariableNameAsync(
+            datasetName,
+            variableName,
+            CdiscDataType.Sdtm);
+        _standardVariableCache[key] = standardVariable;
+        return standardVariable;
+    }
+
+    private async Task<VariableCodeList?> GetCachedCodeListRefAsync(string variableName)
+    {
+        if (_variableCodeListCache.TryGetValue(variableName, out var cached))
+            return cached;
+
+        var codeListRef = await _codeListService.GetCodeListRefByVariableAsync(variableName);
+        _variableCodeListCache[variableName] = codeListRef;
+        return codeListRef;
+    }
+
+    private async Task<CodeListReference?> GetCachedCodeListReferenceAsync(string? codeListOid)
+    {
+        if (string.IsNullOrWhiteSpace(codeListOid))
+            return null;
+        if (_codeListReferenceCache.TryGetValue(codeListOid, out var cached))
+            return cached;
+
+        var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeListOid);
+        _codeListReferenceCache[codeListOid] = codeListReference;
+        return codeListReference;
+    }
+
+    private async Task<List<CodeListTerm>> GetCachedCodeListTermsAsync(string? codeListOid)
+    {
+        if (string.IsNullOrWhiteSpace(codeListOid))
+            return [];
+        if (_codeListTermsCache.TryGetValue(codeListOid, out var cached))
+            return cached;
+
+        var codeListTerms = await _codeListService.GetCodeListTermsAsync(codeListOid);
+        _codeListTermsCache[codeListOid] = codeListTerms;
+        _codeListTermIndexCache[codeListOid] = codeListTerms
+            .Where(o => !string.IsNullOrWhiteSpace(o.CodeValue))
+            .GroupBy(o => o.CodeValue!, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        return codeListTerms;
+    }
+
+    private async Task<CodeListTerm?> GetCachedCodeListTermAsync(string? codeListOid, string? codeValue)
+    {
+        if (string.IsNullOrWhiteSpace(codeListOid) || string.IsNullOrWhiteSpace(codeValue))
+            return null;
+
+        await GetCachedCodeListTermsAsync(codeListOid);
+        return _codeListTermIndexCache[codeListOid].GetValueOrDefault(codeValue);
+    }
+
+    private void ClearSdtmImportCaches()
+    {
+        _standardVariableCache.Clear();
+        _variableCodeListCache.Clear();
+        _codeListReferenceCache.Clear();
+        _codeListTermsCache.Clear();
+        _codeListTermIndexCache.Clear();
     }
 
     private static string? GetVariableWithDataset(CodeList codeList)

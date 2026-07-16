@@ -18,10 +18,11 @@ public partial class ValueLevelsView : UserControl, IActivatableView
             {
                 Dispatcher.UIThread.InvokeAsync(async () =>
                 {
-                    vm.IsLoading = true;
-                    await Task.Delay(250);
-                    await vm.LoadDataAsync();
-                    vm.IsLoading = false;
+                    await vm.ExecuteLoadingAsync(async () =>
+                    {
+                        await Task.Delay(250);
+                        await vm.LoadDataAsync();
+                    });
                 }, DispatcherPriority.Background);
             }
         });

@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -43,9 +43,6 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty]
     private bool _hasChanges;
-
-    [ObservableProperty]
-    private bool _isLoading;
 
     [ObservableProperty]
     private string? _searchText;
@@ -276,7 +273,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
 
         var parameters = new DialogParameters
         {
-            { "Title", "ÐÂÔö Method" },
+            { "Title", "ï¿½ï¿½ï¿½ï¿½ Method" },
             { "ProjectId", _currentProjectService.CurrentProject.Id },
             { "CdiscDataType", CdiscDataType },
             { "Model", dto }
@@ -302,7 +299,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         
         var parameters = new DialogParameters
         {
-            { "Title", "±à¼­ Method" },
+            { "Title", "ï¿½à¼­ Method" },
             { "ProjectId", _currentProjectService.CurrentProject.Id },
             { "CdiscDataType", CdiscDataType },
             { "Model", methodDto }

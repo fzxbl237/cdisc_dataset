@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -46,9 +46,6 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty]
     private bool _hasChanges;
-
-    [ObservableProperty]
-    private bool _isLoading;
 
     [ObservableProperty]
     private string? _searchText;
@@ -176,7 +173,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         commentDto.ProjectId = CurrentProject.Id;
         commentDto.CdiscDataType = CdiscDataType;
         await _commentService.InsertCommentAsync(commentDto);
-        _messageService.Success("Ìí¼Ó³É¹¦");
+        _messageService.Success("ï¿½ï¿½ï¿½Ó³É¹ï¿½");
         await LoadComments(CurrentProject.Id, CdiscDataType);
     }
     
@@ -193,7 +190,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         if (!result.Parameters.TryGetValue<CommentDto>("Model", out var commentDto) || CurrentProject == null)
             return;
         await _commentService.UpdateCommentAsync(commentDto);
-        _messageService.Success("Comment¸üÐÂ³É¹¦");
+        _messageService.Success("Commentï¿½ï¿½ï¿½Â³É¹ï¿½");
     }
 
     [RelayCommand]
@@ -218,7 +215,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         await _commentService.DeleteCommentAsync(comment);
         _commentSourceCache.Remove(commentDto);
         MarkDuplicates();
-        _messageService.Success("É¾³ý³É¹¦");
+        _messageService.Success("É¾ï¿½ï¿½ï¿½É¹ï¿½");
     }
 
     private void MarkDuplicates()
