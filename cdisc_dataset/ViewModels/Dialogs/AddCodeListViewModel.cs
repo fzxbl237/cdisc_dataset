@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Concurrency;
@@ -13,6 +14,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Threading;
 using System.Threading.Tasks;
+using AtomUI.Controls.Utils;
 using AtomUI.Desktop.Controls;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -20,6 +22,7 @@ using Avalonia.Threading;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Models.Enums;
+using cdisc_dataset.Models.Settings;
 using cdisc_dataset.Services;
 using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -29,7 +32,10 @@ using Dm.util;
 using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
+using LiteDB;
 using MapsterMapper;
+using P21.Validator.Api.Options;
+using P21.Validator.Data;
 using MiniExcelLibs;
 using Prism.Dialogs;
 using ReactiveUI;
@@ -43,6 +49,11 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     private readonly ISqlSugarClient _sqlSugar;
     private readonly ICurrentProjectService _currentProjectService;
     private readonly ICommentService _commentService;
+    private readonly IVariableService _variableService;
+    private readonly ICodeListService _codeListService;
+    private readonly IMessageService _messageService;
+    private readonly ILiteDatabase _liteDatabase;
+    private readonly ILiteCollection<ProjectFile> _projectFiles;
     private readonly IValidator<TermDto> _validator;
     private readonly IMapper _mapper;
     public string? DialogHostName { get; set; } = "Root";
@@ -55,9 +66,9 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     public AvaloniaList<string?> Terminologies  { get; set; } = [];
     
     [ObservableProperty]
-    private AvaloniaList<ISelectOption> _codeLists = [];
+    private AvaloniaList<CodeListOption> _codeLists = [];
     
-    [ObservableProperty] private ISelectOption? _selectedCodeList;
+    [ObservableProperty] private CodeListOption? _selectedCodeList;
     
     [ObservableProperty]
     private AvaloniaList<ISelectOption> _comments = [];
@@ -66,13 +77,13 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     private ISelectOption? _selectedComment;
     
     [ObservableProperty]
-    private AvaloniaList<ISelectOption>? _variables;
-
-    [ObservableProperty] private ISelectOption? _selectedVariable;
+    private VariableDto? _defaultVariable;
     
-    [ObservableProperty] private int _currentProjectId;
+    // [ObservableProperty]
+    // private AvaloniaList<VariableOption> _variables = [];
+    //
+    // [ObservableProperty] private VariableOption? _selectedVariable;
     
-    [ObservableProperty] private CdiscDataType _cdiscDataType;
     
     [ObservableProperty] private CodeListDto _codeListDto = new();
     
@@ -81,6 +92,8 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     [ObservableProperty] private string? _searchText;
     [ObservableProperty] private int _codeListStdId;
     
+    [ObservableProperty] private string? _display;
+    
     private readonly ReadOnlyObservableCollection<TermDto> _terms;
     public ReadOnlyObservableCollection<TermDto> Terms => _terms;
     
@@ -88,12 +101,26 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     [ObservableProperty] private TermOptionsAsyncLoader _termOptionsAsyncLoader;
     
     private readonly CompositeDisposable _disposables = new();
-
-    public AddCodeListViewModel(ISqlSugarClient sqlSugar,ICurrentProjectService currentProjectService,ICommentService commentService,IValidator<TermDto> validator,IMapper mapper)
+    
+    public AddCodeListViewModel(
+        ISqlSugarClient sqlSugar,
+        ICurrentProjectService currentProjectService,
+        ICommentService commentService,
+        IVariableService variableService,
+        ICodeListService codeListService,
+        IMessageService messageService,
+        ILiteDatabase liteDatabase,
+        IValidator<TermDto> validator,
+        IMapper mapper)
     {
         _sqlSugar = sqlSugar;
         _currentProjectService = currentProjectService;
         _commentService = commentService;
+        _variableService = variableService;
+        _codeListService = codeListService;
+        _messageService = messageService;
+        _liteDatabase = liteDatabase;
+        _projectFiles = _liteDatabase.GetCollection<ProjectFile>("project_files");
         _validator = validator;
         _mapper = mapper;
         TermOptionsAsyncLoader = new TermOptionsAsyncLoader(_sqlSugar);
@@ -204,21 +231,28 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     public void OnDialogOpened(IDialogParameters parameters)
     {
         parameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
-        CdiscDataType = cdiscDataType;
-        if (_currentProjectService.CurrentProject != null) 
-            CurrentProjectId = _currentProjectService.CurrentProject.Id;
+        if (parameters.TryGetValue<VariableDto>("Variable", out var defaultVariable))
+        {
+            DefaultVariable =  defaultVariable;
+        }
+        if (DefaultVariable != null)
+        {
+            CodeListDto.Type = DefaultVariable?.DataType ?? Types[0];
+            LoadTermsFromXptAsync().Await();
+            Display = $"Create codelist for variable: {DefaultVariable?.DatasetName}.{DefaultVariable?.VariableName}";
+        }
         Terminologies.Clear();
         var list = _sqlSugar.Queryable<CodeListStd>().Select(o=>o.Terminology).Distinct().ToList();
         Terminologies.Add(" ");
         Terminologies.AddRange(list);
         LoadComments().Await();
-        LoadVariables().Await();
+
         if (Terminologies.Count >= 2)
         {
             var terminology = Terminologies[1];
             CodeListDto.Terminology = terminology;
-            LoadCodeLists(terminology,[]).Await();
         }
+        
 
         this.WhenPropertyChanged(x => x.CodeListDto.Terminology)
             .Select(o => o.Value)
@@ -229,32 +263,20 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
                     CodeLists.Clear();
                     SelectedCodeList = null;
                 }
-                else
-                {
-                    LoadCodeLists(s,GetCodeLists(SelectedVariable)).Await();
-                }
             });
         CodeListDto.Type = Types[0];
     }
     
-
-    partial void OnSelectedVariableChanged(ISelectOption? value)
-    {
-        var codeLists = GetCodeLists(value);
-        LoadCodeLists(CodeListDto.Terminology, codeLists).Await();
-        SelectedCodeList = CodeLists?.FirstOrDefault();
-    }
     
-    partial void OnSelectedCodeListChanged(ISelectOption? value)
+    
+    partial void OnSelectedCodeListChanged(CodeListOption? value)
     {
-        if (value == null)
-        {
-            CodeListDto.UniqueId =string.Empty;
-            CodeListDto.Name =  string.Empty;
-            CodeListDto.Code =  string.Empty;
-            return;
-        }
-        if (value.Content is not CodeListStd codeListStd) return;
+        
+        CodeListDto.Code = value?.CodeListReference?.CodeListCode;
+        CodeListDto.Name =  value?.CodeListReference?.CodeListName;
+        CodeListDto.UniqueId =   value?.CodeListReference?.CodeListRef?.Split(".").LastOrDefault();
+        
+        if (value?.Content is not CodeListStd codeListStd) return;
         CodeListDto.Name =  codeListStd.Name;
         CodeListDto.Code =  codeListStd.Code;
         CodeListDto.UniqueId = codeListStd.UniqueId;
@@ -287,14 +309,6 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
         CodeListDto.CommentUniqueId =  comment.UniqueId;
     }
     
-    private List<string> GetCodeLists(ISelectOption? value)
-    {
-        // if (value == null || value.Content is not VariableCodeList variableCodeList) return [];
-        // var codeLists = variableCodeList.CodeLists;
-        // return string.IsNullOrWhiteSpace(codeLists) ? [] : codeLists.Split("; ").ToList();
-        return [];
-    }
-    
     private async Task LoadComments()
     {
         if(_currentProjectService.CurrentProject==null) return;
@@ -310,39 +324,152 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
         Comments.Clear();
         Comments.AddRange(res);
     }
+    
 
-    private async Task LoadVariables()
+    [RelayCommand]
+    private async Task LoadTermsFromXptAsync()
     {
-        // var list =  await _sqlSugar.Queryable<VariableCodeList>().ToListAsync();
-        // List<ISelectOption> res = [];
-        // foreach (var variableCodeList in list)
-        // {
-        //     var selectOption = new SelectOption() { Header = variableCodeList.VariableName,Content = variableCodeList };
-        //     res.Add(selectOption);
-        // }
-        //Variables = new AvaloniaList<ISelectOption>(res);
-        Variables = new AvaloniaList<ISelectOption>();
-    }
-    
-    private async Task LoadCodeLists(string? terminology,List<string> codeLists)
-    {
-        
-        var codeListStds = await _sqlSugar.Queryable<CodeListStd>()
-            .Where(o=>o.Terminology == terminology 
-                      && (codeLists.Count==0 || string.IsNullOrWhiteSpace(o.Code) || codeLists.Contains(o.Code))).ToListAsync();
-        List<ISelectOption> res = [];
-        foreach (var codeListStd in codeListStds)
+        if (DefaultVariable == null)
         {
-            if(string.IsNullOrWhiteSpace(codeListStd.UniqueId) || string.IsNullOrWhiteSpace(codeListStd.Name))
-                continue;
-            var selectOption = new SelectOption() { Header = codeListStd.UniqueId,Content = codeListStd };
-            res.Add(selectOption);
+            _messageService.Error("current variable is null");
+            return;
         }
-        CodeLists.Clear();
-        //CodeLists = new AvaloniaList<ISelectOption>(res);
-        CodeLists.AddRange(res);
+        
+        var datasetName = DefaultVariable.DatasetName;
+        var variableName = DefaultVariable.VariableName;
+        if (string.IsNullOrWhiteSpace(datasetName) || string.IsNullOrWhiteSpace(variableName))
+            return;
+
+        var currentProjectId = _currentProjectService.CurrentProject?.Id??0;
+
+        var projectFile = _projectFiles.Query()
+            .Where(o => o.ProjectId == currentProjectId && o.FileType == ProjectFileType.Sdtm)
+            .ToList()
+            .FirstOrDefault(o => string.Equals(
+                Path.GetFileNameWithoutExtension(o.FileName),
+                datasetName,
+                StringComparison.OrdinalIgnoreCase));
+        if (projectFile == null)
+        {
+            _messageService.Error($"SDTM XPT file for {datasetName} was not found");
+            return;
+        }
+
+        var values = await Task.Run(() => ReadDistinctValues(projectFile, variableName));
+        if (values.Count == 0)
+        {
+            _messageService.Error($"No non-empty values were found for {DefaultVariable.DatasetName}");
+            return;
+        }
+
+        var codeListRef = await _codeListService.GetCodeListRefByVariableAsync(variableName.ToUpperInvariant());
+
+        if (codeListRef != null && !string.IsNullOrWhiteSpace(codeListRef.CodeListRef))
+        {
+            var codeListReference = await _codeListService.GetCodeListReferenceByOidAsync(codeListRef.CodeListRef);
+            if (codeListReference != null)
+            {
+                CodeLists.Clear();
+                var codeListOption = CreateCodeListOption(codeListReference);
+                CodeLists.Add(codeListOption);
+                SelectedCodeList = codeListOption;
+            }
+        }
+        else
+        {
+            var codeListReferences = await _codeListService.GetAllCodeListReferencesAsync();
+            CodeLists.Clear();
+            CodeLists.AddRange(codeListReferences.Select(CreateCodeListOption));
+            CodeListDto.Code = string.Empty;
+            CodeListDto.Name =  DefaultVariable?.Label;
+            CodeListDto.UniqueId = DefaultVariable?.VariableName;
+        }
+        var standardTerms = string.IsNullOrWhiteSpace(codeListRef?.CodeListRef)
+            ? []
+            : await _codeListService.GetCodeListTermsAsync(codeListRef.CodeListRef);
+        var standardTermsByValue = standardTerms
+            .Where(o => !string.IsNullOrWhiteSpace(o.CodeValue))
+            .GroupBy(o => o.CodeValue!, StringComparer.Ordinal)
+            .ToDictionary(o => o.Key, o => o.First(), StringComparer.Ordinal);
+
+        _sourceList.Edit(updater =>
+        {
+            updater.Clear();
+            var order = 1;
+            foreach (var value in values)
+            {
+                standardTermsByValue.TryGetValue(value, out var standardTerm);
+                updater.AddOrUpdate(new TermDto
+                {
+                    Order = order++,
+                    Name = value,
+                    Code = standardTerm?.Code,
+                    DecodedValue = standardTerm?.DecodedValue,
+                    CodeListUniqueId = CodeListDto.UniqueId
+                });
+            }
+        });
+        UpdateTermsDuplicate();
+    }
+
+    private List<string> ReadDistinctValues(ProjectFile projectFile, string variableName)
+    {
+        var storedFile = _liteDatabase.FileStorage.FindById(projectFile.StorageId.ToString());
+        if (storedFile == null)
+            return [];
+
+        using var memoryStream = new MemoryStream();
+        storedFile.CopyTo(memoryStream);
+        memoryStream.Position = 0;
+
+        var validationOptions = ValidationOptions.CreateBuilder().Build();
+        var factory = new DataEntryFactory(validationOptions);
+        var options = SourceOptions.builder()
+            .WithName(Path.GetFileNameWithoutExtension(projectFile.FileName).ToUpperInvariant())
+            .WithMemoryStream(memoryStream)
+            .WithType(SourceOptions.StandardTypes.SasTransport)
+            .Build();
+
+        using var dataSource = new SasTransportDataSource(options, factory);
+        var sourceVariableName = dataSource.GetVariables()
+            .FirstOrDefault(o => string.Equals(o, variableName, StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrWhiteSpace(sourceVariableName))
+            return [];
+
+        var values = new HashSet<string>(StringComparer.Ordinal);
+        while (dataSource.HasRecords())
+        {
+            var records = dataSource.GetRecords();
+            if (records.Count == 0)
+                break;
+
+            foreach (var record in records)
+            {
+                var entry = record.GetValue(sourceVariableName);
+                if (entry?.HasValue != true)
+                    continue;
+
+                var value = entry.ToString();
+                if (!string.IsNullOrWhiteSpace(value))
+                    values.Add(value);
+            }
+        }
+
+        return values.OrderBy(o => o, StringComparer.Ordinal).ToList();
     }
     
+    
+    private static CodeListOption CreateCodeListOption(CodeListReference codeListReference)
+    {
+        var display = $"{codeListReference.CodeListRef} {codeListReference.CodeListCode} {codeListReference.CodeListName}";
+        return new CodeListOption
+        {
+            Header = codeListReference.CodeListRef,
+            Content = display,
+            CodeListReference = codeListReference
+        };
+    }
+
     private async Task ValidateTermDtoAsync(TermDto termDto)
     {
         termDto.ClearErrors();
@@ -357,7 +484,7 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     }
     
     [RelayCommand]
-    private async Task AddTerm()
+    private async Task AddTermAsync()
     {
         var index = _sourceList.Count+1;
         var termDto = new TermDto(){CodeListUniqueId = CodeListDto.UniqueId,CodeList = _mapper.Map<CodeList>(CodeListDto),Order = index};
@@ -368,7 +495,7 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     
     
     [RelayCommand]
-    private async Task InsertTermAbove(TermDto? term)
+    private async Task InsertTermAboveAsync(TermDto? term)
     {
         if (term == null) return;
         var termOrder = term.Order;
@@ -385,7 +512,7 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     }
     
     [RelayCommand]
-    private async Task InsertTermBelow(TermDto? term)
+    private async Task InsertTermBelowAsync(TermDto? term)
     {
         if (term == null) return;
         var termOrder = term.Order;
@@ -470,19 +597,24 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     private void Save()
     {
         var codeList = _mapper.Map<CodeList>(CodeListDto);
-        codeList.ProjectId = CurrentProjectId;
-        codeList.CdiscDataType = CdiscDataType;
+        codeList.ProjectId = _currentProjectService.CurrentProject?.Id??0;
+        codeList.CdiscDataType = _currentProjectService.CdiscDataType;
         var terms = _mapper.Map<List<Term>>(_sourceList.Items);
         foreach (var term in terms)
         {
-            term.ProjectId = CurrentProjectId;
-            term.CdiscDataType = CdiscDataType;
+            term.ProjectId = codeList.ProjectId;
+            term.CdiscDataType = codeList.CdiscDataType;
+            term.CodeListUniqueId = codeList.UniqueId;
         }
         codeList.Terms = terms;
         var dialogResult = new DialogResult
         {
             Result = ButtonResult.Yes,
-            Parameters = new DialogParameters{{"CodeList",codeList}}
+            Parameters = new DialogParameters
+            {
+                { "CodeList", codeList },
+                { "Variable", DefaultVariable }
+            }
         };
         DialogHost.Close("Root",dialogResult );
     }
@@ -494,9 +626,9 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     }
 }
 
+
 public class TermOptionsAsyncLoader(ISqlSugarClient sqlSugar) : ICompleteOptionsAsyncLoader
 {
-    private readonly ISqlSugarClient _sqlSugar = sqlSugar;
     public CodeListStd? CodeListStd { get; set; }
     
 
@@ -509,7 +641,7 @@ public class TermOptionsAsyncLoader(ISqlSugarClient sqlSugar) : ICompleteOptions
             {
                 Data = data
             };
-        var list = await _sqlSugar.Queryable<TermStd>()
+        var list = await sqlSugar.Queryable<TermStd>()
             .Where(o=>o.CodeListId == CodeListStd.Id)
             .Where(o=> (SqlFunc.IsNullOrEmpty(context)
                         || (SqlFunc.IsNullOrEmpty(o.Name) || SqlFunc.Contains(o.Name,context))
@@ -542,4 +674,9 @@ public record TermCompleteOption : AutoCompleteOption
     public TermStd? TermStd { get; set; }
     
     public bool SynonymsIsEmpty { get; set; }
+}
+
+public record CodeListOption :SelectOption
+{
+    public CodeListReference? CodeListReference { get; set; }
 }

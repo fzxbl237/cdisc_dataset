@@ -281,6 +281,11 @@
                         <Setter Property="ContextMenu">
                             <atom:ContextMenu x:DataType="model:VariableDto">
                                 <atom:MenuItem
+                                    Command="{Binding #Root.((vm:VariablesViewModel)DataContext).CreateCodeListCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Create CodeList"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+                                <atom:MenuItem
                                     Command="{Binding #Root.((vm:VariablesViewModel)DataContext).DeleteCommand}"
                                     CommandParameter="{Binding}"
                                     Header="Delete"

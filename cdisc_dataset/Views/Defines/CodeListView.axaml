@@ -46,6 +46,11 @@
                         Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
                     <atom:Button
                         ButtonType="Default"
+                        Command="{Binding AddCodeListFromVariableCommand}"
+                        Content="从变量创建"
+                        Icon="{antd-icons:AntDesignIconProvider Kind=DatabaseOutlined}" />
+                    <atom:Button
+                        ButtonType="Default"
                         Command="{Binding MergeSelectedCodeListsCommand}"
                         Content="合并"
                         Icon="{antd-icons:AntDesignIconProvider Kind=MergeCellsOutlined}" />

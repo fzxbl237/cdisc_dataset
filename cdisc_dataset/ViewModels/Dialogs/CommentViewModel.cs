@@ -1,4 +1,4 @@
-using System.Collections.Frozen;
+﻿using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -47,17 +47,6 @@ public partial class CommentViewModel : ObservableObject, IDialogHostAware
 
     [ObservableProperty]
     private IList<IFormValidator> _validators = [];
-
-    [ObservableProperty]
-    private DefaultFilterValueSelector _valueFilterPropertySelector = data =>
-    {
-        if (data is ISelectOption option)
-        {
-            return option.Content;
-        }
-
-        return null;
-    };
 
     public AvaloniaList<ISelectOption> DocumentOptions { get; } = [];
 

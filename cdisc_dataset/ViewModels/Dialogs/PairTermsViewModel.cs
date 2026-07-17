@@ -42,16 +42,6 @@ public partial class PairTermsViewModel:ObservableObject,IDialogHostAware
     [ObservableProperty] 
     private IList<IFormValidator>  _validators = [new FormNotNullValidator(){Message = "Please select with codeList"}];
     
-    [ObservableProperty] 
-    private DefaultFilterValueSelector _valueFilterPropertySelector = data =>
-    {
-        if (data is ISelectOption option)
-        {
-            return option.Content;
-        }
-        return null;
-    };
-
     public PairTermsViewModel(ICodeListService  codeListService,
         ITermService termService,
         ICurrentProjectService currentProjectService,

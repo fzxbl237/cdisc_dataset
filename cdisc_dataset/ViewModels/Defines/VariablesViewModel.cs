@@ -372,6 +372,33 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         await LoadVariablesAsync();
         _messageService.Success("Variable���ӳɹ�");
     }
+
+    [RelayCommand]
+    private async Task CreateCodeList(VariableDto? variable)
+    {
+        if (variable == null || _currentProjectService.CurrentProject == null)
+            return;
+
+        var dialogParameters = new DialogParameters
+        {
+            { "Variable", variable }
+        };
+        var result = await _dialogHostService.ShowDialogAsync("AddCodeListDialog", dialogParameters);
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<CodeList?>("CodeList", out var codeList) ||
+            codeList == null)
+        {
+            return;
+        }
+
+        var entity = await _codeListService.InsertCodeListAsync(codeList);
+        variable.CodeListId = entity.Id;
+        variable.CodeListUniqueId = entity.UniqueId;
+        variable.CodeList = _mapper.Map<CodeList>(entity);
+        await _variableService.UpdateVariableAsync(variable);
+        _sourceCache.Edit(o => o.AddOrUpdate(variable));
+        _messageService.Success("CodeList created and linked to variable successfully");
+    }
     
     [RelayCommand]
     private async Task Save()
@@ -380,7 +407,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         await _variableService.SaveVariablesAsync(_sourceCache.Items.Where(o=>o.HasChanged).ToList());
         //await _variableService.SaveVariablesAsync(_sourceCache.Items);
         HasChanges = false;
-        _messageService.Success("����ɹ�");
+        _messageService.Success("Save successful");
         await LoadVariablesAsync();
     }
     

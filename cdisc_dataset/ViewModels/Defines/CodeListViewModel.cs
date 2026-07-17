@@ -22,6 +22,7 @@ using Dm.util;
 using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
+using MapsterMapper;
 using Prism.Dialogs;
 using Prism.Navigation.Regions;
 
@@ -35,6 +36,8 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     private readonly IDialogHostService _dialogHostService;
     private readonly IMessageService _messageService;
     private readonly ICurrentProjectService _currentProjectService;
+    private readonly IVariableService _variableService;
+    private readonly IMapper _mapper;
     private readonly IValidator<CodeListDto> _validator;
     public AvaloniaList<string> Yns { get; set; } = ["Yes", "No"]; 
     public AvaloniaList<string> DataTypes { get; set; } = ["text", "integer", "float","datetime","date","time",
@@ -71,6 +74,8 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         IDialogHostService dialogHostService,
         IMessageService messageService,
         ICurrentProjectService currentProjectService,
+        IVariableService variableService,
+        IMapper mapper,
         IValidator<CodeListDto> validator)
     {
         _codeListService = codeListService;
@@ -78,6 +83,8 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         _dialogHostService = dialogHostService;
         _messageService = messageService;
         _currentProjectService = currentProjectService;
+        _variableService = variableService;
+        _mapper = mapper;
         _validator = validator;
 
         var filter = this.WhenValueChanged(t => t.SearchText)
@@ -414,6 +421,31 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         }
     }
     
+    [RelayCommand]
+    private async Task AddCodeListFromVariable()
+    {
+        var dialogParameters = new DialogParameters
+        {
+            { "CdiscDataType", CdiscDataType }
+        };
+        var result = await _dialogHostService.ShowDialogAsync("AddCodeListDialog", dialogParameters);
+        if (!result.Parameters.TryGetValue<CodeList>("CodeList", out var codeList) || codeList == null)
+            return;
+
+        var entity = await _codeListService.InsertCodeListAsync(codeList);
+        if (result.Parameters.TryGetValue<VariableDto>("Variable", out var variable) && variable != null)
+        {
+            variable.CodeListId = entity.Id;
+            variable.CodeListUniqueId = entity.UniqueId;
+            variable.CodeList = _mapper.Map<CodeList>(entity);
+            await _variableService.UpdateVariableAsync(variable);
+        }
+
+        await ValidateCodeListDtoAsync(entity);
+        _sourceCache.Edit(o => o.AddOrUpdate(entity));
+        _messageService.Success("CodeList created and linked to variable successfully");
+    }
+
     [RelayCommand]
     private async Task Save()
     {

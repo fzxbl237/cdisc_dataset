@@ -239,6 +239,16 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
             .AsWithAttr().Where(o=>o.CodeListRef == codeListOid)
             .FirstAsync();
     }
+
+    public async Task<List<CodeListReference>> GetAllCodeListReferencesAsync()
+    {
+        return await sqlSugar.AsTenant()
+            .QueryableWithAttr<CodeListReference>()
+            .AsWithAttr()
+            .Where(o => !string.IsNullOrWhiteSpace(o.CodeListRef))
+            .OrderBy(o => o.CodeListRef)
+            .ToListAsync();
+    }
     
     
 }

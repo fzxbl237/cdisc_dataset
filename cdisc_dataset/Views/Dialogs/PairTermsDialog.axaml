@@ -42,7 +42,7 @@
                 </atom:FormItem.Validators>
                 <atom:Select
                     Filter="{atom:ValueFilterProvider Contains}"
-                    FilterValueSelector="{Binding ValueFilterPropertySelector}"
+                    FilterValueSelector="{x:Static atom:Select.ValueFilterPropertySelector}"
                     HorizontalAlignment="Stretch"
                     IsAllowClear="True"
                     IsFilterEnabled="True"
@@ -71,7 +71,7 @@
                 Validators="{Binding Validators}">
                 <atom:Select
                     Filter="{atom:ValueFilterProvider Contains}"
-                    FilterValueSelector="{Binding ValueFilterPropertySelector}"
+                    FilterValueSelector="{x:Static atom:Select.ValueFilterPropertySelector}"
                     HorizontalAlignment="Stretch"
                     IsAllowClear="True"
                     IsFilterEnabled="True"
