@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using cdisc_dataset.ViewModels.Defines;
 using ReactiveUI;
+using ReactiveUI.Primitives.Disposables;
 
 namespace cdisc_dataset.Views.Defines;
 
@@ -13,7 +14,7 @@ public partial class CommentsView : UserControl, IActivatableView
     public CommentsView()
     {
         InitializeComponent();
-        this.WhenActivated(disposables =>
+        this.WhenActivated((MultipleDisposable disposables) =>
         {
             if (DataContext is CommentsViewModel vm)
             {

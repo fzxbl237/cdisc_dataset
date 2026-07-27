@@ -48,12 +48,7 @@
                     HorizontalAlignment="Center"
                     Margin="0,20,0,20"
                     Text="CDISC Datasets" />
-                <atom:ThemeConfigProvider>
-                    <atom:ThemeConfigProvider.ControlTokenInfoSetters>
-                        <atom:ControlTokenInfoSetter TokenId="NavMenu">
-                            <atom:ControlTokenSetter Key="DarkMenuBg" Value="#1C1E22" />
-                        </atom:ControlTokenInfoSetter>
-                    </atom:ThemeConfigProvider.ControlTokenInfoSetters>
+                <atom:ThemeConfigProvider Config="{Binding NavMenuConfig}">
                     <atom:NavMenu
                         DefaultSelectedPath="{Binding DefaultSelectedPath}"
                         HorizontalAlignment="Left"

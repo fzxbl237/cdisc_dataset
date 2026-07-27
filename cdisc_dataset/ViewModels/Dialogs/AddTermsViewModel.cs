@@ -429,7 +429,7 @@ public partial class AddTermsViewModel: ObservableObject, IDialogHostAware
     }
 }
 
-public record CodeListSelectOption : SelectOption
+public class CodeListSelectOption : SelectOption
 {
     public string? CodeListUniqueId { get; set; }
     

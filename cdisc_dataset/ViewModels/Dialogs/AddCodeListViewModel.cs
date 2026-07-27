@@ -676,7 +676,7 @@ public record TermCompleteOption : AutoCompleteOption
     public bool SynonymsIsEmpty { get; set; }
 }
 
-public record CodeListOption :SelectOption
+public class CodeListOption :SelectOption
 {
     public CodeListReference? CodeListReference { get; set; }
 }

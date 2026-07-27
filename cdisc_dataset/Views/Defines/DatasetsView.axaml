@@ -49,9 +49,8 @@
             <DataGrid
                 CanUserSortColumns="False"
                 FrozenColumnCount="2"
-                FrozenColumnCountRight="1"
                 Grid.Row="1"
-                GridLinesVisibility="Horizontal"
+                GridLinesVisibility="All"
                 HeadersVisibility="Column"
                 HorizontalScrollBarVisibility="Visible"
                 IsReadOnly="False"

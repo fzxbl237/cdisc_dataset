@@ -8,6 +8,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using AtomUI;
 using AtomUI.Desktop.Controls;
+using AtomUI.Theme.Configuration;
+using AtomUI.Theme.Schema;
 using Avalonia.Collections;
 using cdisc_dataset.Extensions;
 using cdisc_dataset.Models;
@@ -40,6 +42,8 @@ public partial class SdtmDefineViewModel:ObservableObject,IDisposable
     private readonly IRegionManager _regionManager;
     private readonly IContainerProvider _container;
     private readonly ICurrentProjectService _currentProjectService;
+    
+    public ThemeConfig SegmentedConfig { get; }
 
     private readonly CdiscDataType _cdiscDataType = CdiscDataType.Sdtm;
     public AvaloniaList<TabItemData> TabStripItemDataSource { get; set; } = [
@@ -53,9 +57,24 @@ public partial class SdtmDefineViewModel:ObservableObject,IDisposable
         new(){Header = "Dictionaries"},  
         new(){Header = "Documents"}
     ];
+    
+    public AvaloniaList<SegmentedItem> SegmentedItems{ get; set; } = [
+        new(){Content = "Datasets"},
+        new(){Content = "Variables"},
+        new(){Content = "ValueLevels"},
+        new(){Content = "CodeLists"},  
+        new(){Content = "Terms"},
+        new(){Content = "Methods"},      
+        new(){Content = "Comments"},
+        new(){Content = "Dictionaries"},  
+        new(){Content = "Documents"}
+    ];
 
     [ObservableProperty]
     private TabItemData? _selectedTabStripItem;
+    
+    [ObservableProperty]
+    private SegmentedItem? _selectedSegmentedItem;
     
 
     [ObservableProperty]
@@ -74,24 +93,37 @@ public partial class SdtmDefineViewModel:ObservableObject,IDisposable
         _regionManager = regionManager;
         _container = container;
         _currentProjectService = currentProjectService;
+        SegmentedConfig = BuildControlConfig(ControlAlgorithmMode.Global);
         // _sqlSugar.CodeFirst.InitTables<Comment>();
         // _sqlSugar.CodeFirst.InitTables<Variable>();
     }
 
-    partial void OnSelectedTabStripItemChanged(TabItemData? value)
+    private static ThemeConfig BuildControlConfig(ControlAlgorithmMode algorithm)
     {
-        if (value is { Header: string header })
+        return new ThemeConfigBuilder()
+            .WithControl(
+                new ControlTokenIdentity("AtomUI", "Segmented"),
+                new ControlThemeConfigBuilder()
+                    .WithAlgorithm(algorithm)
+                    .WithToken("ItemSelectedBg","#5997f9")
+                    .WithToken("ItemSelectedColor","#ffffff")
+                    .WithToken("ItemHoverBg","#ebedf0")
+                    .Build())
+            .Build();
+    }
+    
+    
+    
+
+    partial void OnSelectedSegmentedItemChanged(SegmentedItem? value)
+    {
+        if (value is { Content: string header })
         {
             if (!string.IsNullOrWhiteSpace(header))
             {
-                var navigationParameters = new NavigationParameters
-                {
-                    { "CurrentProject", _currentProjectService.CurrentProject },
-                    { "CdiscDataType", _cdiscDataType }
-                };
                 var containsRegionWithName = _regionManager.Regions.ContainsRegionWithName("SdtmDefineRegion");
                 if (containsRegionWithName)
-                    _regionManager.Regions["SdtmDefineRegion"].RequestNavigate(header, navigationParameters);
+                    _regionManager.Regions["SdtmDefineRegion"].RequestNavigate(header);
             }
         }
     }
@@ -108,20 +140,20 @@ public partial class SdtmDefineViewModel:ObservableObject,IDisposable
     [RelayCommand]
     private void Loaded()
     {
-        var navigationParameters = new NavigationParameters
-        {
-            { "CurrentProject", _currentProjectService.CurrentProject },
-            { "CdiscDataType", _cdiscDataType }
-        };
-        
-        var containsRegionWithName = _regionManager.Regions.ContainsRegionWithName("SdtmDefineRegion");
-        var commentsView = _container.Resolve<CommentsView>();
-        var commentsViewModel = _container.Resolve<CommentsViewModel>();
-        commentsView.DataContext = commentsViewModel;
-        var mainRegion = _regionManager.Regions["SdtmDefineRegion"];
-        mainRegion.Add(commentsView);
-        if (containsRegionWithName && SelectedTabStripItem is { Header: string header })
-            _regionManager.Regions["SdtmDefineRegion"].RequestNavigate(header,navigationParameters);
+        // var navigationParameters = new NavigationParameters
+        // {
+        //     { "CurrentProject", _currentProjectService.CurrentProject },
+        //     { "CdiscDataType", _cdiscDataType }
+        // };
+        //
+        // var containsRegionWithName = _regionManager.Regions.ContainsRegionWithName("SdtmDefineRegion");
+        // var commentsView = _container.Resolve<CommentsView>();
+        // var commentsViewModel = _container.Resolve<CommentsViewModel>();
+        // commentsView.DataContext = commentsViewModel;
+        // var mainRegion = _regionManager.Regions["SdtmDefineRegion"];
+        // mainRegion.Add(commentsView);
+        // if (containsRegionWithName && SelectedTabStripItem is { Header: string header })
+        //     _regionManager.Regions["SdtmDefineRegion"].RequestNavigate(header,navigationParameters);
     }
     
     public void Dispose()

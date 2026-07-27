@@ -8,6 +8,9 @@ using AtomUI.Desktop.Controls;
 using AtomUI.Desktop.Controls.Primitives;
 using AtomUI.Icons;
 using AtomUI.Icons.AntDesign;
+using AtomUI.Theme.Configuration;
+using AtomUI.Theme.DesignTokens;
+using AtomUI.Theme.Schema;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using cdisc_dataset.Extensions;
@@ -37,6 +40,8 @@ public partial class MainWindowViewModel : ObservableObject
     public AvaloniaList<Project> Projects { get; set; } = [];
 
     private const string CurrentProjectIdKey = "CurrentProjectId";
+    
+    public ThemeConfig NavMenuConfig { get; }
 
     public MainWindowViewModel(
         IRegionManager regionManager,
@@ -53,6 +58,7 @@ public partial class MainWindowViewModel : ObservableObject
             message.Reply(RefreshProjectsAsync());
         });
         LoadProjects().Await();
+        NavMenuConfig = BuildControlConfig(ControlAlgorithmMode.Global);
     }
     
     public AvaloniaList<NavMenuNode> NavMenuItems { get; set; } =
@@ -121,4 +127,17 @@ public partial class MainWindowViewModel : ObservableObject
             CurrentProject = Projects[0];
         }
     }
+
+    private static ThemeConfig BuildControlConfig(ControlAlgorithmMode algorithm)
+    {
+        return new ThemeConfigBuilder()
+            .WithControl(
+                new ControlTokenIdentity("AtomUI", "NavMenu"),
+                new ControlThemeConfigBuilder()
+                    .WithAlgorithm(algorithm)
+                    .WithToken("DarkMenuBg", "#1C1E22")
+                    .Build())
+            .Build();
+    }
+
 }

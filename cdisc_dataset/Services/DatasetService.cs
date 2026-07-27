@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using cdisc_dataset.Extensions;
@@ -212,11 +212,60 @@ public class DatasetService(
 
     public async Task<bool> DeleteDatasetsByProjectIdAsync(int projectId)
     {
-        return await sqlSugar.DeleteNav<Dataset>(d=>d.ProjectId == projectId)
-            .Include(o=>o.Variables)
-            .ThenInclude(v=>v.CodeList)
-            .ThenInclude(c=>c.Terms)
-            .ExecuteCommandAsync();
+        await sqlSugar.Ado.BeginTranAsync();
+        try
+        {
+            var valueLevelIds = await sqlSugar.Queryable<ValueLevel>()
+                .Where(o => o.ProjectId == projectId)
+                .Select(o => o.Id)
+                .ToListAsync();
+
+            await sqlSugar.Deleteable<Issue>()
+                .Where(o => o.ProjectId == projectId)
+                .ExecuteCommandAsync();
+            if (valueLevelIds.Count > 0)
+            {
+                await sqlSugar.Deleteable<WhereClause>()
+                    .Where(o => valueLevelIds.Contains(o.ValueLevelId))
+                    .ExecuteCommandAsync();
+            }
+
+            await sqlSugar.Deleteable<ValueLevel>()
+                .Where(o => o.ProjectId == projectId)
+                .ExecuteCommandAsync();
+            await sqlSugar.Deleteable<Term>()
+                .Where(o => o.ProjectId == projectId)
+                .ExecuteCommandAsync();
+            await sqlSugar.Deleteable<Variable>()
+                .Where(o => o.ProjectId == projectId)
+                .ExecuteCommandAsync();
+            await sqlSugar.Deleteable<CodeList>()
+                .Where(o => o.ProjectId == projectId)
+                .ExecuteCommandAsync();
+            await sqlSugar.Deleteable<Dataset>()
+                .Where(o => o.ProjectId == projectId)
+                .ExecuteCommandAsync();
+            await sqlSugar.Deleteable<Method>()
+                .Where(o => o.ProjectId == projectId)
+                .ExecuteCommandAsync();
+            await sqlSugar.Deleteable<Comment>()
+                .Where(o => o.ProjectId == projectId)
+                .ExecuteCommandAsync();
+            await sqlSugar.Deleteable<Document>()
+                .Where(o => o.ProjectId == projectId)
+                .ExecuteCommandAsync();
+            await sqlSugar.Deleteable<Dictionary>()
+                .Where(o => o.ProjectId == projectId)
+                .ExecuteCommandAsync();
+
+            await sqlSugar.Ado.CommitTranAsync();
+            return true;
+        }
+        catch
+        {
+            await sqlSugar.Ado.RollbackTranAsync();
+            throw;
+        }
     }
 
     public async Task InsertDatasetsWithVariablesAsync(IReadOnlyList<Dataset> datasets)

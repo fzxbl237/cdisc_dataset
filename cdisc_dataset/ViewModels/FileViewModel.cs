@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using AtomUI.Desktop.Controls;
 using Avalonia.Collections;
@@ -32,6 +33,7 @@ namespace cdisc_dataset.ViewModels;
 public partial class FileViewModel : ObservableObject, INavigationAware
 {
     private readonly ILiteDatabase _liteDatabase;
+    private readonly ISqlSugarClient _sqlSugar;
     private readonly IVariableService _variableService;
     private readonly ICodeListService _codeListService;
     private readonly IMessageService _messageService;
@@ -62,6 +64,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
 
     public FileViewModel(
         ILiteDatabase liteDatabase,
+        ISqlSugarClient sqlSugar,
         IVariableService variableService,
         ICodeListService  codeListService,
         IMessageService messageService,
@@ -70,6 +73,7 @@ public partial class FileViewModel : ObservableObject, INavigationAware
         IDatasetService datasetService)
     {
         _liteDatabase = liteDatabase;
+        _sqlSugar = sqlSugar;
         _variableService = variableService;
         _codeListService = codeListService;
         _messageService = messageService;
@@ -188,19 +192,24 @@ public partial class FileViewModel : ObservableObject, INavigationAware
         }
 
         ClearSdtmImportCaches();
-        var (datasets, codeLists) = await BuildSdtmImportAsync(CurrentProject.Id, Files.ToList());
+        var (datasets, codeLists, parsedFiles) = await BuildSdtmImportAsync(CurrentProject.Id, Files.ToList());
         var (finalCodeLists, codeListDictionary) = await BuildFinalCodeListsAsync(codeLists, CurrentProject.Id);
         LinkCodeListsToVariables(datasets, finalCodeLists, codeListDictionary);
         await _datasetService.InsertDatasetsAsync(datasets);
-        _messageService.Success($"Loaded {datasets.Count} dataset(s) from SDTM XPT files");
+        var valueLevels = await BuildSdtmValueLevelsAsync(parsedFiles, CurrentProject.Id);
+        if (valueLevels.Count > 0)
+            await _sqlSugar.Insertable(valueLevels).ExecuteCommandAsync();
+
+        _messageService.Success($"Loaded {datasets.Count} dataset(s) and {valueLevels.Count} value level(s) from SDTM XPT files");
     }
 
-    private async Task<(List<Dataset> Datasets, List<CodeList> CodeLists)> BuildSdtmImportAsync(
+    private async Task<(List<Dataset> Datasets, List<CodeList> CodeLists, List<ParsedSdtmFile> ParsedFiles)> BuildSdtmImportAsync(
         int projectId,
         List<ProjectFile> files)
     {
         List<Dataset> datasets = [];
         List<CodeList> codeLists = [];
+        List<ParsedSdtmFile> parsedFiles = [];
 
         foreach (var file in files)
         {
@@ -210,9 +219,10 @@ public partial class FileViewModel : ObservableObject, INavigationAware
 
             var dataset = await BuildDatasetAsync(parsedFile, projectId, codeLists);
             datasets.Add(dataset);
+            parsedFiles.Add(parsedFile);
         }
 
-        return (datasets, codeLists);
+        return (datasets, codeLists, parsedFiles);
     }
 
     private async Task<Dataset> BuildDatasetAsync(
@@ -677,6 +687,398 @@ public partial class FileViewModel : ObservableObject, INavigationAware
             }
         }
     }
+    private async Task<List<ValueLevel>> BuildSdtmValueLevelsAsync(
+        IReadOnlyCollection<ParsedSdtmFile> parsedFiles,
+        int projectId)
+    {
+        var datasetNames = parsedFiles.Select(o => o.Name).ToList();
+        if (datasetNames.Count == 0)
+            return [];
+
+        var datasets = await _sqlSugar.Queryable<Dataset>()
+            .Where(o => o.ProjectId == projectId
+                        && o.CdiscDataType == CdiscDataType.Sdtm
+                        && datasetNames.Contains(o.Name))
+            .OrderByDescending(o => o.Id)
+            .ToListAsync();
+        var datasetByName = datasets
+            .Where(o => !string.IsNullOrWhiteSpace(o.Name))
+            .GroupBy(o => o.Name!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(o => o.Key, o => o.First(), StringComparer.OrdinalIgnoreCase);
+
+        var variables = await _sqlSugar.Queryable<Variable>()
+            .Where(o => o.ProjectId == projectId && o.CdiscDataType == CdiscDataType.Sdtm)
+            .OrderByDescending(o => o.Id)
+            .ToListAsync();
+        var variableByDatasetAndName = variables
+            .Where(o => !string.IsNullOrWhiteSpace(o.DatasetName) && !string.IsNullOrWhiteSpace(o.VariableName))
+            .GroupBy(o => $"{o.DatasetName}.{o.VariableName}", StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(o => o.Key, o => o.First(), StringComparer.OrdinalIgnoreCase);
+
+        var codeLists = await _sqlSugar.Queryable<CodeList>()
+            .Where(o => o.ProjectId == projectId && o.CdiscDataType == CdiscDataType.Sdtm)
+            .OrderByDescending(o => o.Id)
+            .ToListAsync();
+        var codeListByUniqueId = codeLists
+            .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
+            .GroupBy(o => o.UniqueId!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(o => o.Key, o => o.First(), StringComparer.OrdinalIgnoreCase);
+
+        List<ValueLevel> valueLevels = [];
+        foreach (var parsedFile in parsedFiles)
+        {
+            if (!datasetByName.TryGetValue(parsedFile.Name, out var dataset))
+                continue;
+
+            var variablesByName = parsedFile.Variables
+                .GroupBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(o => o.Key, o => o.Last(), StringComparer.OrdinalIgnoreCase);
+            if (parsedFile.Name.StartsWith("SUPP", StringComparison.OrdinalIgnoreCase))
+            {
+                valueLevels.AddRange(BuildSuppValueLevels(
+                    parsedFile,
+                    dataset,
+                    variablesByName,
+                    variableByDatasetAndName,
+                    codeListByUniqueId,
+                    projectId));
+                continue;
+            }
+
+            if (parsedFile.Name.Equals("TS", StringComparison.OrdinalIgnoreCase))
+            {
+                valueLevels.AddRange(await BuildTsValueLevelsAsync(
+                    parsedFile,
+                    dataset,
+                    variablesByName,
+                    variableByDatasetAndName,
+                    codeListByUniqueId,
+                    codeLists,
+                    projectId));
+                continue;
+            }
+
+            var testCodeName = $"{parsedFile.Name}TESTCD";
+            if (!variablesByName.TryGetValue(testCodeName, out var testCodeVariable))
+                continue;
+
+            variablesByName.TryGetValue($"{parsedFile.Name}TEST", out var testVariable);
+            variablesByName.TryGetValue($"{parsedFile.Name}CAT", out var categoryVariable);
+            variablesByName.TryGetValue($"{parsedFile.Name}SCAT", out var subcategoryVariable);
+
+            var contexts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var recordCount = testCodeVariable.Entries?.Count ?? 0;
+            for (var index = 0; index < recordCount; index++)
+            {
+                var testCode = GetSdtmEntry(testCodeVariable, index);
+                if (string.IsNullOrWhiteSpace(testCode))
+                    continue;
+
+                var category = categoryVariable == null ? null : GetSdtmEntry(categoryVariable, index);
+                var subcategory = subcategoryVariable == null ? null : GetSdtmEntry(subcategoryVariable, index);
+                var whereClause = BuildSdtmValueLevelWhereClause(
+                    testCodeName,
+                    testCode,
+                    categoryVariable?.Name,
+                    category,
+                    subcategoryVariable?.Name,
+                    subcategory);
+                contexts.TryAdd(whereClause, testVariable == null ? testCode : GetSdtmEntry(testVariable, index) ?? testCode);
+            }
+
+            var orderByVariable = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var suffix in SdtmValueLevelVariableSuffixes)
+            {
+                var variableName = $"{parsedFile.Name}{suffix}";
+                if (!variablesByName.TryGetValue(variableName, out _)
+                    || !variableByDatasetAndName.TryGetValue($"{parsedFile.Name}.{variableName}", out var variable))
+                {
+                    continue;
+                }
+
+                foreach (var context in contexts)
+                {
+                    var order = orderByVariable.GetValueOrDefault(variableName) + 1;
+                    orderByVariable[variableName] = order;
+                    codeListByUniqueId.TryGetValue(variable.CodeListUniqueId ?? string.Empty, out var codeList);
+                    valueLevels.Add(new ValueLevel
+                    {
+                        Order = order,
+                        Dataset = parsedFile.Name,
+                        DatasetId = dataset.Id,
+                        Variable = variableName,
+                        VariableId = variable.Id,
+                        WhereClause = context.Key,
+                        Label = context.Value,
+                        Type = variable.DataType,
+                        Length = variable.DataType == "datetime" ? null : variable.Length,
+                        Digits = variable.SignificantDigits,
+                        Format = variable.Format,
+                        Mandatory = "No",
+                        CodeListId = codeList?.Id ?? 0,
+                        CodeListUniqueId = codeList?.UniqueId,
+                        Origin = "Protocol",
+                        Source = "Sponsor",
+                        ProjectId = projectId,
+                        CdiscDataType = CdiscDataType.Sdtm
+                    });
+                }
+            }
+        }
+
+        return valueLevels;
+    }
+
+    private static List<ValueLevel> BuildSuppValueLevels(
+        ParsedSdtmFile parsedFile,
+        Dataset dataset,
+        IReadOnlyDictionary<string, ParsedSdtmVariable> parsedVariablesByName,
+        IReadOnlyDictionary<string, Variable> variablesByDatasetAndName,
+        IReadOnlyDictionary<string, CodeList> codeListsByUniqueId,
+        int projectId)
+    {
+        if (!parsedVariablesByName.TryGetValue("QNAM", out var qualifierNameVariable)
+            || !parsedVariablesByName.TryGetValue("QVAL", out var qualifierValueVariable)
+            || !variablesByDatasetAndName.TryGetValue($"{parsedFile.Name}.QVAL", out var valueVariable))
+        {
+            return [];
+        }
+
+        parsedVariablesByName.TryGetValue("QLABEL", out var qualifierLabelVariable);
+        codeListsByUniqueId.TryGetValue(valueVariable.CodeListUniqueId ?? string.Empty, out var codeList);
+
+        Dictionary<string, (string Label, List<string> Values)> qualifiers = new(StringComparer.OrdinalIgnoreCase);
+        var recordCount = qualifierNameVariable.Entries?.Count ?? 0;
+        for (var index = 0; index < recordCount; index++)
+        {
+            var qualifierName = GetSdtmEntry(qualifierNameVariable, index);
+            if (string.IsNullOrWhiteSpace(qualifierName))
+                continue;
+
+            var qualifierLabel = qualifierLabelVariable == null
+                ? qualifierName
+                : GetSdtmEntry(qualifierLabelVariable, index) ?? qualifierName;
+            var qualifierValue = GetSdtmEntry(qualifierValueVariable, index);
+            if (!qualifiers.TryGetValue(qualifierName, out var qualifier))
+                qualifier = (qualifierLabel, []);
+            if (!string.IsNullOrWhiteSpace(qualifierValue))
+                qualifier.Values.Add(qualifierValue);
+
+            qualifiers[qualifierName] = qualifier;
+        }
+
+        return qualifiers
+            .OrderBy(o => o.Key, StringComparer.OrdinalIgnoreCase)
+            .Select((qualifier, index) =>
+            {
+                var metadata = InferValueLevelMetadata(qualifier.Value.Values);
+                return new ValueLevel
+                {
+                    Order = index + 1,
+                    Dataset = parsedFile.Name,
+                    DatasetId = dataset.Id,
+                    Variable = "QVAL",
+                    VariableId = valueVariable.Id,
+                    WhereClause = $"QNAM EQ {qualifier.Key}",
+                    Label = qualifier.Value.Label,
+                    Type = metadata.Type,
+                    Length = metadata.Length,
+                    Digits = metadata.Digits,
+                    Format = metadata.Format,
+                    Mandatory = "No",
+                    CodeListId = codeList?.Id ?? 0,
+                    CodeListUniqueId = codeList?.UniqueId,
+                    Origin = "Collected",
+                    Source = "Investigator",
+                    ProjectId = projectId,
+                    CdiscDataType = CdiscDataType.Sdtm
+                };
+            })
+            .ToList();
+    }
+
+    private static ValueLevelMetadata InferValueLevelMetadata(IEnumerable<string> values)
+    {
+        var inferred = values.Select(InferValueMetadata).ToList();
+        if (inferred.Count == 0)
+            return new ValueLevelMetadata("text", null, null, null);
+
+        var type = inferred.Any(o => o.Type == "text")
+            ? "text"
+            : inferred.Any(o => o.Type == "datetime")
+                ? "datetime"
+                : inferred.Any(o => o.Type == "float")
+                    ? "float"
+                    : "integer";
+        var length = inferred.Where(o => o.Length.HasValue).Select(o => o.Length!.Value).DefaultIfEmpty().Max();
+        var digits = inferred.Where(o => o.Digits.HasValue).Select(o => o.Digits!.Value).DefaultIfEmpty().Max();
+        var formatWidth = inferred.Where(o => o.FormatWidth.HasValue).Select(o => o.FormatWidth!.Value).DefaultIfEmpty().Max();
+
+        return new ValueLevelMetadata(
+            type,
+            type == "datetime" ? null : length == 0 ? null : length,
+            digits == 0 ? null : digits,
+            formatWidth == 0 ? null : $"${formatWidth}");
+    }
+
+    private static InferredValueMetadata InferValueMetadata(string value)
+    {
+        var normalized = value.Trim();
+        if (Regex.IsMatch(normalized, "^\\d{4}-\\d{2}-\\d{2}(?:T\\d{2}:\\d{2}(?::\\d{2})?)?$"))
+            return new InferredValueMetadata("datetime", null, null, normalized.Length);
+        if (Regex.IsMatch(normalized, "^-?\\d+$"))
+        {
+            var length = normalized.TrimStart('-').Length;
+            return new InferredValueMetadata("integer", length, null, length);
+        }
+
+        if (Regex.IsMatch(normalized, "^-?\\d+\\.\\d+$"))
+        {
+            var unsignedValue = normalized.TrimStart('-');
+            var decimalPart = unsignedValue[(unsignedValue.IndexOf('.') + 1)..];
+            var length = unsignedValue.Length;
+            var digits = decimalPart.TrimEnd('0').Length;
+            return new InferredValueMetadata("float", length, digits == 0 ? decimalPart.Length : digits, length);
+        }
+
+        return new InferredValueMetadata("text", normalized.Length, null, normalized.Length);
+    }
+
+    private sealed record ValueLevelMetadata(string Type, int? Length, int? Digits, string? Format);
+
+    private sealed record InferredValueMetadata(string Type, int? Length, int? Digits, int? FormatWidth);
+
+    private async Task<List<ValueLevel>> BuildTsValueLevelsAsync(
+        ParsedSdtmFile parsedFile,
+        Dataset dataset,
+        IReadOnlyDictionary<string, ParsedSdtmVariable> parsedVariablesByName,
+        IReadOnlyDictionary<string, Variable> variablesByDatasetAndName,
+        IReadOnlyDictionary<string, CodeList> codeListsByUniqueId,
+        IReadOnlyCollection<CodeList> codeLists,
+        int projectId)
+    {
+        if (!parsedVariablesByName.TryGetValue("TSPARMCD", out var parameterCodeVariable))
+            return [];
+
+        parsedVariablesByName.TryGetValue("TSPARM", out var parameterVariable);
+        parsedVariablesByName.TryGetValue("TSVCDREF", out var vocabularyReferenceVariable);
+        var valueVariables = parsedVariablesByName.Values
+            .Where(o => IsTsValueVariable(o.Name))
+            .OrderBy(o => GetTsValueVariableOrder(o.Name))
+            .ToList();
+        if (valueVariables.Count == 0)
+            return [];
+
+        List<ValueLevel> valueLevels = [];
+        HashSet<string> created = new(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, int> orderByVariable = new(StringComparer.OrdinalIgnoreCase);
+        var recordCount = parameterCodeVariable.Entries?.Count ?? 0;
+        for (var index = 0; index < recordCount; index++)
+        {
+            var parameterCode = GetSdtmEntry(parameterCodeVariable, index);
+            if (string.IsNullOrWhiteSpace(parameterCode))
+                continue;
+
+            var label = parameterVariable == null
+                ? parameterCode
+                : GetSdtmEntry(parameterVariable, index) ?? parameterCode;
+            var vocabularyReference = vocabularyReferenceVariable == null
+                ? null
+                : GetSdtmEntry(vocabularyReferenceVariable, index);
+
+            foreach (var parsedValueVariable in valueVariables)
+            {
+                if (string.IsNullOrWhiteSpace(GetSdtmEntry(parsedValueVariable, index))
+                    || !variablesByDatasetAndName.TryGetValue($"TS.{parsedValueVariable.Name}", out var variable))
+                {
+                    continue;
+                }
+
+                var key = $"{parsedValueVariable.Name}|{parameterCode}";
+                if (!created.Add(key))
+                    continue;
+
+                CodeList? codeList = null;
+                if (parsedValueVariable.Name.Equals("TSVAL", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(vocabularyReference, "CDISC CT", StringComparison.OrdinalIgnoreCase))
+                {
+                    var codeListRef = await GetCachedCodeListRefAsync($"TS.TSVAL.TSPARMCD.EQ.{parameterCode}");
+                    if (codeListRef != null)
+                    {
+                        codeListsByUniqueId.TryGetValue(codeListRef.CodeListRef ?? string.Empty, out codeList);
+                        codeList ??= codeLists.FirstOrDefault(o => o.Code == codeListRef.CodeListCode);
+                    }
+                }
+
+                var order = orderByVariable.GetValueOrDefault(parsedValueVariable.Name) + 1;
+                orderByVariable[parsedValueVariable.Name] = order;
+                valueLevels.Add(new ValueLevel
+                {
+                    Order = order,
+                    Dataset = "TS",
+                    DatasetId = dataset.Id,
+                    Variable = parsedValueVariable.Name,
+                    VariableId = variable.Id,
+                    WhereClause = $"TSPARMCD EQ {parameterCode}",
+                    Label = label,
+                    Type = variable.DataType,
+                    Length = variable.DataType == "datetime" ? null : variable.Length,
+                    Digits = variable.SignificantDigits,
+                    Format = variable.Format,
+                    Mandatory = "No",
+                    CodeListId = codeList?.Id ?? 0,
+                    CodeListUniqueId = codeList?.UniqueId,
+                    Origin = "Protocol",
+                    Source = "Sponsor",
+                    ProjectId = projectId,
+                    CdiscDataType = CdiscDataType.Sdtm
+                });
+            }
+        }
+
+        return valueLevels;
+    }
+
+    private static bool IsTsValueVariable(string variableName)
+    {
+        if (!variableName.StartsWith("TSVAL", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return variableName.Length == 5 || variableName[5..].All(char.IsDigit);
+    }
+
+    private static int GetTsValueVariableOrder(string variableName)
+    {
+        return variableName.Length == 5 || !int.TryParse(variableName[5..], out var order) ? 0 : order;
+    }
+
+    private static readonly string[] SdtmValueLevelVariableSuffixes =
+        ["ORRES", "ORRESU", "STRESN", "STRESC", "STRESU"];
+
+    private static string? GetSdtmEntry(ParsedSdtmVariable variable, int index)
+    {
+        return variable.Entries is { Count: > 0 } && index < variable.Entries.Count
+            ? variable.Entries[index]?.Trim()
+            : null;
+    }
+
+    private static string BuildSdtmValueLevelWhereClause(
+        string testCodeName,
+        string testCode,
+        string? categoryName,
+        string? category,
+        string? subcategoryName,
+        string? subcategory)
+    {
+        List<string> parts = [];
+        if (!string.IsNullOrWhiteSpace(categoryName) && !string.IsNullOrWhiteSpace(category))
+            parts.Add($"{categoryName} EQ {category}");
+        if (!string.IsNullOrWhiteSpace(subcategoryName) && !string.IsNullOrWhiteSpace(subcategory))
+            parts.Add($"{subcategoryName} EQ {subcategory}");
+        parts.Add($"{testCodeName} EQ {testCode}");
+        return string.Join(" and ", parts);
+    }
+
     private ParsedSdtmFile? ParseStandardSdtmFile(ProjectFile file)
     {
         var storedFile = _liteDatabase.FileStorage.FindById(file.StorageId.ToString());

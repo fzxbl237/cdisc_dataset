@@ -161,7 +161,7 @@ public partial class MethodViewModel : ObservableObject, IDialogHostAware
     }
 }
 
-public record MethodDocumentSelectOption : SelectOption
+public class MethodDocumentSelectOption : SelectOption
 {
     public string? Title { get; set; }
     public Document? Document { get; set; }

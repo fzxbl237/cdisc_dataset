@@ -1,13 +1,11 @@
-﻿using System;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using cdisc_dataset.ViewModels.Defines;
 using ReactiveUI;
+using ReactiveUI.Primitives.Disposables;
 
 namespace cdisc_dataset.Views.Defines;
 
@@ -16,7 +14,7 @@ public partial class CodeListView : UserControl,IActivatableView
     public CodeListView()
     {
         InitializeComponent();
-        this.WhenActivated(disposables =>
+        this.WhenActivated((MultipleDisposable disposables)  =>
         {
             if (DataContext is CodeListViewModel vm)
             {

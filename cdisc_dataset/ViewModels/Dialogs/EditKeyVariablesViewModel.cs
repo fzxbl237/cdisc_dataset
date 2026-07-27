@@ -57,7 +57,6 @@ public partial class EditKeyVariablesViewModel(IVariableService variableService)
             res.Add(selectOption);
             if (variableNames.Contains(selectOption.Header))
             {
-                selectOption.IsSelected = true;
                 selectOptions.Add(selectOption);
             }
         }

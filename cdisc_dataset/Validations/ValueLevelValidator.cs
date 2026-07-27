@@ -96,7 +96,7 @@ public class ValueLevelValidator : AbstractValidator<ValueLevelDto>
             .WithMessage("The Length attribute is required when DataType is integer, float, or text.");
         
         RuleFor(x => x.Length)
-            .ExclusiveBetween(1, 200)
+            .InclusiveBetween(1, 200)
             .When(x => x.Length.HasValue)
             .WithSeverity(Severity.Error)
             .WithMessage("Length must be between 1 and 200");

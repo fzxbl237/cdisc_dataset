@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using cdisc_dataset.ViewModels.Defines;
 using ReactiveUI;
+using ReactiveUI.Primitives.Disposables;
 
 namespace cdisc_dataset.Views.Defines;
 
@@ -11,7 +12,7 @@ public partial class DocumentsView : UserControl, IActivatableView
     public DocumentsView()
     {
         InitializeComponent();
-        this.WhenActivated(disposables =>
+        this.WhenActivated((MultipleDisposable disposables) =>
         {
             if (DataContext is DocumentsViewModel vm)
             {

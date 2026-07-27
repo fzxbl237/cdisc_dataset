@@ -153,7 +153,7 @@ public partial class CommentViewModel : ObservableObject, IDialogHostAware
     }
 }
 
-public record CommentDocumentSelectOption : SelectOption
+public class CommentDocumentSelectOption : SelectOption
 {
     public string? Title { get; set; }
     public Document? Document { get; set; }

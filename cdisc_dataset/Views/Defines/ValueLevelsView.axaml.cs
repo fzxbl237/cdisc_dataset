@@ -4,6 +4,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using cdisc_dataset.ViewModels.Defines;
 using ReactiveUI;
+using ReactiveUI.Primitives.Disposables;
 
 namespace cdisc_dataset.Views.Defines;
 
@@ -12,7 +13,7 @@ public partial class ValueLevelsView : UserControl, IActivatableView
     public ValueLevelsView()
     {
         InitializeComponent();
-        this.WhenActivated(disposables =>
+        this.WhenActivated((MultipleDisposable disposables) =>
         {
             if (DataContext is ValueLevelsViewModel vm)
             {
