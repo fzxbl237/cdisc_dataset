@@ -105,7 +105,7 @@ public partial class SdtmDefineViewModel:ObservableObject,IDisposable
                 new ControlTokenIdentity("AtomUI", "Segmented"),
                 new ControlThemeConfigBuilder()
                     .WithAlgorithm(algorithm)
-                    .WithToken("ItemSelectedBg","#5997f9")
+                    .WithToken("ItemSelectedBg","#000000")
                     .WithToken("ItemSelectedColor","#ffffff")
                     .WithToken("ItemHoverBg","#ebedf0")
                     .Build())

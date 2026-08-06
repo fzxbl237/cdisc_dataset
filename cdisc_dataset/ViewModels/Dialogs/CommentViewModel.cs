@@ -21,13 +21,15 @@ using Prism.Dialogs;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
-public partial class CommentViewModel : ObservableObject, IDialogHostAware
+public partial class CommentViewModel(
+    IMessageService messageService,
+    IDocumentService documentService,
+    FormCommentValidator formCommentValidator,
+    ICurrentProjectService currentProjectService,
+    IValidator<CommentDto> validator)
+    : ObservableObject, IDialogHostAware
 {
-    private readonly WindowMessageManager _messageManager;
-    private readonly IDocumentService _documentService;
-    private readonly FormCommentValidator _formCommentValidator;
-    private readonly ICurrentProjectService _currentProjectService;
-    private readonly IValidator<CommentDto> _validator;
+    private readonly IValidator<CommentDto> _validator = validator;
 
     private FrozenDictionary<string, Document>? _frozenDocumentDictionary;
 
@@ -50,32 +52,18 @@ public partial class CommentViewModel : ObservableObject, IDialogHostAware
 
     public AvaloniaList<ISelectOption> DocumentOptions { get; } = [];
 
-    public CommentViewModel(
-        WindowMessageManager messageManager,
-        IDocumentService documentService,
-        FormCommentValidator formCommentValidator,
-        ICurrentProjectService  currentProjectService,
-        IValidator<CommentDto> validator)
-    {
-        _messageManager = messageManager;
-        _documentService = documentService;
-        _formCommentValidator = formCommentValidator;
-        _currentProjectService = currentProjectService;
-        _validator = validator;
-    }
-
     public void OnDialogOpened(IDialogParameters parameters)
     {
-        if (parameters.ContainsKey("Title"))
-            Title = parameters.GetValue<string>("Title");
-
-        Comment = parameters.ContainsKey("Model") ? parameters.GetValue<CommentDto>("Model") : new CommentDto();
+        parameters.TryGetValue("Title", out string? title);
+        Title = title;
+        parameters.TryGetValue("Model", out CommentDto? model);
+        Comment = model??new CommentDto();
         IsInEditMode = Comment.Id != 0;
-        _formCommentValidator.IsInEditMode = IsInEditMode;
-        Comment.ProjectId = _currentProjectService.CurrentProject?.Id??0;
-        Comment.CdiscDataType = _currentProjectService.CdiscDataType;
-        _formCommentValidator.CommentDto = Comment;
-        Validators.Add(_formCommentValidator);
+        formCommentValidator.IsInEditMode = IsInEditMode;
+        Comment.ProjectId = currentProjectService.CurrentProject?.Id??0;
+        Comment.CdiscDataType = currentProjectService.CdiscDataType;
+        formCommentValidator.CommentDto = Comment;
+        Validators.Add(formCommentValidator);
         LoadDocuments().Await();
     }
 
@@ -96,7 +84,7 @@ public partial class CommentViewModel : ObservableObject, IDialogHostAware
 
     private async Task LoadDocuments()
     {
-        var documents = await _documentService.GetAllDocumentsWithoutErorrAsync();
+        var documents = await documentService.GetAllDocumentsWithoutErorrAsync();
         _frozenDocumentDictionary = documents
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
             .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);

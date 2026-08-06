@@ -41,5 +41,18 @@ public static class ConstantOptions
         "SDTM-IG 3.3", 
         "SDTM-IG 3.4"
     ];
-    
+
+    public static readonly IReadOnlyList<string> Sources =
+        ["", "Investigator", "Subject", "Protocol", "Vendor"];
+
+    public static readonly IReadOnlyList<string> SdtmOrigins =
+    [
+        "", "Collected", "Derived", "Assigned", "Protocol", "Predecessor"
+    ];
+
+    public static readonly IReadOnlyList<string> AdamOrigins =
+    [
+        "", "Derived", "Assigned", "Predecessor"
+    ];
+
 }

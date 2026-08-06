@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using AtomUI.Desktop.Controls;
 using Avalonia.Collections;
 using AtomUI.Controls;
+using Avalonia.Threading;
 using cdisc_dataset.Constants;
 using cdisc_dataset.Extensions;
 using cdisc_dataset.Models;
@@ -30,6 +31,7 @@ using MapsterMapper;
 using Prism.Dialogs;
 using Prism.Navigation.Regions;
 using ReactiveUI;
+using ReactiveUI.Primitives.Disposables;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
@@ -52,7 +54,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     
     public AvaloniaList<string> Origins { get; set; } = [];
     
-    public AvaloniaList<string> Sources { get; set; } = ["", "Investigator", "Subject","Protocol","Vendor"];
+    public AvaloniaList<string> Sources { get; set; } = [..ConstantOptions.Sources];
     
     private readonly SourceCache<VariableDto, int> _sourceCache = new(o => o.Id);
 
@@ -152,8 +154,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     public async Task LoadVariablesAsync()
     {
         var sw = Stopwatch.StartNew();
-
-        // // ȡ�������ݵ� PropertyChanged ����
+        
         foreach (var variableDto in _sourceCache.Items)
         {
             variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;
@@ -349,7 +350,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         {
             o.Remove(variable);
         });
-        _messageService.Success("ɾ���ɹ�");
+        _messageService.Success("Delete successful");
     }
     
     [RelayCommand]
@@ -370,7 +371,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         }
         await _variableService.SaveVariablesAsync(variables);
         await LoadVariablesAsync();
-        _messageService.Success("Variable���ӳɹ�");
+        _messageService.Success("Variable add successful");
     }
 
     [RelayCommand]
@@ -436,7 +437,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             variable.CommentUniqueId = entity.UniqueId;
             _sourceCache.Edit(o=>o.AddOrUpdate(variable));
             await _variableService.UpdateVariableAsync(variable);
-            _messageService.Success("Comment���ӳɹ�");
+            _messageService.Success("Comment added successful");
         }
     }
     
@@ -459,15 +460,14 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             variable.CommentUniqueId = entity.UniqueId;
             _sourceCache.Edit(o=>o.AddOrUpdate(variable));
             await _variableService.UpdateVariableAsync(variable);
-            _messageService.Success("Comment���³ɹ�");
+            _messageService.Success("Comment modify successful");
         }
     }
 
     public override void OnNavigatedFrom(NavigationContext navigationContext)
     {
         base.OnNavigatedFrom(navigationContext);
-
-        //ȡ������ VariableDto �� PropertyChanged ����
+        
         foreach (var variableDto in _sourceCache.Items)
         {
             variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;
@@ -480,19 +480,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     {
         var navigationContextParameters = navigationContext.Parameters;
         navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
-        if (cdiscDataType == CdiscDataType.Sdtm)
-        {
-            Origins.AddRange([
-                "", "Collected", "Derived", "Assigned", "Protocol", "Predecessor"
-            ]);
-        }
-        else
-        {
-            Origins.AddRange([
-                "", "Derived", "Assigned", "Predecessor"
-            ]);
-        }
-
+        Origins.AddRange(cdiscDataType == CdiscDataType.Sdtm?[..ConstantOptions.SdtmOrigins]:[..ConstantOptions.AdamOrigins]);
         CdiscDataType = cdiscDataType;
     }
 
@@ -501,7 +489,6 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     {
         continuationCallback(true);
     }
-    
 }
 
 public record VariableAutoCompleteOption : AutoCompleteOption
