@@ -1,4 +1,5 @@
-﻿using System;
+using AsyncNavigation;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -28,14 +29,13 @@ using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
 using Prism.Dialogs;
-using Prism.Navigation.Regions;
+using NavigationContext = AsyncNavigation.NavigationContext;
 using SqlSugar;
 using DataGridCellPointerPressedEventArgs = Avalonia.Controls.DataGridCellPointerPressedEventArgs;
 using DataGridPreparingCellForEditEventArgs = Avalonia.Controls.DataGridPreparingCellForEditEventArgs;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
-[RegionMemberLifetime(KeepAlive = false)]
 public partial class TermViewModel:ConfirmNavigationViewModelBase
 {
     private readonly ITermService _termService;
@@ -182,7 +182,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
             }
         }
 
-        //如果codelist发生改变 term需要重新录�?
+        //���codelist�����ı� term��Ҫ����¼??
         if(!string.IsNullOrWhiteSpace(changeSender.Name))
             changeSender.Name = string.Empty;
         Observable.StartAsync(async () =>
@@ -414,11 +414,12 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     
     
     
-    public override void OnNavigatedTo(NavigationContext navigationContext)
+    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
         var navigationContextParameters = navigationContext.Parameters;
         navigationContextParameters.TryGetValue("CdiscDataType",out CdiscDataType cdiscDataType);
         CdiscDataType = cdiscDataType;
+        return Task.CompletedTask;
     }
 
 
@@ -427,7 +428,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         continuationCallback(true);
     }
 
-    public override void OnNavigatedFrom(NavigationContext navigationContext)
+    public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
         if(HasChanges)
         {
@@ -435,6 +436,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
             _messageService.Success("Terms Save Success");
         }
         DetachAll();
+        return Task.CompletedTask;
     }
 }
 

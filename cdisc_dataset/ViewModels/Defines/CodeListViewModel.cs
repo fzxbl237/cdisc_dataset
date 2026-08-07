@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AsyncNavigation;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -24,11 +25,10 @@ using DynamicData.Binding;
 using FluentValidation;
 using MapsterMapper;
 using Prism.Dialogs;
-using Prism.Navigation.Regions;
+using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
-[RegionMemberLifetime(KeepAlive = false)]
 public partial class CodeListViewModel:ConfirmNavigationViewModelBase
 {
     private readonly ICodeListService _codeListService;
@@ -190,7 +190,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     
     public async Task LoadCodeLists()
     {
-        // ȡ�������ݵ� PropertyChanged ����
+        // ?????????? PropertyChanged ????
         foreach (var codeListDto in _sourceCache.Items)
         {
             codeListDto.PropertyChanged -= CodeListDtoOnPropertyChanged;
@@ -464,7 +464,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     }
     
     
-    public override void OnNavigatedTo(NavigationContext navigationContext)
+    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
         // var navigationContextParameters = navigationContext.Parameters;
         // navigationContextParameters.TryGetValue("CdiscDataType",out CdiscDataType cdiscDataType);
@@ -475,6 +475,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         //     //LoadComments().Await();
         // }
         //LoadTerminologies().Await();
+        return Task.CompletedTask;
     }
 
 
@@ -483,17 +484,18 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         continuationCallback(true);
     }
 
-    public override void OnNavigatedFrom(NavigationContext navigationContext)
+    public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
-        // ȡ������ CodeListDto �� PropertyChanged ����
+        // ??????? CodeListDto ?? PropertyChanged ????
         foreach (var codeListDto in _sourceCache.Items)
         {
             codeListDto.PropertyChanged -= CodeListDtoOnPropertyChanged;
         }
 
-        if(!HasChanges) return;
+        if(!HasChanges) return Task.CompletedTask;
         _codeListService.SaveCodeListsAsync(CodeLists.ToList()).Await();
         _messageService.Success("CodeList save successfully");
+        return Task.CompletedTask;
     }
     
 }

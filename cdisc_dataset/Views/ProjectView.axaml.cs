@@ -1,4 +1,5 @@
-﻿using AtomUI.Controls;
+using AsyncNavigation.Abstractions;
+using AtomUI.Controls;
 using AtomUI.Desktop.Controls;
 using Avalonia;
 using Avalonia.Controls;
@@ -7,7 +8,7 @@ using cdisc_dataset.ViewModels;
 
 namespace cdisc_dataset.Views;
 
-public partial class ProjectView : UserControl
+public partial class ProjectView : UserControl, IView
 {
     public ProjectView()
     {

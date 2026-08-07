@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+using AsyncNavigation.Abstractions;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using cdisc_dataset.ViewModels.Defines;
@@ -7,7 +8,7 @@ using ReactiveUI.Primitives.Disposables;
 
 namespace cdisc_dataset.Views.Defines;
 
-public partial class DocumentsView : UserControl, IActivatableView
+public partial class DocumentsView : UserControl, IActivatableView, IView
 {
     public DocumentsView()
     {

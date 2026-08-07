@@ -20,7 +20,7 @@ using cdisc_dataset.Models.Enums;
 using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
-using Prism.Navigation.Regions;
+using AsyncNavigation.Abstractions;
 
 namespace cdisc_dataset.ViewModels;
 
@@ -79,7 +79,7 @@ public partial class MainWindowViewModel : ObservableObject
             _currentProjectService.CdiscDataType = CdiscDataType.Sdtm;
         }
 
-        _regionManager.Regions["ContentRegion"].RequestNavigate(value.ItemKey.ToString());
+        _ = _regionManager.RequestNavigateAsync("ContentRegion", value.ItemKey.ToString()!);
     }
 
     partial void OnCurrentProjectChanged(Project? value)

@@ -10,7 +10,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:model="using:cdisc_dataset.Models"
-    xmlns:regions="http://prismlibrary.com/"
+    xmlns:an="https://github.com/NeverMorewd/AsyncNavigation"
     xmlns:system="clr-namespace:System;assembly=System.Runtime"
     xmlns:vm="using:cdisc_dataset.ViewModels"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
@@ -27,7 +27,7 @@
         <ContentControl
             Grid.Row="1"
             Margin="12,12,12,12"
-            regions:RegionManager.RegionName="SdtmDefineRegion" />
+            an:RegionManager.RegionName="SdtmDefineRegion" />
     </Grid>
 
 </UserControl>

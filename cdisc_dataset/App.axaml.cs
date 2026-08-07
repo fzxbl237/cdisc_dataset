@@ -25,9 +25,10 @@ using FluentValidation;
 using LiteDB;
 using Mapster;
 using MapsterMapper;
-using Prism.DryIoc;
-using Prism.Ioc;
-using Prism.Mvvm;
+using AsyncNavigation;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Avalonia;
+using Microsoft.Extensions.DependencyInjection;
 using SqlSugar;
 using DbType = System.Data.DbType;
 using VariableCodeList = cdisc_dataset.Models.Settings.VariableCodeList;
@@ -35,7 +36,7 @@ using Window = AtomUI.Desktop.Controls.Window;
 
 namespace cdisc_dataset;
 
-public class App : PrismApplication
+public class App : Application
 {
     public override void Initialize()
     {
@@ -51,16 +52,18 @@ public class App : PrismApplication
         });
     }
 
-    public override void OnFrameworkInitializationCompleted()
+    private static void RegisterDialog<TView, TViewModel>(IServiceCollection services, string name)
+        where TView : Avalonia.Controls.Control
+        where TViewModel : class
     {
-        base.OnFrameworkInitializationCompleted();
-        //this.AttachDevTools();
-        var window = Container.Resolve<MainWindow>();
-        var windowDataContext = window.DataContext;
-        if (windowDataContext is MainWindowViewModel mainWindowViewModel)
+        services.AddTransient<TView>();
+        services.AddTransient<TViewModel>();
+        services.AddKeyedTransient<Avalonia.Controls.Control>(name, (serviceProvider, _) =>
         {
-            mainWindowViewModel.SelectedNavMenuItem = mainWindowViewModel.NavMenuItems[0];
-        }
+            var view = serviceProvider.GetRequiredService<TView>();
+            view.DataContext = serviceProvider.GetRequiredService<TViewModel>();
+            return view;
+        });
     }
 
     private static void FixHasErrorsDefault(ISqlSugarClient sqlSugar)
@@ -83,135 +86,101 @@ public class App : PrismApplication
         sqlSugar.Ado.ExecuteCommand("UPDATE Term SET DecodedValueConsistent = COALESCE(DecodedValueConsistent, 1)");
         sqlSugar.Ado.ExecuteCommand("UPDATE Issue SET Severity = Severity");
     }
-    
-    
-    protected override void RegisterTypes(IContainerRegistry containerRegistry)
+    public override void OnFrameworkInitializationCompleted()
     {
-        containerRegistry.Register<MainWindow>();
-        containerRegistry.RegisterForNavigation<ProjectView, ProjectViewModel>("Projects");
-        containerRegistry.RegisterForNavigation<SdtmDefineView, SdtmDefineViewModel>("SdtmDefine");
-        containerRegistry.RegisterForNavigation<TerminologyView, TerminologyViewModel>("Terminology");
-        containerRegistry.RegisterForNavigation<FileView, FileViewModel>("Files");
-        containerRegistry.Register<IDialogHostService, DialogHostService>();
-        containerRegistry.RegisterForNavigation<ProjectDialog,EditProjectViewModel>("ProjectDialog");
-        containerRegistry.RegisterForNavigation<DatasetDialog,DatasetViewModel>();
-        containerRegistry.RegisterForNavigation<CommentDialog,CommentViewModel>("CommentDialog");
-        containerRegistry.RegisterForNavigation<DictionaryDialog,DictionaryViewModel>("DictionaryDialog");
-        containerRegistry.RegisterForNavigation<MethodDialog,MethodViewModel>("MethodDialog");
-        containerRegistry.RegisterForNavigation<WhereClauseEditorDialog,WhereClauseEditorViewModel>("WhereClauseEditorDialog");
-        containerRegistry.RegisterForNavigation<DatasetDialog,DatasetViewModel>("DatasetDialog");
-        containerRegistry.RegisterForNavigation<VariableDialog,VariableViewModel>("VariableDialog");
-        containerRegistry.RegisterForNavigation<DeleteCommentDialog,DeleteCommentViewModel>("DeleteCommentDialog");
-        containerRegistry.RegisterForNavigation<EditKeyVariablesDialog,EditKeyVariablesViewModel>("EditKeyVariables");
-        containerRegistry.RegisterForNavigation<AddCodeListDialog,AddCodeListViewModel>("AddCodeListDialog");
-        containerRegistry.RegisterForNavigation<AddTermsDialog,AddTermsViewModel>("AddTermsDialog");
-        containerRegistry.RegisterForNavigation<PairTermsDialog,PairTermsViewModel>("PairTermsDialog");
-        containerRegistry.RegisterForNavigation<UnsavedChangesDialog,UnsavedChangesViewModel>("UnsavedChangesDialog");
-        containerRegistry.RegisterForNavigation<ConfirmDialog,ConfirmViewModel>("ConfirmDialog");
-        containerRegistry.RegisterForNavigation<MergeCodeListsDialog,MergeCodeListsViewModel>("MergeCodeListsDialog");
-        
-        containerRegistry.RegisterForNavigation<CommentsView,CommentsViewModel>("Comments");
-        containerRegistry.RegisterForNavigation<DocumentsView,DocumentsViewModel>("Documents");
-        containerRegistry.RegisterForNavigation<MethodsView,MethodsViewModel>("Methods");
-        containerRegistry.RegisterForNavigation<ValueLevelsView,ValueLevelsViewModel>("ValueLevels");
-        containerRegistry.RegisterForNavigation<CodeListView,CodeListViewModel>("CodeLists");
-        containerRegistry.RegisterForNavigation<TermView,TermViewModel>("Terms");     
-        containerRegistry.RegisterForNavigation<VariablesView,VariablesViewModel>("Variables");
-        containerRegistry.RegisterForNavigation<DatasetsView,DatasetsViewModel>("Datasets");
-        containerRegistry.RegisterForNavigation<DictionariesView,DictionariesViewModel>("Dictionaries");
+        base.OnFrameworkInitializationCompleted();
 
+        var services = new ServiceCollection();
+        services.AddNavigationSupport()
+            .AddSingleton<MainWindowViewModel>()
+            .RegisterNavigation<ProjectView, ProjectViewModel>("Projects")
+            .RegisterNavigation<SdtmDefineView, SdtmDefineViewModel>("SdtmDefine")
+            .RegisterNavigation<TerminologyView, TerminologyViewModel>("Terminology")
+            .RegisterNavigation<FileView, FileViewModel>("Files")
+            .RegisterNavigation<CommentsView, CommentsViewModel>("Comments")
+            .RegisterNavigation<DocumentsView, DocumentsViewModel>("Documents")
+            .RegisterNavigation<MethodsView, MethodsViewModel>("Methods")
+            .RegisterNavigation<ValueLevelsView, ValueLevelsViewModel>("ValueLevels")
+            .RegisterNavigation<CodeListView, CodeListViewModel>("CodeLists")
+            .RegisterNavigation<TermView, TermViewModel>("Terms")
+            .RegisterNavigation<VariablesView, VariablesViewModel>("Variables")
+            .RegisterNavigation<DatasetsView, DatasetsViewModel>("Datasets")
+            .RegisterNavigation<DictionariesView, DictionariesViewModel>("Dictionaries")
+            .AddSingleton<IDialogHostService, DialogHostService>();
+
+        RegisterDialog<ProjectDialog, EditProjectViewModel>(services, "ProjectDialog");
+        RegisterDialog<DatasetDialog, DatasetViewModel>(services, "DatasetDialog");
+        RegisterDialog<CommentDialog, CommentViewModel>(services, "CommentDialog");
+        RegisterDialog<DictionaryDialog, DictionaryViewModel>(services, "DictionaryDialog");
+        RegisterDialog<MethodDialog, MethodViewModel>(services, "MethodDialog");
+        RegisterDialog<WhereClauseEditorDialog, WhereClauseEditorViewModel>(services, "WhereClauseEditorDialog");
+        RegisterDialog<VariableDialog, VariableViewModel>(services, "VariableDialog");
+        RegisterDialog<DeleteCommentDialog, DeleteCommentViewModel>(services, "DeleteCommentDialog");
+        RegisterDialog<EditKeyVariablesDialog, EditKeyVariablesViewModel>(services, "EditKeyVariables");
+        RegisterDialog<AddCodeListDialog, AddCodeListViewModel>(services, "AddCodeListDialog");
+        RegisterDialog<AddTermsDialog, AddTermsViewModel>(services, "AddTermsDialog");
+        RegisterDialog<PairTermsDialog, PairTermsViewModel>(services, "PairTermsDialog");
+        RegisterDialog<UnsavedChangesDialog, UnsavedChangesViewModel>(services, "UnsavedChangesDialog");
+        RegisterDialog<ConfirmDialog, ConfirmViewModel>(services, "ConfirmDialog");
+        RegisterDialog<MergeCodeListsDialog, MergeCodeListsViewModel>(services, "MergeCodeListsDialog");
 
         var config = new TypeAdapterConfig();
         config.NewConfig<Dataset, Dataset>();
-        containerRegistry.RegisterInstance(config);
-        containerRegistry.RegisterSingleton<IMapper, Mapper>();
-        containerRegistry.RegisterSingleton<ISqlSugarClient>(s =>
+        services.AddSingleton(config);
+        services.AddSingleton<IMapper, Mapper>();
+        services.AddSingleton<ISqlSugarClient>(_ =>
         {
-            
             var sqlSugar = new SqlSugarClient([
-                
-                new ConnectionConfig()
-                {
-                    ConfigId = "project", DbType = SqlSugar.DbType.Sqlite,
-                    ConnectionString = "DataSource=cdisc_dataset.db",
-                    IsAutoCloseConnection = true, InitKeyType = InitKeyType.Attribute
-                },
-
-                new ConnectionConfig()
-                {
-                    ConfigId = "setting", DbType = SqlSugar.DbType.Sqlite,
-                    ConnectionString = "DataSource=cdisc_setting.db", IsAutoCloseConnection = true
-                }
+                new ConnectionConfig { ConfigId = "project", DbType = SqlSugar.DbType.Sqlite, ConnectionString = "DataSource=cdisc_dataset.db", IsAutoCloseConnection = true, InitKeyType = InitKeyType.Attribute },
+                new ConnectionConfig { ConfigId = "setting", DbType = SqlSugar.DbType.Sqlite, ConnectionString = "DataSource=cdisc_setting.db", IsAutoCloseConnection = true }
             ]);
-            
-            
-            // SqlSugarScope sqlSugar = new SqlSugarScope(new ConnectionConfig()
-            // {
-            //     DbType = SqlSugar.DbType.Sqlite,
-            //     ConnectionString = "DataSource=cdisc_dataset.db",
-            //     IsAutoCloseConnection = true,
-            //     InitKeyType = InitKeyType.Attribute,
-            // });
-            
             var sqlSugarProject = sqlSugar.GetConnection("project");
-
             sqlSugarProject.CodeFirst.InitTables<Project, Document, Dataset, Variable>();
             sqlSugarProject.CodeFirst.InitTables<CodeList, Term, Comment, Method, ValueLevel>();
-            sqlSugarProject.CodeFirst.InitTables<Dictionary, Issue,WhereClause,DictionaryVersion>();
-            var sqlSugarSetting = sqlSugar.GetConnection("setting");
-            sqlSugarSetting.CodeFirst.InitTables<VariableCodeList,CodeListTerm,CodeListReference>();
+            sqlSugarProject.CodeFirst.InitTables<Dictionary, Issue, WhereClause, DictionaryVersion>();
+            sqlSugar.GetConnection("setting").CodeFirst.InitTables<VariableCodeList, CodeListTerm, CodeListReference>();
             FixHasErrorsDefault(sqlSugar);
             return sqlSugar;
         });
-        containerRegistry.RegisterSingleton<ILiteDatabase>(_ => new LiteDatabase("Filename=cdisc_files.db;Connection=shared"));
-        containerRegistry.RegisterSingleton<ISettingsService, SettingsService>();
-        containerRegistry.RegisterSingleton<ICurrentProjectService, CurrentProjectService>();
-        containerRegistry.RegisterSingleton<ICommentService, CommentService>();
-        containerRegistry.RegisterSingleton<IDatasetService, DatasetService>();
-        containerRegistry.RegisterSingleton<IVariableService, VariableService>();
-        containerRegistry.RegisterSingleton<ICodeListService, CodeListService>();
-        containerRegistry.RegisterSingleton<ITermService, TermService>();
-        containerRegistry.RegisterSingleton<IDocumentService, DocumentService>();
-        containerRegistry.RegisterSingleton<IMethodService, MethodService>();
-        containerRegistry.RegisterSingleton<IProjectService, ProjectService>();
-        containerRegistry.RegisterSingleton<IValueLevelService, ValueLevelService>();
-        containerRegistry.RegisterSingleton<IIssueService, IssueService>();
-        containerRegistry.RegisterSingleton<IDictionaryService, DictionaryService>();
-        containerRegistry.RegisterSingleton<IMessageService, MessageService>();      
-        containerRegistry.Register<IValidator<ProjectDto>,ProjectValidator>();
-        containerRegistry.Register<IValidator<DatasetDto>,DatasetValidator>();
-        containerRegistry.Register<IValidator<VariableDto>,VariableValidator>();
-        containerRegistry.Register<IValidator<TermDto>,TermValidator>();
-        containerRegistry.Register<IValidator<CommentDto>,CommentValidator>();
-        containerRegistry.Register<IValidator<DocumentDto>,DocumentValidator>();
-        containerRegistry.Register<IValidator<CodeListDto>,CodeListValidator>();
-        containerRegistry.Register<IValidator<MethodDto>,MethodValidator>();
-        containerRegistry.Register<IValidator<ValueLevelDto>,ValueLevelValidator>();
-        containerRegistry.Register<IValidator<DictionaryDto>,DictionaryValidator>();
+        services.AddSingleton<ILiteDatabase>(_ => new LiteDatabase("Filename=cdisc_files.db;Connection=shared"));
+        services.AddSingleton<ISettingsService, SettingsService>();
+        services.AddSingleton<ICurrentProjectService, CurrentProjectService>();
+        services.AddSingleton<ICommentService, CommentService>();
+        services.AddSingleton<IDatasetService, DatasetService>();
+        services.AddSingleton<IVariableService, VariableService>();
+        services.AddSingleton<ICodeListService, CodeListService>();
+        services.AddSingleton<ITermService, TermService>();
+        services.AddSingleton<IDocumentService, DocumentService>();
+        services.AddSingleton<IMethodService, MethodService>();
+        services.AddSingleton<IProjectService, ProjectService>();
+        services.AddSingleton<IValueLevelService, ValueLevelService>();
+        services.AddSingleton<IIssueService, IssueService>();
+        services.AddSingleton<IDictionaryService, DictionaryService>();
+        services.AddSingleton<IMessageService, MessageService>();
+        services.AddTransient<IValidator<ProjectDto>, ProjectValidator>();
+        services.AddTransient<IValidator<DatasetDto>, DatasetValidator>();
+        services.AddTransient<IValidator<VariableDto>, VariableValidator>();
+        services.AddTransient<IValidator<TermDto>, TermValidator>();
+        services.AddTransient<IValidator<CommentDto>, CommentValidator>();
+        services.AddTransient<IValidator<DocumentDto>, DocumentValidator>();
+        services.AddTransient<IValidator<CodeListDto>, CodeListValidator>();
+        services.AddTransient<IValidator<MethodDto>, MethodValidator>();
+        services.AddTransient<IValidator<ValueLevelDto>, ValueLevelValidator>();
+        services.AddTransient<IValidator<DictionaryDto>, DictionaryValidator>();
+        services.AddTransient<PairCodeListValidator>();
+        services.AddTransient<FormMethodValidator>();
+        services.AddTransient<FormValueLevelValidator>();
+        services.AddTransient<FormProjectValidator>();
+        services.AddTransient<FormDictionaryValidator>();
 
-        // form validator
-        containerRegistry.Register<PairCodeListValidator>();
-        containerRegistry.Register<FormMethodValidator>();
-        containerRegistry.Register<FormValueLevelValidator>();
-        containerRegistry.Register<FormProjectValidator>();
-        containerRegistry.Register<FormDictionaryValidator>();
-    }
-    
-    protected override AvaloniaObject CreateShell()
-    {
-        this.UseAtomUI(builder =>
+        var serviceProvider = services.BuildServiceProvider();
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            builder.WithDefaultLanguageVariant(LanguageVariant.zh_CN);
-            builder.WithInitialTheme(IThemeManager.DEFAULT_THEME_ID);
-            builder.UseAlibabaSansFont();
-            builder.UseDesktopControls();
-            builder.UseDesktopDataGrid();
-        });
-        var window = Container.Resolve<MainWindow>();
-        // var topLevel = TopLevel.GetTopLevel(window);
-        // var windowMessageManager = new WindowMessageManager(topLevel);
-        // windowMessageManager.MaxItems = 10;
-        // _containerRegistry.RegisterInstance(windowMessageManager);
-        return window;
+            var window = new MainWindow { DataContext = serviceProvider.GetRequiredService<MainWindowViewModel>() };
+            desktop.MainWindow = window;
+            desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
+            var mainWindowViewModel = (MainWindowViewModel)window.DataContext;
+            mainWindowViewModel.SelectedNavMenuItem = mainWindowViewModel.NavMenuItems[0];
+        }
     }
 }

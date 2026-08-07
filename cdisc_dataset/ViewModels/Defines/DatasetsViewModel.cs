@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AsyncNavigation;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -12,6 +13,7 @@ using AtomUI.Controls;
 using AtomUI.Desktop.Controls;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using cdisc_dataset.Constants;
 using cdisc_dataset.Extensions;
 using cdisc_dataset.Models;
@@ -26,11 +28,10 @@ using DynamicData.Binding;
 using FluentValidation;
 using MapsterMapper;
 using Prism.Dialogs;
-using Prism.Navigation.Regions;
+using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
-[RegionMemberLifetime(KeepAlive = false)]
 public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IMessageService _messageService;
@@ -245,7 +246,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         UnregisterDatasetDtoPropertyChanged(dataset);
         await _datasetService.DeleteDatasetAsync(dataset);
         _sourceCache.Edit(o => o.Remove(dataset));
-        _messageService.Success("ɾ���ɹ�");
+        _messageService.Success("??????");
     }
 
     [RelayCommand]
@@ -254,7 +255,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         if (!HasChanges) return;
         await _datasetService.SaveDatasetsAsync(_sourceCache.Items.Where(o => o.HasChanged).ToList());
         HasChanges = false;
-        _messageService.Success("����ɹ�");
+        _messageService.Success("??????");
         await LoadDatasets();
     }
 
@@ -294,7 +295,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             dataset.CommentUniqueId = entity.UniqueId;
             _sourceCache.AddOrUpdate(dataset);
             await _datasetService.UpdateDatasetAsync(dataset);
-            _messageService.Success("Comment���ӳɹ�");
+            _messageService.Success("Comment??????");
         }
     }
 
@@ -317,7 +318,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             dataset.CommentUniqueId = entity.UniqueId;
             _sourceCache.AddOrUpdate(dataset);
             await _datasetService.UpdateDatasetAsync(dataset);
-            _messageService.Success("Comment���³ɹ�");
+            _messageService.Success("Comment???3??");
         }
     }
 
@@ -342,21 +343,23 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
         await _datasetService.InsertDatasetsWithVariablesAsync(datasets);
         await LoadDatasets();
-        _messageService.Success("Datasets���ӳɹ�");
+        _messageService.Success("Datasets add successfully");
     }
 
-    public override void OnNavigatedFrom(NavigationContext navigationContext)
+    public override async Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
-        base.OnNavigatedFrom(navigationContext);
+        await base.OnNavigatedFromAsync(navigationContext);
 
         foreach (var datasetDto in _sourceCache.Items)
             UnregisterDatasetDtoPropertyChanged(datasetDto);
     }
 
-    public override void OnNavigatedTo(NavigationContext navigationContext)
+    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        var navigationContextParameters = navigationContext.Parameters;
-        navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
+        var cdiscDataType = _currentProjectService.CdiscDataType;
+        if (navigationContext.Parameters?.TryGetValue("CdiscDataType", out CdiscDataType parameterValue) == true)
+            cdiscDataType = parameterValue;
+
         CdiscDataType = cdiscDataType;
 
         if (CdiscDataType == CdiscDataType.Sdtm)
@@ -367,6 +370,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             Standards.AddRange([.. ConstantOptions.SdtmStandards]);
         }
 
+        return Task.CompletedTask;
     }
 
     public async Task LoadDataAsync()

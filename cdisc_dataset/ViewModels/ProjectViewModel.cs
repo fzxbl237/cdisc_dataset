@@ -11,7 +11,7 @@ using Prism.Dialogs;
 
 namespace cdisc_dataset.ViewModels;
 
-public partial class ProjectViewModel : ObservableObject
+public partial class ProjectViewModel : ViewModelBase
 {
     private readonly IProjectService _projectService;
     private readonly IDialogHostService _dialogHostService;
@@ -40,7 +40,7 @@ public partial class ProjectViewModel : ObservableObject
         await _projectService.DeleteProjectAsync(project);
         Projects.Remove(project);
         await WeakReferenceMessenger.Default.Send(new ProjectChangedMessage());
-        _messageService.Success("鍒犻櫎鎴愬姛");
+        _messageService.Success("删除成功");
     }
 
     [RelayCommand]
@@ -61,7 +61,7 @@ public partial class ProjectViewModel : ObservableObject
         
         await _projectService.UpdateProjectAsync(updatedProject);
         await WeakReferenceMessenger.Default.Send(new ProjectChangedMessage());
-        _messageService.Success("鏇存柊鎴愬姛");
+        _messageService.Success("更新成功");
     }
     
     [RelayCommand]
@@ -79,12 +79,12 @@ public partial class ProjectViewModel : ObservableObject
         var project = result.Parameters.GetValue<ProjectDto>("Project");
         if (await _projectService.ProjectCodeExistsAsync(project.ProjectCode))
         {
-            _messageService.Error("ProjectCode 宸插瓨鍦紝鏃犳硶鏂板");
+            _messageService.Error("ProjectCode 已存在，无法新增");
             return;
         }
 
         await _projectService.InsertProjectAsync(project);
         await WeakReferenceMessenger.Default.Send(new ProjectChangedMessage());
-        _messageService.Success("鏂板鎴愬姛");
+        _messageService.Success("新增成功");
     }
 }

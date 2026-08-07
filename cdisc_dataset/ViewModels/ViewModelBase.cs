@@ -1,22 +1,23 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using Prism.Navigation.Regions;
+﻿using System.Threading;
+using System.Threading.Tasks;
+using AsyncNavigation;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace cdisc_dataset.ViewModels;
 
-public partial class ViewModelBase:ObservableObject,INavigationAware
+public partial class ViewModelBase : ObservableObject, INavigationAware
 {
-    public virtual void OnNavigatedTo(NavigationContext navigationContext)
-    {
-        
-    }
+    public event AsyncEventHandler<AsyncEventArgs>? AsyncRequestUnloadEvent;
 
-    public virtual bool IsNavigationTarget(NavigationContext navigationContext)
-    {
-        return true;
-    }
+    public virtual Task InitializeAsync(NavigationContext context) => Task.CompletedTask;
 
-    public virtual void OnNavigatedFrom(NavigationContext navigationContext)
-    {
-        
-    }
+    public virtual Task OnNavigatedToAsync(NavigationContext context) => Task.CompletedTask;
+
+    public virtual Task<bool> IsNavigationTargetAsync(NavigationContext context) => Task.FromResult(true);
+
+    public virtual Task OnNavigatedFromAsync(NavigationContext context) => Task.CompletedTask;
+
+    public virtual Task OnUnloadAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -28,19 +28,17 @@ using DynamicData;
 using DynamicData.Alias;
 using DynamicData.Binding;
 using Prism.Dialogs;
-using Prism.Ioc;
 using Prism.Navigation;
-using Prism.Navigation.Regions;
+using AsyncNavigation.Abstractions;
 using ReactiveUI;
 using SqlSugar;
 
 namespace cdisc_dataset.ViewModels;
 
-public partial class SdtmDefineViewModel:ObservableObject,IDisposable
+public partial class SdtmDefineViewModel : ViewModelBase, IDisposable
 {
     private readonly ISqlSugarClient _sqlSugar;
     private readonly IRegionManager _regionManager;
-    private readonly IContainerProvider _container;
     private readonly ICurrentProjectService _currentProjectService;
     
     public ThemeConfig SegmentedConfig { get; }
@@ -86,12 +84,10 @@ public partial class SdtmDefineViewModel:ObservableObject,IDisposable
 
     public SdtmDefineViewModel(ISqlSugarClient sqlSugar,
         IRegionManager regionManager,
-        IContainerProvider container,
         ICurrentProjectService currentProjectService)
     {
         _sqlSugar = sqlSugar;
         _regionManager = regionManager;
-        _container = container;
         _currentProjectService = currentProjectService;
         SegmentedConfig = BuildControlConfig(ControlAlgorithmMode.Global);
         // _sqlSugar.CodeFirst.InitTables<Comment>();
@@ -121,9 +117,12 @@ public partial class SdtmDefineViewModel:ObservableObject,IDisposable
         {
             if (!string.IsNullOrWhiteSpace(header))
             {
-                var containsRegionWithName = _regionManager.Regions.ContainsRegionWithName("SdtmDefineRegion");
-                if (containsRegionWithName)
-                    _regionManager.Regions["SdtmDefineRegion"].RequestNavigate(header);
+                if (_regionManager.TryGetRegion("SdtmDefineRegion", out _))
+                {
+                    var parameters = new AsyncNavigation.Core.NavigationParameters();
+                    parameters.Add("CdiscDataType", _currentProjectService.CdiscDataType);
+                    _ = _regionManager.RequestNavigateAsync("SdtmDefineRegion", header, parameters);
+                }
             }
         }
     }

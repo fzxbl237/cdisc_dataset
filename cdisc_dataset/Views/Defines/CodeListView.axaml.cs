@@ -1,4 +1,5 @@
-ï»¿using System.Threading.Tasks;
+using AsyncNavigation.Abstractions;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -9,7 +10,7 @@ using ReactiveUI.Primitives.Disposables;
 
 namespace cdisc_dataset.Views.Defines;
 
-public partial class CodeListView : UserControl,IActivatableView
+public partial class CodeListView : UserControl, IActivatableView, IView
 {
     public CodeListView()
     {
@@ -18,12 +19,12 @@ public partial class CodeListView : UserControl,IActivatableView
         {
             if (DataContext is CodeListViewModel vm)
             {
-                // ä½¿ç”¨ Post å»¶è¿Ÿåˆ° Dispatcher ç©ºé—²æ—¶æ‰§è¡Œï¼Œè®© TabStrip åŠ¨ç”»å…ˆå®Œæˆ
+                // Ê¹ÓÃ Post ÑÓ³Ùµ½ Dispatcher ¿ÕÏĞÊ±Ö´ĞĞ£¬ÈÃ TabStrip ¶¯»­ÏÈÍê³É
                 Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     await vm.ExecuteLoadingAsync(async () =>
                     {
-                        await Task.Delay(250); // çŸ­æš‚å»¶è¿Ÿç¡®ä¿åŠ¨ç”»å¼€å§‹
+                        await Task.Delay(250); // ¶ÌÔİÑÓ³ÙÈ·±£¶¯»­¿ªÊ¼
                         await vm.LoadCodeLists();
                         await vm.LoadComments();
                         await vm.LoadTerminologies();

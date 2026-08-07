@@ -1,4 +1,5 @@
-ï»¿using System;
+using AsyncNavigation.Abstractions;
+using System;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -10,7 +11,7 @@ using ReactiveUI.Primitives.Disposables;
 
 namespace cdisc_dataset.Views.Defines;
 
-public partial class TermView : UserControl,IActivatableView
+public partial class TermView : UserControl, IActivatableView, IView
 {
     public TermView()
     {
@@ -19,12 +20,12 @@ public partial class TermView : UserControl,IActivatableView
         {
             if (DataContext is TermViewModel vm)
             {
-                // ä½¿ç”¨ Post å»¶è¿Ÿåˆ° Dispatcher ç©ºé—²æ—¶æ‰§è¡Œï¼Œè®© TabStrip åŠ¨ç”»å…ˆå®Œæˆ
+                // Ê¹ÓÃ Post ÑÓ³Ùµ½ Dispatcher ¿ÕÏĞÊ±Ö´ĞĞ£¬ÈÃ TabStrip ¶¯»­ÏÈÍê³É
                 Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     await vm.ExecuteLoadingAsync(async () =>
                     {
-                        await Task.Delay(250); // å»¶è¿Ÿç¡®ä¿åŠ¨ç”»æµç•…
+                        await Task.Delay(250); // ÑÓ³ÙÈ·±£¶¯»­Á÷³©
                         await vm.LoadTermsAsync();
                         await vm.LoadCodeListsAsync();
                     });

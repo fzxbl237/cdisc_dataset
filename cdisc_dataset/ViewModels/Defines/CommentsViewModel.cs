@@ -1,4 +1,5 @@
-﻿using System;
+using AsyncNavigation;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -23,11 +24,10 @@ using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
 using Prism.Dialogs;
-using Prism.Navigation.Regions;
+using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
-[RegionMemberLifetime(KeepAlive = false)]
 public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IMessageService _messageService;
@@ -173,7 +173,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         commentDto.ProjectId = CurrentProject.Id;
         commentDto.CdiscDataType = CdiscDataType;
         await _commentService.InsertCommentAsync(commentDto);
-        _messageService.Success("���ӳɹ�");
+        _messageService.Success("??????");
         await LoadComments(CurrentProject.Id, CdiscDataType);
     }
     
@@ -190,7 +190,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         if (!result.Parameters.TryGetValue<CommentDto>("Model", out var commentDto) || CurrentProject == null)
             return;
         await _commentService.UpdateCommentAsync(commentDto);
-        _messageService.Success("Comment���³ɹ�");
+        _messageService.Success("Comment???3??");
     }
 
     [RelayCommand]
@@ -215,7 +215,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         await _commentService.DeleteCommentAsync(comment);
         _commentSourceCache.Remove(commentDto);
         MarkDuplicates();
-        _messageService.Success("ɾ���ɹ�");
+        _messageService.Success("??????");
     }
 
     private void MarkDuplicates()
@@ -247,13 +247,14 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         HasChanges = false;
     }
 
-    public override void OnNavigatedTo(NavigationContext navigationContext)
+    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
         var navigationContextParameters = navigationContext.Parameters;
         navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
         navigationContextParameters.TryGetValue("CurrentProject", out Project? currentProject);
         CdiscDataType = cdiscDataType;
         CurrentProject = currentProject;
+        return Task.CompletedTask;
     }
 
     public async Task LoadDataAsync()
@@ -265,7 +266,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         await LoadDocuments(CurrentProject.Id, CdiscDataType);
     }
 
-    public override async void OnNavigatedFrom(NavigationContext navigationContext)
+    public override async Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
         if (!HasChanges || CurrentProject == null)
             return;

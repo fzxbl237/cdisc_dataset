@@ -1,4 +1,5 @@
-﻿using System;
+using AsyncNavigation;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -22,13 +23,12 @@ using DynamicData.Binding;
 using FluentValidation;
 using Net.Pinnacle21.Define.Parser;
 using Prism.Dialogs;
-using Prism.Navigation.Regions;
+using NavigationContext = AsyncNavigation.NavigationContext;
 using DataGridCellPointerPressedEventArgs = Avalonia.Controls.DataGridCellPointerPressedEventArgs;
 using DataGridPreparingCellForEditEventArgs = Avalonia.Controls.DataGridPreparingCellForEditEventArgs;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
-[RegionMemberLifetime(KeepAlive = false)]
 public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IMessageService _messageService;
@@ -468,7 +468,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         await LoadValueLevels(CurrentProject.Id, CdiscDataType);
     }
 
-    public override void OnNavigatedTo(NavigationContext navigationContext)
+    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
         var navigationContextParameters = navigationContext.Parameters;
         navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
@@ -487,6 +487,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
                 "", "Derived", "Assigned", "Predecessor"
             ]);
         }
+        return Task.CompletedTask;
     }
 
     public async Task LoadDataAsync()

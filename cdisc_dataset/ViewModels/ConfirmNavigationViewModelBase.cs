@@ -1,11 +1,14 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
+using AsyncNavigation;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Prism.Navigation.Regions;
 
 namespace cdisc_dataset.ViewModels;
 
-public partial class ConfirmNavigationViewModelBase:ObservableObject,IConfirmNavigationRequest
+public partial class ConfirmNavigationViewModelBase : ViewModelBase, INavigationGuard
 {
     [ObservableProperty]
     private bool _isLoading;
@@ -26,23 +29,30 @@ public partial class ConfirmNavigationViewModelBase:ObservableObject,IConfirmNav
         }
     }
 
-    public virtual void OnNavigatedTo(NavigationContext navigationContext)
+    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        
+        return Task.CompletedTask;
     }
 
-    public virtual bool IsNavigationTarget(NavigationContext navigationContext)
+    public override Task<bool> IsNavigationTargetAsync(NavigationContext navigationContext)
     {
-        return true;
+        return Task.FromResult(true);
     }
 
-    public virtual void OnNavigatedFrom(NavigationContext navigationContext)
+    public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
-        
+        return Task.CompletedTask;
     }
 
     public virtual void ConfirmNavigationRequest(NavigationContext navigationContext, Action<bool> continuationCallback)
     {
         continuationCallback(true);
+    }
+
+    public Task<bool> CanNavigateAsync(NavigationContext context, CancellationToken cancellationToken)
+    {
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        ConfirmNavigationRequest(context, completion.SetResult);
+        return completion.Task;
     }
 }

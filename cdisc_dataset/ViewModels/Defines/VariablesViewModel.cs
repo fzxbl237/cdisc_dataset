@@ -1,4 +1,5 @@
-﻿using System;
+using AsyncNavigation;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -29,13 +30,12 @@ using DynamicData.Binding;
 using FluentValidation;
 using MapsterMapper;
 using Prism.Dialogs;
-using Prism.Navigation.Regions;
+using NavigationContext = AsyncNavigation.NavigationContext;
 using ReactiveUI;
 using ReactiveUI.Primitives.Disposables;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
-[RegionMemberLifetime(KeepAlive = false)]
 public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IVariableService _variableService;
@@ -464,9 +464,9 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         }
     }
 
-    public override void OnNavigatedFrom(NavigationContext navigationContext)
+    public override async Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
-        base.OnNavigatedFrom(navigationContext);
+        await base.OnNavigatedFromAsync(navigationContext);
         
         foreach (var variableDto in _sourceCache.Items)
         {
@@ -476,12 +476,13 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         _disposables.Dispose();
     }
 
-    public override void OnNavigatedTo(NavigationContext navigationContext)
+    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
         var navigationContextParameters = navigationContext.Parameters;
         navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
         Origins.AddRange(cdiscDataType == CdiscDataType.Sdtm?[..ConstantOptions.SdtmOrigins]:[..ConstantOptions.AdamOrigins]);
         CdiscDataType = cdiscDataType;
+        return Task.CompletedTask;
     }
 
 

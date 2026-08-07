@@ -1,4 +1,5 @@
-﻿using System;
+using AsyncNavigation;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -22,11 +23,10 @@ using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
 using Prism.Dialogs;
-using Prism.Navigation.Regions;
+using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
-[RegionMemberLifetime(KeepAlive = false)]
 public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IDictionaryService _dictionaryService;
@@ -175,7 +175,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
 
         await _dictionaryService.InsertDictionaryAsync(dictionary);
         _sourceCache.AddOrUpdate(dictionary);
-        _messageService.Success("���ӳɹ�");
+        _messageService.Success("??????");
         await LoadDictionaries();
     }
 
@@ -192,7 +192,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
             return;
 
         await _dictionaryService.UpdateDictionaryAsync(model);
-        _messageService.Success("Dictionary���³ɹ�");
+        _messageService.Success("Dictionary???3??");
         await LoadDictionaries();
     }
 
@@ -209,7 +209,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
 
         await _dictionaryService.DeleteDictionaryAsync(dictionary);
         _sourceCache.Remove(dictionary);
-        _messageService.Success("ɾ���ɹ�");
+        _messageService.Success("??????");
     }
 
     [RelayCommand]
@@ -234,13 +234,14 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
         HasChanges = false;
     }
 
-    public override void OnNavigatedTo(NavigationContext navigationContext)
+    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
         var navigationContextParameters = navigationContext.Parameters;
         navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
         navigationContextParameters.TryGetValue("CurrentProject", out Project? currentProject);
         CdiscDataType = cdiscDataType;
         CurrentProject = currentProject;
+        return Task.CompletedTask;
     }
 
     public async Task LoadDataAsync()

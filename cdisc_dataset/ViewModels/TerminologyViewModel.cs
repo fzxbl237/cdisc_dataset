@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AtomUI.Desktop.Controls;
@@ -16,7 +16,7 @@ using Window = AtomUI.Desktop.Controls.Window;
 
 namespace cdisc_dataset.ViewModels;
 
-public partial class TerminologyViewModel:ObservableObject
+public partial class TerminologyViewModel : ViewModelBase
 {
     private readonly ISqlSugarClient _sqlSugar;
     private readonly IMapper _mapper;

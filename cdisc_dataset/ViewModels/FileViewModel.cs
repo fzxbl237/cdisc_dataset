@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -24,13 +24,13 @@ using P21.Validator.Data;
 using Mapster;
 using P21.Validator.Api.Models;
 using Prism.Dialogs;
-using Prism.Navigation.Regions;
+using AsyncNavigation;
 using SqlSugar;
 using Window = AtomUI.Desktop.Controls.Window;
 
 namespace cdisc_dataset.ViewModels;
 
-public partial class FileViewModel : ObservableObject, INavigationAware
+public partial class FileViewModel : ViewModelBase
 {
     private readonly ILiteDatabase _liteDatabase;
     private readonly ISqlSugarClient _sqlSugar;
@@ -1168,20 +1168,19 @@ public partial class FileViewModel : ObservableObject, INavigationAware
        _messageService.Success($"Delete {CurrentProject?.ProjectCode} dataset(s) successfully");
     }
 
-    public void OnNavigatedTo(NavigationContext navigationContext)
+    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
         CurrentProject = _currentProjectService.CurrentProject;
         LoadFiles();
+        return Task.CompletedTask;
     }
 
-    public bool IsNavigationTarget(NavigationContext navigationContext)
+    public override Task<bool> IsNavigationTargetAsync(NavigationContext navigationContext)
     {
-        return true;
+        return Task.FromResult(true);
     }
 
-    public void OnNavigatedFrom(NavigationContext navigationContext)
-    {
-    }
+    public override Task OnNavigatedFromAsync(NavigationContext navigationContext) => Task.CompletedTask;
 
     private void LoadFiles()
     {

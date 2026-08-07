@@ -1,13 +1,10 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Avalonia.Controls;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Services;
 using cdisc_dataset.Services.Interface;
 using cdisc_dataset.Views;
-using DryIoc;
 using FluentValidation;
-using Prism.DryIoc;
-using Prism.Ioc;
 
 namespace cdisc_dataset.Extensions;
 

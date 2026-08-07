@@ -1,4 +1,5 @@
-﻿using System;
+using AsyncNavigation;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -23,11 +24,10 @@ using DynamicData.Binding;
 using FluentValidation;
 using MapsterMapper;
 using Prism.Dialogs;
-using Prism.Navigation.Regions;
+using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
-[RegionMemberLifetime(KeepAlive = false)]
 public partial class MethodsViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IMessageService _messageService;
@@ -273,7 +273,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
 
         var parameters = new DialogParameters
         {
-            { "Title", "���� Method" },
+            { "Title", "???? Method" },
             { "ProjectId", _currentProjectService.CurrentProject.Id },
             { "CdiscDataType", CdiscDataType },
             { "Model", dto }
@@ -299,7 +299,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         
         var parameters = new DialogParameters
         {
-            { "Title", "�༭ Method" },
+            { "Title", "?? Method" },
             { "ProjectId", _currentProjectService.CurrentProject.Id },
             { "CdiscDataType", CdiscDataType },
             { "Model", methodDto }
@@ -353,11 +353,12 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         await LoadMethods(_currentProjectService.CurrentProject.Id, CdiscDataType);
     }
 
-    public override void OnNavigatedTo(NavigationContext navigationContext)
+    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
         var navigationContextParameters = navigationContext.Parameters;
         navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
         CdiscDataType = cdiscDataType;
+        return Task.CompletedTask;
     }
 
     public async Task LoadDataAsync()

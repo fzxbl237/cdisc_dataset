@@ -1,4 +1,5 @@
-﻿using System;
+using AsyncNavigation;
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reactive.Concurrency;
@@ -19,11 +20,10 @@ using DynamicData;
 using Prism.Dialogs;
 using DynamicData.Binding;
 using FluentValidation;
-using Prism.Navigation.Regions;
+using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
-[RegionMemberLifetime(KeepAlive = false)]
 public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IMessageService _messageService;
@@ -160,7 +160,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         _documentSourceCache.AddOrUpdate(dto);
         MarkDuplicates();
         HasChanges = true;
-        _messageService.Success("���ӳɹ�");
+        _messageService.Success("??????");
     }
 
     [RelayCommand]
@@ -177,7 +177,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         await _documentService.DeleteDocumentDtoAsync(documentDto);
         _documentSourceCache.Remove(documentDto);
         MarkDuplicates();
-        _messageService.Success("ɾ���ɹ�");
+        _messageService.Success("??????");
     }
 
     [RelayCommand]
@@ -202,13 +202,14 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         HasChanges = false;
     }
 
-    public override void OnNavigatedTo(NavigationContext navigationContext)
+    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
         var navigationContextParameters = navigationContext.Parameters;
         navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
         navigationContextParameters.TryGetValue("CurrentProject", out Project? currentProject);
         CdiscDataType = cdiscDataType;
         CurrentProject = currentProject;
+        return Task.CompletedTask;
     }
 
     public async Task LoadDataAsync()
@@ -219,8 +220,9 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         await LoadDocuments(CurrentProject.Id, CdiscDataType);
     }
 
-    public override void OnNavigatedFrom(NavigationContext navigationContext)
+    public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
+        return Task.CompletedTask;
     }
 
     public override void ConfirmNavigationRequest(NavigationContext navigationContext, Action<bool> continuationCallback)

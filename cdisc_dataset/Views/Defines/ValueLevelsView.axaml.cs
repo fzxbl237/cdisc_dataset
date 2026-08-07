@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+using AsyncNavigation.Abstractions;
+using Avalonia.Controls;
 using System.Threading.Tasks;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
@@ -8,7 +9,7 @@ using ReactiveUI.Primitives.Disposables;
 
 namespace cdisc_dataset.Views.Defines;
 
-public partial class ValueLevelsView : UserControl, IActivatableView
+public partial class ValueLevelsView : UserControl, IActivatableView, IView
 {
     public ValueLevelsView()
     {

@@ -1,4 +1,5 @@
-﻿using Avalonia;
+using AsyncNavigation.Abstractions;
+using Avalonia;
 using Avalonia.Controls;
 using System.Threading.Tasks;
 using Avalonia.Markup.Xaml;
@@ -9,7 +10,7 @@ using ReactiveUI.Primitives.Disposables;
 
 namespace cdisc_dataset.Views.Defines;
 
-public partial class CommentsView : UserControl, IActivatableView
+public partial class CommentsView : UserControl, IActivatableView, IView
 {
     public CommentsView()
     {
