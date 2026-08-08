@@ -124,7 +124,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
                     break;
                 case nameof(DatasetDto.CommentUniqueId):
                     await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.CommentUniqueId));
-                    _sourceCache.AddOrUpdate(datasetDto);
                     break;
             }
         });
@@ -279,7 +278,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
-    private async Task AddComment(DatasetDto dataset)
+    private async Task AddCommentAsync(DatasetDto dataset)
     {
         var dialogParameters = new DialogParameters
         {
@@ -295,12 +294,12 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             dataset.CommentUniqueId = entity.UniqueId;
             _sourceCache.AddOrUpdate(dataset);
             await _datasetService.UpdateDatasetAsync(dataset);
-            _messageService.Success("Comment??????");
+            _messageService.Success("Comment add successful");
         }
     }
 
     [RelayCommand]
-    private async Task ModifyComment(DatasetDto dataset)
+    private async Task ModifyCommentAsync(DatasetDto dataset)
     {
         if (dataset.Comment == null) return;
         var commentDto = _mapper.Map<CommentDto>(dataset.Comment);
@@ -318,7 +317,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             dataset.CommentUniqueId = entity.UniqueId;
             _sourceCache.AddOrUpdate(dataset);
             await _datasetService.UpdateDatasetAsync(dataset);
-            _messageService.Success("Comment???3??");
+            _messageService.Success("Comment modify successfully");
         }
     }
 
@@ -356,11 +355,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        var cdiscDataType = _currentProjectService.CdiscDataType;
-        if (navigationContext.Parameters?.TryGetValue("CdiscDataType", out CdiscDataType parameterValue) == true)
-            cdiscDataType = parameterValue;
-
-        CdiscDataType = cdiscDataType;
+        CdiscDataType = _currentProjectService.CdiscDataType;
 
         if (CdiscDataType == CdiscDataType.Sdtm)
         {

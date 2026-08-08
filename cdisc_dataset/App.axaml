@@ -1,4 +1,4 @@
-<Application
+﻿<Application
     x:Class="cdisc_dataset.App"
     xmlns="https://github.com/avaloniaui"
     xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
@@ -7,6 +7,8 @@
         <dialogHost:DialogHostStyles />
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.v2.xaml" />
+        <StyleInclude Source="avares://cdisc_dataset/Controls/DataGrid/Themes/MiniDataGridThemes.axaml" />
+        <StyleInclude Source="avares://cdisc_dataset/Controls/DataGrid/Themes/DataGridFilterPopup.axaml" />
         <StyleInclude Source="avares://cdisc_dataset/Themes/Styles.axaml" />
     </Application.Styles>
 </Application>

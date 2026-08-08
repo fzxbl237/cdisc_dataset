@@ -1,4 +1,4 @@
-using AsyncNavigation;
+﻿using AsyncNavigation;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -160,21 +160,16 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
             { "Title", "Add Comment" }
         };
 
-        if (CurrentProject != null)
-        {
-            dialogParameters.Add("ProjectId", CurrentProject.Id);
-            dialogParameters.Add("CdiscDataType", CdiscDataType);
-        }
 
         var result = await _dialogHostService.ShowDialogAsync("CommentDialog", dialogParameters);
-        if (!result.Parameters.TryGetValue<CommentDto>("Model", out var commentDto) || CurrentProject == null)
+        if (!result.Parameters.TryGetValue<CommentDto>("Model", out var commentDto) || _currentProjectService.CurrentProject == null)
             return;
 
-        commentDto.ProjectId = CurrentProject.Id;
-        commentDto.CdiscDataType = CdiscDataType;
+        commentDto.ProjectId = _currentProjectService.CurrentProject.Id;
+        commentDto.CdiscDataType = _currentProjectService.CdiscDataType;
         await _commentService.InsertCommentAsync(commentDto);
-        _messageService.Success("??????");
-        await LoadComments(CurrentProject.Id, CdiscDataType);
+        _messageService.Success("Add successfully");
+        await LoadComments(_currentProjectService.CurrentProject.Id, _currentProjectService.CdiscDataType);
     }
     
     [RelayCommand]
@@ -183,7 +178,6 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         var dialogParameters = new DialogParameters
         {
             { "Title", "Modify Comment" },
-            { "ProjectId", CurrentProject!.Id },
             { "Model", comment }
         };
         var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
@@ -249,11 +243,8 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        var navigationContextParameters = navigationContext.Parameters;
-        navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
-        navigationContextParameters.TryGetValue("CurrentProject", out Project? currentProject);
-        CdiscDataType = cdiscDataType;
-        CurrentProject = currentProject;
+        CdiscDataType = _currentProjectService.CdiscDataType;
+        CurrentProject = _currentProjectService.CurrentProject;
         return Task.CompletedTask;
     }
 

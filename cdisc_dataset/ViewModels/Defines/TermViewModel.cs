@@ -1,4 +1,4 @@
-using AsyncNavigation;
+﻿using AsyncNavigation;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -391,11 +391,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task Pair()
     {
-        var dialogParameters = new DialogParameters
-        {
-            { "CdiscDataType", CdiscDataType }
-        };
-        var result = await _dialogHostService.ShowDialogAsync("PairTermsDialog",dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("PairTermsDialog", new DialogParameters());
         if (result.Result == ButtonResult.Yes)
         {
             await LoadTermsAsync();
@@ -416,9 +412,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        var navigationContextParameters = navigationContext.Parameters;
-        navigationContextParameters.TryGetValue("CdiscDataType",out CdiscDataType cdiscDataType);
-        CdiscDataType = cdiscDataType;
+        CdiscDataType = _currentProjectService.CdiscDataType;
         return Task.CompletedTask;
     }
 

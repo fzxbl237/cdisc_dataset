@@ -27,6 +27,7 @@ public partial class MethodViewModel : ObservableObject, IDialogHostAware
     private readonly IDocumentService _documentService;
     private readonly FormMethodValidator _formMethodValidator;
     private readonly IValidator<MethodDto> _validator;
+    private readonly ICurrentProjectService _currentProjectService;
 
     private FrozenDictionary<string, Document>? _frozenDocumentDictionary;
     private int _projectId;
@@ -57,11 +58,13 @@ public partial class MethodViewModel : ObservableObject, IDialogHostAware
     public MethodViewModel(
         IMessageService messageService,
         IDocumentService documentService,
+        ICurrentProjectService currentProjectService,
         FormMethodValidator formMethodValidator,
         IValidator<MethodDto> validator)
     {
         _messageService = messageService;
         _documentService = documentService;
+        _currentProjectService = currentProjectService;
         _formMethodValidator = formMethodValidator;
         _validator = validator;
     }
@@ -71,11 +74,8 @@ public partial class MethodViewModel : ObservableObject, IDialogHostAware
         if (parameters.ContainsKey("Title"))
             Title = parameters.GetValue<string>("Title");
 
-        if (parameters.ContainsKey("ProjectId"))
-            _projectId = parameters.GetValue<int>("ProjectId");
-
-        if (parameters.ContainsKey("CdiscDataType"))
-            _cdiscDataType = parameters.GetValue<CdiscDataType>("CdiscDataType");
+        _projectId = _currentProjectService.CurrentProject?.Id ?? 0;
+        _cdiscDataType = _currentProjectService.CdiscDataType;
 
         Method = parameters.ContainsKey("Model") ? parameters.GetValue<MethodDto>("Model") : new MethodDto();
         IsInEditMode = Method.Id != 0;

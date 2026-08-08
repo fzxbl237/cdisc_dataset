@@ -1,4 +1,4 @@
-using AsyncNavigation;
+﻿using AsyncNavigation;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -40,6 +40,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     private readonly IDocumentService _documentService;
     private readonly ICommentService _commentService;
     private readonly IDialogHostService _dialogHostService;
+    private readonly ICurrentProjectService _currentProjectService;
     private readonly IValidator<ValueLevelDto> _validator;
 
     [ObservableProperty]
@@ -82,6 +83,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         IDocumentService documentService,
         ICommentService commentService,
         IDialogHostService dialogHostService,
+        ICurrentProjectService currentProjectService,
         IValidator<ValueLevelDto> validator)
     {
         _messageService = messageService;
@@ -93,6 +95,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         _documentService = documentService;
         _commentService = commentService;
         _dialogHostService = dialogHostService;
+        _currentProjectService = currentProjectService;
         _validator = validator;
 
         var filter = this.WhenValueChanged(t => t.SearchText)
@@ -470,11 +473,8 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        var navigationContextParameters = navigationContext.Parameters;
-        navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
-        navigationContextParameters.TryGetValue("CurrentProject", out Project? currentProject);
-        CdiscDataType = cdiscDataType;
-        CurrentProject = currentProject;
+        CdiscDataType = _currentProjectService.CdiscDataType;
+        CurrentProject = _currentProjectService.CurrentProject;
         if (CdiscDataType == CdiscDataType.Sdtm)
         {
             Origins.AddRange([

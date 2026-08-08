@@ -172,6 +172,7 @@ public class App : Application
         services.AddTransient<FormValueLevelValidator>();
         services.AddTransient<FormProjectValidator>();
         services.AddTransient<FormDictionaryValidator>();
+        services.AddTransient<FormCommentValidator>();
 
         var serviceProvider = services.BuildServiceProvider();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

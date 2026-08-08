@@ -56,8 +56,7 @@ public partial class PairTermsViewModel:ObservableObject,IDialogHostAware
     
     public void OnDialogOpened(IDialogParameters parameters)
     {
-        parameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
-        CdiscDataType = cdiscDataType;
+        CdiscDataType = _currentProjectService.CdiscDataType;
         if (_currentProjectService.CurrentProject != null) 
             CurrentProjectId = _currentProjectService.CurrentProject.Id;
         LoadCodeLists().Await();

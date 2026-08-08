@@ -338,7 +338,6 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         var dialogParameters = new DialogParameters
         {
             { "Title", "Add Comment" },
-            { "ProjectId", _currentProjectService.CurrentProject!.Id },
             { "DefaultId",$"COM.CL.{codeList.UniqueId}"}
         };
         var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
@@ -361,7 +360,6 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         var dialogParameters = new DialogParameters
         {
             { "Title", "Modify Comment" },
-            { "ProjectId", _currentProjectService.CurrentProject?.Id ?? 0 },
             { "Model", comment }
         };
         var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
@@ -407,11 +405,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task AddCodeList()
     {
-        var dialogParameters = new DialogParameters
-        {
-            { "CdiscDataType", CdiscDataType }
-        };
-        var result = await _dialogHostService.ShowDialogAsync("AddCodeListDialog",dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("AddCodeListDialog", new DialogParameters());
         if (result.Parameters.TryGetValue<CodeList>("CodeList",out CodeList? codeList))
         {
             CodeListDto entity = await _codeListService.InsertCodeListAsync(codeList);
@@ -424,11 +418,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task AddCodeListFromVariable()
     {
-        var dialogParameters = new DialogParameters
-        {
-            { "CdiscDataType", CdiscDataType }
-        };
-        var result = await _dialogHostService.ShowDialogAsync("AddCodeListDialog", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("AddCodeListDialog", new DialogParameters());
         if (!result.Parameters.TryGetValue<CodeList>("CodeList", out var codeList) || codeList == null)
             return;
 

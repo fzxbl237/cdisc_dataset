@@ -230,7 +230,6 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     
     public void OnDialogOpened(IDialogParameters parameters)
     {
-        parameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
         if (parameters.TryGetValue<VariableDto>("Variable", out var defaultVariable))
         {
             DefaultVariable =  defaultVariable;

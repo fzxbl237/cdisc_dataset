@@ -1,4 +1,4 @@
-using AsyncNavigation;
+﻿using AsyncNavigation;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -274,8 +274,6 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         var parameters = new DialogParameters
         {
             { "Title", "???? Method" },
-            { "ProjectId", _currentProjectService.CurrentProject.Id },
-            { "CdiscDataType", CdiscDataType },
             { "Model", dto }
         };
 
@@ -300,8 +298,6 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         var parameters = new DialogParameters
         {
             { "Title", "?? Method" },
-            { "ProjectId", _currentProjectService.CurrentProject.Id },
-            { "CdiscDataType", CdiscDataType },
             { "Model", methodDto }
         };
 
@@ -355,9 +351,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        var navigationContextParameters = navigationContext.Parameters;
-        navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
-        CdiscDataType = cdiscDataType;
+        CdiscDataType = _currentProjectService.CdiscDataType;
         return Task.CompletedTask;
     }
 

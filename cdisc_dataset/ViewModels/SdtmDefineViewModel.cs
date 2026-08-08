@@ -119,9 +119,7 @@ public partial class SdtmDefineViewModel : ViewModelBase, IDisposable
             {
                 if (_regionManager.TryGetRegion("SdtmDefineRegion", out _))
                 {
-                    var parameters = new AsyncNavigation.Core.NavigationParameters();
-                    parameters.Add("CdiscDataType", _currentProjectService.CdiscDataType);
-                    _ = _regionManager.RequestNavigateAsync("SdtmDefineRegion", header, parameters);
+                    _ = _regionManager.RequestNavigateAsync("SdtmDefineRegion", header);
                 }
             }
         }

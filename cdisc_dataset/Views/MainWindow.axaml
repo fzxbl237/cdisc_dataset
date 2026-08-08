@@ -1,5 +1,4 @@
 <atom:Window
-    Background="#F4F6FA"
     IsPinCaptionButtonVisible="True"
     IsTitleBarVisible="False"
     Title="Cdisc dataset"
@@ -12,12 +11,12 @@
     x:Class="cdisc_dataset.Views.MainWindow"
     x:DataType="vm:MainWindowViewModel"
     xmlns="https://github.com/avaloniaui"
+    xmlns:an="https://github.com/NeverMorewd/AsyncNavigation"
     xmlns:atom="https://atomui.net"
     xmlns:controls="using:cdisc_dataset.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:an="https://github.com/NeverMorewd/AsyncNavigation"
     xmlns:vm="using:cdisc_dataset.ViewModels"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
@@ -97,7 +96,7 @@
             </Border>
 
             <ContentControl
-                Background="White"
+                Background="white"
                 BorderBrush="#E5E7EB"
                 BorderThickness="1"
                 CornerRadius="3"

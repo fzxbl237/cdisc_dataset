@@ -24,6 +24,7 @@ public static class ConstantOptions
 
     public static readonly IReadOnlyList<string> Classes =
     [
+        "",
         "EVENTS", 
         "FINDINGS", 
         "FINDINGS ABOUT", 

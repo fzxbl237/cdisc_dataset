@@ -1,4 +1,4 @@
-using AsyncNavigation;
+﻿using AsyncNavigation;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -236,11 +236,8 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        var navigationContextParameters = navigationContext.Parameters;
-        navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
-        navigationContextParameters.TryGetValue("CurrentProject", out Project? currentProject);
-        CdiscDataType = cdiscDataType;
-        CurrentProject = currentProject;
+        CdiscDataType = _currentProjectService.CdiscDataType;
+        CurrentProject = _currentProjectService.CurrentProject;
         return Task.CompletedTask;
     }
 

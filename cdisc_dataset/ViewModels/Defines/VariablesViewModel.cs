@@ -1,4 +1,4 @@
-using AsyncNavigation;
+﻿using AsyncNavigation;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -478,10 +478,8 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        var navigationContextParameters = navigationContext.Parameters;
-        navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
-        Origins.AddRange(cdiscDataType == CdiscDataType.Sdtm?[..ConstantOptions.SdtmOrigins]:[..ConstantOptions.AdamOrigins]);
-        CdiscDataType = cdiscDataType;
+        CdiscDataType = _currentProjectService.CdiscDataType;
+        Origins.AddRange(CdiscDataType == CdiscDataType.Sdtm ? [.. ConstantOptions.SdtmOrigins] : [.. ConstantOptions.AdamOrigins]);
         return Task.CompletedTask;
     }
 

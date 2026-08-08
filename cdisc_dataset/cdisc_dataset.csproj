@@ -56,4 +56,8 @@
         <HintPath>..\..\..\Desktop\prodatagrid_dll\avalonia12\ProDataGrid.FormulaEngine.Excel.dll</HintPath>
       </Reference>
     </ItemGroup>
+
+    <ItemGroup>
+      <AvaloniaResource Include="Controls\DataGrid\Themes\**\*.axaml" />
+    </ItemGroup>
 </Project>

@@ -1,4 +1,4 @@
-using AsyncNavigation;
+﻿using AsyncNavigation;
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -30,6 +30,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
     private readonly IDocumentService _documentService;
     private readonly IIssueService _issueService;
     private readonly IDialogHostService _dialogHostService;
+    private readonly ICurrentProjectService _currentProjectService;
     private readonly IValidator<DocumentDto> _validator;
 
     [ObservableProperty]
@@ -54,12 +55,14 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         IDocumentService documentService,
         IIssueService issueService,
         IDialogHostService dialogHostService,
+        ICurrentProjectService currentProjectService,
         IValidator<DocumentDto> validator)
     {
         _messageService = messageService;
         _documentService = documentService;
         _issueService = issueService;
         _dialogHostService = dialogHostService;
+        _currentProjectService = currentProjectService;
         _validator = validator;
 
         var filter = this.WhenValueChanged(t => t.SearchText)
@@ -204,11 +207,8 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        var navigationContextParameters = navigationContext.Parameters;
-        navigationContextParameters.TryGetValue("CdiscDataType", out CdiscDataType cdiscDataType);
-        navigationContextParameters.TryGetValue("CurrentProject", out Project? currentProject);
-        CdiscDataType = cdiscDataType;
-        CurrentProject = currentProject;
+        CdiscDataType = _currentProjectService.CdiscDataType;
+        CurrentProject = _currentProjectService.CurrentProject;
         return Task.CompletedTask;
     }
 
