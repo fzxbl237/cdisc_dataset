@@ -466,7 +466,7 @@
                         ItemsSource="{Binding Yns}"
                         Width="150" />
                     <controls:DataGridAutoCompleteColumn
-                        Binding="{Binding CommentUniqueId, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                        Binding="{Binding CommentUniqueId}"
                         Header="Comment"
                         IsReadOnly="False"
                         OptionsSource="{Binding CommentOptions}"
