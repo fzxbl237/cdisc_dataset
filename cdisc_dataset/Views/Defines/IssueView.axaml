@@ -1,0 +1,51 @@
+﻿<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.Defines.IssueView"
+    x:DataType="vm:IssueViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:customGrid="using:cdisc_dataset.Controls.DataGrid"
+    xmlns:converters="clr-namespace:cdisc_dataset.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:cdisc_dataset.ViewModels.Defines"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <atom:Skeleton
+        HorizontalAlignment="Stretch"
+        IsActive="True"
+        IsLoading="{Binding IsLoading}"
+        ParagraphRows="10"
+        VerticalAlignment="Stretch">
+        <customGrid:DataGrid
+            Background="White"
+            BorderBrush="#D0D0D0"
+            BorderThickness="1"
+            ColumnHeaderHeight="34"
+            IsReadOnly="True"
+            ItemsSource="{Binding Issues}"
+            LeftFrozenColumnCount="2"
+            Margin="8,4"
+            RowHeight="32">
+            <customGrid:DataGrid.SearchBarRightContent>
+                <atom:Button
+                    Color="Default"
+                    Command="{Binding LoadDataCommand}"
+                    Content="刷新"
+                    Icon="{antd-icons:AntDesignIconProvider Kind=ReloadOutlined}"
+                    Variant="Solid" />
+            </customGrid:DataGrid.SearchBarRightContent>
+            <customGrid:DataGrid.Columns>
+                <customGrid:DataGridTagColumn Binding="{Binding Severity}" ColorConverter="{x:Static converters:IssueSeverityTagColorConverter.Instance}" Header="Severity" Width="110" />
+                <customGrid:DataGridTextColumn Binding="{Binding EntityType}" Header="Entity" IsReadOnly="True" Width="150" />
+                <customGrid:DataGridTextColumn Binding="{Binding EntityId}" Header="Entity Id" IsReadOnly="True" Width="100" />
+                <customGrid:DataGridTextColumn Binding="{Binding PropertyName}" Header="Property" IsReadOnly="True" Width="160" />
+                <customGrid:DataGridTextColumn Binding="{Binding ErrorMessage}" Header="Message" IsReadOnly="True" ShowToolTip="True" Width="460" />
+                <customGrid:DataGridTextColumn Binding="{Binding IssueCode}" Header="Issue Code" IsReadOnly="True" Width="160" />
+                <customGrid:DataGridTextColumn Binding="{Binding UpdatedAt}" Header="Updated At" IsReadOnly="True" Width="180" />
+            </customGrid:DataGrid.Columns>
+        </customGrid:DataGrid>
+    </atom:Skeleton>
+</UserControl>
