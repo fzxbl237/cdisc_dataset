@@ -3,6 +3,7 @@ using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -89,67 +90,63 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
             .DisposeMany()
             .Subscribe();
 
-        _commentSourceCache.Connect()
-            .WhenAnyPropertyChanged()
-            .Subscribe(_ =>
-            {
-                if (!HasChanges)
-                    HasChanges = true;
-            });
+    }
 
-        _commentSourceCache.Connect()
-            .WhenPropertyChanged(o => o.UniqueId, false)
-            .Subscribe(_ =>
-            {
-                MarkDuplicates();
-            });
+    private void CommentDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not CommentDto commentDto || string.IsNullOrWhiteSpace(e.PropertyName))
+            return;
 
-        _commentSourceCache.Connect()
-            .WhenPropertyChanged(o => o.HasUniqueIdDuplicate, false)
-            .Subscribe((change) =>
+        if (e.PropertyName == nameof(CommentDto.HasChanged))
+            return;
+
+        Observable.StartAsync(async () =>
+        {
+            switch (e.PropertyName)
             {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender, "UniqueId");
-                    _commentSourceCache.AddOrUpdate(changeSender);
-                });
-            });
-        
-        _commentSourceCache.Connect()
-            .WhenPropertyChanged(o => o.DocumentUniqueId, false)
-            .Subscribe((change) =>
-            {
-                var changeSender = change.Sender;
-                if (!string.IsNullOrWhiteSpace(changeSender.DocumentUniqueId) && _frozenDocumentDictionary!=null)
-                {
-                    _frozenDocumentDictionary.TryGetValue(changeSender.DocumentUniqueId, out Document? document);
-                    if (document != null)
+                case nameof(CommentDto.UniqueId):
+                    MarkDuplicates();
+                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.UniqueId));
+                    break;
+                case nameof(CommentDto.Description):
+                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.Description));
+                    break;
+                case nameof(CommentDto.HasUniqueIdDuplicate):
+                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.UniqueId));
+                    break;
+                case nameof(CommentDto.DocumentUniqueId):
+                    if (!string.IsNullOrWhiteSpace(commentDto.DocumentUniqueId) && _frozenDocumentDictionary != null &&
+                        _frozenDocumentDictionary.TryGetValue(commentDto.DocumentUniqueId, out var document))
                     {
-                        changeSender.Document = document;
-                        changeSender.DocumentId = document.Id;
+                        commentDto.Document = document;
+                        commentDto.DocumentId = document.Id;
                     }
-                }
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender, "Pages");
-                    await _validator.ValidateDtoAsync(changeSender, "DocumentUniqueId");
-                    _commentSourceCache.AddOrUpdate(changeSender);
-                });
-            });
-        
-        _commentSourceCache.Connect()
-            .WhenPropertyChanged(o => o.Pages, false)
-            .Subscribe((change) =>
-            {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender, "Pages");
-                    await _validator.ValidateDtoAsync(changeSender, "DocumentUniqueId");
-                    _commentSourceCache.AddOrUpdate(changeSender);
-                });
-            });
+                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.Pages));
+                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.DocumentUniqueId));
+                    break;
+                case nameof(CommentDto.Pages):
+                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.Pages));
+                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.DocumentUniqueId));
+                    break;
+                default:
+                    return;
+            }
+
+            _commentSourceCache.AddOrUpdate(commentDto);
+        });
+
+        commentDto.HasChanged = true;
+        HasChanges = true;
+    }
+
+    private void RegisterCommentDtoPropertyChanged(CommentDto commentDto)
+    {
+        commentDto.PropertyChanged += CommentDtoOnPropertyChanged;
+    }
+
+    private void UnregisterCommentDtoPropertyChanged(CommentDto commentDto)
+    {
+        commentDto.PropertyChanged -= CommentDtoOnPropertyChanged;
     }
 
     [RelayCommand]
@@ -207,6 +204,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
             return;
 
         await _commentService.DeleteCommentAsync(comment);
+        UnregisterCommentDtoPropertyChanged(commentDto);
         _commentSourceCache.Remove(commentDto);
         MarkDuplicates();
         _messageService.Success("??????");
@@ -259,6 +257,9 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 
     public override async Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
+        foreach (var commentDto in _commentSourceCache.Items)
+            UnregisterCommentDtoPropertyChanged(commentDto);
+
         if (!HasChanges || CurrentProject == null)
             return;
 
@@ -289,7 +290,16 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 
     public async Task LoadComments(int id, CdiscDataType cdiscDataType)
     {
+        foreach (var commentDto in _commentSourceCache.Items)
+            UnregisterCommentDtoPropertyChanged(commentDto);
+
         var list = await _commentService.GetAllCommentDtosAsync();
+        foreach (var commentDto in list)
+        {
+            await _validator.ValidateDtoAsync(commentDto);
+            RegisterCommentDtoPropertyChanged(commentDto);
+        }
+
         _commentSourceCache.Edit(o =>
         {
             o.Clear();

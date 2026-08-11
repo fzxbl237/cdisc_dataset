@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6,6 +6,7 @@ using AtomUI.Controls;
 using AtomUI.Controls.Utils;
 using AtomUI.Desktop.Controls;
 using Avalonia.Collections;
+using cdisc_dataset.Extensions;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Services;
 using cdisc_dataset.Services.Interface;
@@ -21,21 +22,10 @@ namespace cdisc_dataset.ViewModels.Dialogs;
 public partial class DictionaryViewModel : ObservableObject, IDialogHostAware
 {
     public IReadOnlyList<string> DataTypeOptions { get; } = [
-        "text",
-        "integer",
-        "float",
-        "datetime",
-        "date",
-        "time",
-        "partialDate",
-        "partialTime",
-        "partialDateTime",
-        "incompleteDatetime",
-        "durationDatetime",
-        "intervalDatetime"
+        ..Constants.ConstantOptions.DataTypes
     ];
 
-    private readonly WindowMessageManager _messageManager;
+    private readonly IMessageService _messageService;
     private readonly FormDictionaryValidator _formDictionaryValidator;
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IDictionaryService _dictionaryService;
@@ -59,13 +49,13 @@ public partial class DictionaryViewModel : ObservableObject, IDialogHostAware
     private IList<IFormValidator> _validators = [];
 
     public DictionaryViewModel(
-        WindowMessageManager messageManager,
+        IMessageService messageService,
         FormDictionaryValidator formDictionaryValidator,
         ICurrentProjectService currentProjectService,
         IDictionaryService dictionaryService,
         IValidator<DictionaryDto> validator)
     {
-        _messageManager = messageManager;
+        _messageService = messageService;
         _formDictionaryValidator = formDictionaryValidator;
         _currentProjectService = currentProjectService;
         _dictionaryService = dictionaryService;

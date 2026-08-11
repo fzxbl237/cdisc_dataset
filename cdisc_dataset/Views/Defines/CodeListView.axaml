@@ -9,6 +9,7 @@
     xmlns:antd-icons="https://atomui.net/icons/antdesign"
     xmlns:atom="https://atomui.net"
     xmlns:controls="using:cdisc_dataset.Controls"
+    xmlns:customGrid="using:cdisc_dataset.Controls.DataGrid"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:dto="clr-namespace:cdisc_dataset.Models.Dto"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -26,6 +27,7 @@
         ParagraphRows="10"
         VerticalAlignment="Stretch">
         <Grid RowDefinitions="50,*,50">
+<!-- Original native toolbar and DataGrid retained for migration reference.
             <DockPanel Margin="10,8">
                 <atom:LineEdit
                     DockPanel.Dock="Left"
@@ -296,6 +298,43 @@
 
                 </DataGrid.Columns>
             </DataGrid>
+            -->
+            <customGrid:DataGrid Grid.Row="0" Grid.RowSpan="2" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" ColumnHeaderHeight="34" ItemsSource="{Binding CodeLists}" LeftFrozenColumnCount="2" Margin="8,4" RowHeight="32">
+                <customGrid:DataGrid.Styles>
+                    <Style Selector="customGrid|DataGridRow"><Setter Property="ContextMenu"><atom:ContextMenu x:DataType="dto:CodeListDto"><atom:MenuItem Command="{Binding #Root.((vm:CodeListViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" Header="Delete" Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" /></atom:ContextMenu></Setter></Style>
+                </customGrid:DataGrid.Styles>
+                <customGrid:DataGrid.SearchBarRightContent>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <atom:Button Color="Default" Command="{Binding AddCodeListCommand}" Content="新增" Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" Variant="Solid" />
+                        <atom:Button Color="Default" Command="{Binding AddCodeListFromVariableCommand}" Content="从变量创建" Icon="{antd-icons:AntDesignIconProvider Kind=DatabaseOutlined}" Variant="Solid" />
+                        <atom:Button Color="Default" Command="{Binding MergeSelectedCodeListsCommand}" Content="合并" Icon="{antd-icons:AntDesignIconProvider Kind=MergeCellsOutlined}" Variant="Solid" />
+                    </StackPanel>
+                </customGrid:DataGrid.SearchBarRightContent>
+                <customGrid:DataGrid.Columns>
+                    <customGrid:DataGridCheckBoxColumn Binding="{Binding IsSelected}" Header="" IsReadOnly="False" Width="40" />
+                    <customGrid:DataGridTextColumn Binding="{Binding UniqueId}" Header="ID" IsReadOnly="False" Width="150" />
+                    <customGrid:DataGridTextColumn Binding="{Binding Name}" Header="Name" IsReadOnly="False" Width="300" />
+                    <customGrid:DataGridTextColumn Binding="{Binding Code}" Header="NCI Code" IsReadOnly="True" Width="200" />
+                    <customGrid:DataGridComboBoxColumn Binding="{Binding Type}" Header="Type" IsReadOnly="False" ItemsSource="{Binding DataTypes}" Width="180" />
+                    <customGrid:DataGridComboBoxColumn Binding="{Binding Terminology}" Header="Terminology" IsReadOnly="False" ItemsSource="{Binding Terminologies}" Width="200" />
+                    <customGrid:DataGridAutoCompleteColumn Binding="{Binding CommentUniqueId, UpdateSourceTrigger=LostFocus}" Header="Comment" IsReadOnly="False" OptionsSource="{Binding CommentOptions}" Width="200">
+                        <customGrid:DataGridAutoCompleteColumn.OptionTemplate>
+                            <DataTemplate x:DataType="atom:AutoCompleteOption"><StackPanel Margin="0,5"><atom:TextBlock HorizontalAlignment="Left" Text="{Binding Content}" /><atom:TextBlock FontSize="12" Foreground="#1677ff" HorizontalAlignment="Left" Text="{Binding Header}" TextWrapping="NoWrap" /></StackPanel></DataTemplate>
+                        </customGrid:DataGridAutoCompleteColumn.OptionTemplate>
+                        <customGrid:FloatingBar.FloatingBarTemplate>
+                            <DataTemplate x:DataType="dto:CodeListDto">
+                                <Border Background="White" BorderBrush="{atom:SharedTokenResource ColorPrimary}" BorderThickness="0.5" BoxShadow="0 1 6 0 #18000000" CornerRadius="4" Padding="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:CodeListViewModel)DataContext).AddCommentCommand}" CommandParameter="{Binding}" Content="Add New" IsVisible="{Binding !CommentExist}" SizeType="Small" />
+                                        <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:CodeListViewModel)DataContext).ModifyCommentCommand}" CommandParameter="{Binding Comment}" Content="Open in Editor" IsVisible="{Binding CommentExist}" SizeType="Small" />
+                                        <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:CodeListViewModel)DataContext).DeleteCommentCommand}" CommandParameter="{Binding Comment}" Content="Delete" IsVisible="{Binding CommentExist}" SizeType="Small" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </customGrid:FloatingBar.FloatingBarTemplate>
+                    </customGrid:DataGridAutoCompleteColumn>
+                </customGrid:DataGrid.Columns>
+            </customGrid:DataGrid>
             <StackPanel
                 Grid.Row="2"
                 HorizontalAlignment="Right"
@@ -306,17 +345,19 @@
                 <atom:Button
                     ButtonType="Primary"
                     Command="{Binding SaveCommand}"
-                    Content="保存"
+                    Content="Save"
                     IsEnabled="{Binding HasChanges}"
-                    atom:ToolTip.Tip="保存所有数据(Ctrl+S)" />
+                    SizeType="Middle"
+                    atom:ToolTip.Tip="Save(Ctrl+S)" />
 
                 <atom:Button
                     ButtonType="Primary"
                     Command="{Binding DiscardCommand}"
-                    Content="放弃"
+                    Content="Discard"
                     IsDanger="True"
                     IsEnabled="{Binding HasChanges}"
-                    atom:ToolTip.Tip="撤销(Esc)" />
+                    SizeType="Middle"
+                    atom:ToolTip.Tip="Discard(Esc)" />
             </StackPanel>
         </Grid>
     </atom:Skeleton>

@@ -40,13 +40,9 @@ public partial class DatasetDto:BaseDto
     
     [ObservableProperty] private int _commentId;
     
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CommentExist))]
-    private Comment? _comment;
+    [ObservableProperty] private Comment? _comment;
     
     [ObservableProperty] private string? _commentUniqueId;
-    
-    public bool CommentExist => Comment != null;
     
     [ObservableProperty] private string? _developerNotes;
     

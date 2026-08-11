@@ -9,6 +9,7 @@
     xmlns:antd-icons="https://atomui.net/icons/antdesign"
     xmlns:atom="https://atomui.net"
     xmlns:controls="using:cdisc_dataset.Controls"
+    xmlns:customGrid="using:cdisc_dataset.Controls.DataGrid"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:model="clr-namespace:cdisc_dataset.Models.Dto"
@@ -25,6 +26,7 @@
         ParagraphRows="10"
         VerticalAlignment="Stretch">
         <Grid RowDefinitions="50,*,50">
+<!-- Original native toolbar and DataGrid retained for migration reference.
             <DockPanel Margin="10,8">
                 <atom:LineEdit
                     DockPanel.Dock="Left"
@@ -289,10 +291,10 @@
                         Binding="{Binding Format, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                         Header="Format"
                         Width="140" />
-                    <!--  <DataGridTextColumn  -->
-                    <!--  Binding="{Binding Mandatory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"  -->
-                    <!--  Header="Mandatory"  -->
-                    <!--  Width="120" />  -->
+                    [comment]  <DataGridTextColumn  [/comment]
+                    [comment]  Binding="{Binding Mandatory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"  [/comment]
+                    [comment]  Header="Mandatory"  [/comment]
+                    [comment]  Width="120" />  [/comment]
 
                     <controls:DataGridAtomComboBoxColumn
                         Binding="{Binding Mandatory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -400,6 +402,35 @@
                         Width="220" />
                 </DataGrid.Columns>
             </DataGrid>
+            -->
+            <customGrid:DataGrid Grid.Row="0" Grid.RowSpan="2" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" ColumnHeaderHeight="34" ItemsSource="{Binding ValueLevels}" LeftFrozenColumnCount="3" Margin="8,4" RowHeight="32">
+                <customGrid:DataGrid.Styles>
+                    <Style Selector="customGrid|DataGridRow"><Setter Property="ContextMenu"><atom:ContextMenu x:DataType="model:ValueLevelDto"><atom:MenuItem Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" Header="Delete" Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" /></atom:ContextMenu></Setter></Style>
+                </customGrid:DataGrid.Styles>
+                <customGrid:DataGrid.SearchBarRightContent>
+                    <atom:Button Color="Default" Command="{Binding AddValueLevelCommand}" Content="新增" Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" Variant="Solid" />
+                </customGrid:DataGrid.SearchBarRightContent>
+                <customGrid:DataGrid.Columns>
+                    <customGrid:DataGridNumericUpDownColumn Binding="{Binding Order}" Header="Order" Increment="1" IsReadOnly="False" Minimum="1" Width="90" />
+                    <customGrid:DataGridAutoCompleteColumn Binding="{Binding Dataset}" Header="Dataset" IsReadOnly="False" OptionsSource="{Binding DatasetOptions}" Width="100"><customGrid:DataGridAutoCompleteColumn.OptionTemplate><DataTemplate x:DataType="vm:ValueLevelAutoCompleteOption"><StackPanel Margin="0,2" Spacing="5"><atom:TextBlock HorizontalAlignment="Left" Text="{Binding Dataset.Name, FallbackValue=''}" TextWrapping="Wrap" /><atom:TextBlock FontSize="12" Foreground="#1677ff" HorizontalAlignment="Left" Text="{Binding Dataset.Label, FallbackValue=''}" TextWrapping="Wrap" /></StackPanel></DataTemplate></customGrid:DataGridAutoCompleteColumn.OptionTemplate></customGrid:DataGridAutoCompleteColumn>
+                    <customGrid:DataGridAutoCompleteColumn Binding="{Binding Variable}" Header="Variable" IsReadOnly="False" OptionsSource="{Binding VariableOptions}" Width="100"><customGrid:DataGridAutoCompleteColumn.OptionTemplate><DataTemplate x:DataType="vm:ValueLevelAutoCompleteOption"><StackPanel Margin="0,2" Spacing="5"><atom:TextBlock HorizontalAlignment="Left" Text="{Binding Variable.VariableName, FallbackValue=''}" TextWrapping="Wrap" /><atom:TextBlock FontSize="12" Foreground="#1677ff" HorizontalAlignment="Left" Text="{Binding Variable.Label, FallbackValue=''}" TextWrapping="Wrap" /></StackPanel></DataTemplate></customGrid:DataGridAutoCompleteColumn.OptionTemplate></customGrid:DataGridAutoCompleteColumn>
+                    <customGrid:DataGridTextColumn Binding="{Binding WhereClause}" Header="WhereClause" IsReadOnly="False" Width="400"><customGrid:FloatingBar.FloatingBarTemplate><DataTemplate x:DataType="model:ValueLevelDto"><Border Background="White" BorderBrush="{atom:SharedTokenResource ColorPrimary}" BorderThickness="0.5" BoxShadow="0 1 6 0 #18000000" CornerRadius="4" Padding="2"><StackPanel Orientation="Horizontal" Spacing="8"><atom:Button ButtonType="Link" Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).OpenWhereClauseEditorCommand}" CommandParameter="{Binding}" Content="Add New" IsVisible="{Binding !WhereClauseExist}" SizeType="Small" /><atom:Button ButtonType="Link" Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).OpenWhereClauseEditorCommand}" CommandParameter="{Binding}" Content="Open in Editor" IsVisible="{Binding WhereClauseExist}" SizeType="Small" /><atom:Button ButtonType="Link" Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).DeleteWhereClauseCommand}" CommandParameter="{Binding}" Content="Delete" IsVisible="{Binding WhereClauseExist}" SizeType="Small" /></StackPanel></Border></DataTemplate></customGrid:FloatingBar.FloatingBarTemplate></customGrid:DataGridTextColumn>
+                    <customGrid:DataGridTextColumn Binding="{Binding Label}" Header="Label" IsReadOnly="False" Width="180" />
+                    <customGrid:DataGridComboBoxColumn Binding="{Binding Type}" Header="Type" IsReadOnly="False" ItemsSource="{Binding DataTypes}" Width="120" />
+                    <customGrid:DataGridNumericUpDownColumn Binding="{Binding Length}" Header="Length" Increment="1" IsReadOnly="False" Maximum="200" Minimum="1" Width="100" />
+                    <customGrid:DataGridNumericUpDownColumn Binding="{Binding Digits}" Header="Digits" Increment="1" IsReadOnly="False" Maximum="8" Minimum="1" Width="100" />
+                    <customGrid:DataGridTextColumn Binding="{Binding Format}" Header="Format" IsReadOnly="False" Width="140" />
+                    <customGrid:DataGridComboBoxColumn Binding="{Binding Mandatory}" Header="Mandatory" IsReadOnly="False" ItemsSource="{Binding Yns}" Width="120" />
+                    <customGrid:DataGridAutoCompleteColumn Binding="{Binding CodeListUniqueId}" Header="CodeList" IsReadOnly="False" OptionsSource="{Binding CodeListOptions}" Width="220"><customGrid:DataGridAutoCompleteColumn.OptionTemplate><DataTemplate x:DataType="vm:ValueLevelAutoCompleteOption"><StackPanel Margin="0,5"><atom:TextBlock HorizontalAlignment="Left" Text="{Binding Content}" TextWrapping="Wrap" /><atom:TextBlock FontSize="12" Foreground="#1677ff" HorizontalAlignment="Left" Text="{Binding CodeList.Name}" TextWrapping="Wrap" /></StackPanel></DataTemplate></customGrid:DataGridAutoCompleteColumn.OptionTemplate></customGrid:DataGridAutoCompleteColumn>
+                    <customGrid:DataGridComboBoxColumn Binding="{Binding Origin}" Header="Origin" IsReadOnly="False" ItemsSource="{Binding Origins}" Width="140" />
+                    <customGrid:DataGridComboBoxColumn Binding="{Binding Source}" Header="Source" IsReadOnly="False" ItemsSource="{Binding Sources}" Width="140" />
+                    <customGrid:DataGridTextColumn Binding="{Binding Pages}" Header="Pages" IsReadOnly="False" Width="120" />
+                    <customGrid:DataGridAutoCompleteColumn Binding="{Binding MethodUniqueId, UpdateSourceTrigger=LostFocus}" Header="Method" IsReadOnly="False" OptionsSource="{Binding MethodOptions}" Width="220"><customGrid:DataGridAutoCompleteColumn.OptionTemplate><DataTemplate x:DataType="vm:ValueLevelAutoCompleteOption"><StackPanel Margin="0,5"><atom:TextBlock HorizontalAlignment="Left" Text="{Binding Content}" TextWrapping="Wrap" /><atom:TextBlock FontSize="12" Foreground="#1677ff" HorizontalAlignment="Left" Text="{Binding Method.Name}" TextWrapping="Wrap" /></StackPanel></DataTemplate></customGrid:DataGridAutoCompleteColumn.OptionTemplate></customGrid:DataGridAutoCompleteColumn>
+                    <customGrid:DataGridTextColumn Binding="{Binding Predecessor}" Header="Predecessor" IsReadOnly="False" Width="160" />
+                    <customGrid:DataGridAutoCompleteColumn Binding="{Binding CommentUniqueId}" Header="Comment" IsReadOnly="False" OptionsSource="{Binding CommentOptions}" Width="220"><customGrid:DataGridAutoCompleteColumn.OptionTemplate><DataTemplate x:DataType="vm:ValueLevelAutoCompleteOption"><StackPanel Margin="0,5"><atom:TextBlock HorizontalAlignment="Left" Text="{Binding Content}" TextWrapping="Wrap" /><atom:TextBlock FontSize="12" Foreground="#1677ff" HorizontalAlignment="Left" Text="{Binding Comment.Description}" TextWrapping="Wrap" /></StackPanel></DataTemplate></customGrid:DataGridAutoCompleteColumn.OptionTemplate></customGrid:DataGridAutoCompleteColumn>
+                    <customGrid:DataGridTextColumn Binding="{Binding DeveloperNotes}" Header="DeveloperNotes" IsReadOnly="False" Width="220" />
+                </customGrid:DataGrid.Columns>
+            </customGrid:DataGrid>
             <StackPanel
                 Grid.Row="2"
                 HorizontalAlignment="Right"
@@ -410,14 +441,18 @@
                 <atom:Button
                     ButtonType="Primary"
                     Command="{Binding SaveCommand}"
-                    Content="保存"
-                    IsEnabled="{Binding HasChanges}" />
+                    Content="Save"
+                    IsEnabled="{Binding HasChanges}"
+                    SizeType="Middle"
+                    atom:ToolTip.Tip="Save(Ctrl+S)" />
                 <atom:Button
                     ButtonType="Primary"
                     Command="{Binding DiscardCommand}"
-                    Content="放弃"
+                    Content="Discard"
                     IsDanger="True"
-                    IsEnabled="{Binding HasChanges}" />
+                    IsEnabled="{Binding HasChanges}"
+                    SizeType="Middle"
+                    atom:ToolTip.Tip="Discard(Esc)" />
             </StackPanel>
         </Grid>
     </atom:Skeleton>

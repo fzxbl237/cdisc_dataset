@@ -1,4 +1,4 @@
-using AtomNumericUpDown = AtomUI.Desktop.Controls.NumericUpDown;
+﻿using AtomNumericUpDown = AtomUI.Desktop.Controls.NumericUpDown;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
@@ -9,6 +9,17 @@ namespace cdisc_dataset.Controls.DataGrid;
 
 public class DataGridNumericUpDownColumn : DataGridBoundColumn
 {
+    public static readonly StyledProperty<decimal?> MinimumProperty =
+        AvaloniaProperty.Register<DataGridNumericUpDownColumn, decimal?>(nameof(Minimum));
+    public static readonly StyledProperty<decimal?> MaximumProperty =
+        AvaloniaProperty.Register<DataGridNumericUpDownColumn, decimal?>(nameof(Maximum));
+    public static readonly StyledProperty<decimal?> IncrementProperty =
+        AvaloniaProperty.Register<DataGridNumericUpDownColumn, decimal?>(nameof(Increment));
+
+    public decimal? Minimum { get => GetValue(MinimumProperty); set => SetValue(MinimumProperty, value); }
+    public decimal? Maximum { get => GetValue(MaximumProperty); set => SetValue(MaximumProperty, value); }
+    public decimal? Increment { get => GetValue(IncrementProperty); set => SetValue(IncrementProperty, value); }
+
     public DataGridNumericUpDownColumn()
     {
         BindingTarget = NumericUpDown.ValueProperty;
@@ -40,6 +51,9 @@ public class DataGridNumericUpDownColumn : DataGridBoundColumn
     {
         return new AtomNumericUpDown
         {
+            Minimum = Minimum ?? decimal.MinValue,
+            Maximum = Maximum ?? decimal.MaxValue,
+            Increment = Increment ?? 1m,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             Margin = new Thickness(0),

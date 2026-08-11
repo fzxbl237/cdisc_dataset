@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using cdisc_dataset.Models.Dto;
@@ -18,4 +18,6 @@ public interface IIssueService
         where TDto : BaseDto;
 
     Task<List<IssueDto>> GetIssuesAsync(string entityType, int entityId, int projectId, CdiscDataType cdiscDataType);
+
+    Task<List<IssueDto>> GetProjectIssuesAsync(int projectId, CdiscDataType cdiscDataType);
 }

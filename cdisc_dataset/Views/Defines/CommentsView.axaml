@@ -9,6 +9,7 @@
     xmlns:antd-icons="https://atomui.net/icons/antdesign"
     xmlns:atom="https://atomui.net"
     xmlns:controls="using:cdisc_dataset.Controls"
+    xmlns:customGrid="using:cdisc_dataset.Controls.DataGrid"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:dialogs="clr-namespace:cdisc_dataset.ViewModels.Dialogs"
     xmlns:dto="clr-namespace:cdisc_dataset.Models.Dto"
@@ -22,6 +23,7 @@
         ParagraphRows="10"
         VerticalAlignment="Stretch">
         <Grid RowDefinitions="50,*,50">
+<!-- Original native toolbar and DataGrid retained for migration reference.
         <DockPanel>
             <atom:LineEdit
                 DockPanel.Dock="Left"
@@ -82,11 +84,11 @@
                     Header="Description"
                     IsReadOnly="False"
                     Width="300" />
-                <!--  <DataGridTextColumn  -->
-                <!--  Binding="{Binding DocumentUniqueId}"  -->
-                <!--  Header="Document"  -->
-                <!--  IsReadOnly="False"  -->
-                <!--  Width="200" />  -->
+                [comment]  <DataGridTextColumn  [/comment]
+                [comment]  Binding="{Binding DocumentUniqueId}"  [/comment]
+                [comment]  Header="Document"  [/comment]
+                [comment]  IsReadOnly="False"  [/comment]
+                [comment]  Width="200" />  [/comment]
 
                 <controls:DataGridAtomAutoCompleteColumn
                     Binding="{Binding DocumentUniqueId}"
@@ -120,6 +122,47 @@
                     Width="200" />
             </DataGrid.Columns>
         </DataGrid>
+            -->
+            <customGrid:DataGrid
+                Grid.Row="0"
+                Grid.RowSpan="2"
+                Background="White"
+                BorderBrush="#D0D0D0"
+                BorderThickness="1"
+                ColumnHeaderHeight="34"
+                ItemsSource="{Binding Comments}"
+                LeftFrozenColumnCount="1"
+                Margin="8,4"
+                RowHeight="32">
+                <customGrid:DataGrid.Styles>
+                    <Style Selector="customGrid|DataGridRow">
+                        <Setter Property="ContextMenu">
+                            <atom:ContextMenu x:DataType="dto:CommentDto">
+                                <atom:MenuItem Command="{Binding #Root.((vm:CommentsViewModel)DataContext).ModifyCommand}" CommandParameter="{Binding}" Header="Edit" />
+                                <atom:MenuItem Command="{Binding #Root.((vm:CommentsViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" Header="Delete" Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                            </atom:ContextMenu>
+                        </Setter>
+                    </Style>
+                </customGrid:DataGrid.Styles>
+                <customGrid:DataGrid.SearchBarRightContent>
+                    <atom:Button Color="Default" Command="{Binding AddCommentCommand}" Content="新增" Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" Variant="Solid" />
+                </customGrid:DataGrid.SearchBarRightContent>
+                <customGrid:DataGrid.Columns>
+                    <customGrid:DataGridTextColumn Binding="{Binding UniqueId}" Header="Id" IsReadOnly="False" Width="200" />
+                    <customGrid:DataGridTextColumn Binding="{Binding Description}" Header="Description" IsReadOnly="False" Width="300" />
+                    <customGrid:DataGridAutoCompleteColumn Binding="{Binding DocumentUniqueId}" Header="Document" IsReadOnly="False" OptionsSource="{Binding DocumentOptions}" Width="200">
+                        <customGrid:DataGridAutoCompleteColumn.OptionTemplate>
+                            <DataTemplate x:DataType="vm:DocumentAutoCompleteOption">
+                                <StackPanel Margin="0,5">
+                                    <atom:TextBlock HorizontalAlignment="Left" Text="{Binding Content}" TextWrapping="Wrap" />
+                                    <atom:TextBlock FontSize="12" Foreground="#1677ff" HorizontalAlignment="Left" Text="{Binding Document.Title}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </customGrid:DataGridAutoCompleteColumn.OptionTemplate>
+                    </customGrid:DataGridAutoCompleteColumn>
+                    <customGrid:DataGridTextColumn Binding="{Binding Pages}" Header="Pages" IsReadOnly="False" Width="200" />
+                </customGrid:DataGrid.Columns>
+            </customGrid:DataGrid>
         <StackPanel
             Grid.Row="2"
             HorizontalAlignment="Right"
@@ -130,17 +173,19 @@
             <atom:Button
                 ButtonType="Primary"
                 Command="{Binding SaveCommand}"
-                Content="保存"
+                Content="Save"
                 IsEnabled="{Binding HasChanges}"
-                atom:ToolTip.Tip="保存所有数据(Ctrl+S)" />
+                SizeType="Middle"
+                atom:ToolTip.Tip="Save(Ctrl+S)" />
 
             <atom:Button
                 ButtonType="Primary"
                 Command="{Binding DiscardCommand}"
-                Content="放弃"
+                Content="Discard"
                 IsDanger="True"
                 IsEnabled="{Binding HasChanges}"
-                atom:ToolTip.Tip="撤销(Esc)" />
+                SizeType="Middle"
+                atom:ToolTip.Tip="Discard(Esc)" />
         </StackPanel>
         </Grid>
     </atom:Skeleton>

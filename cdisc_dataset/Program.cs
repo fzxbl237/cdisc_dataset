@@ -1,9 +1,6 @@
 ﻿using Avalonia;
 using System;
 using System.Reflection;
-using AtomUI.Controls;
-using AtomUI.Theme;
-using AtomUI.Theme.Language;
 using ReactiveUI.Avalonia;
 
 namespace cdisc_dataset;

@@ -3,7 +3,6 @@ using AtomUI;
 using AtomUI.Controls;
 using AtomUI.Desktop.Controls;
 using AtomUI.Theme;
-using AtomUI.Theme.Language;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -28,6 +27,7 @@ using MapsterMapper;
 using AsyncNavigation;
 using AsyncNavigation.Abstractions;
 using AsyncNavigation.Avalonia;
+using AtomUI.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using SqlSugar;
 using DbType = System.Data.DbType;
@@ -44,7 +44,7 @@ public class App : Application
         AvaloniaXamlLoader.Load(this);
         this.UseAtomUI(builder =>
         {
-            builder.WithDefaultLanguageVariant(LanguageVariant.zh_CN);
+            builder.UseLanguages(LanguageTags.ZhCN, [LanguageTags.En,LanguageTags.ZhCN]);
             builder.WithInitialTheme(IThemeManager.DEFAULT_THEME_ID);
             builder.UseAlibabaSansFont();
             builder.UseDesktopControls();
@@ -106,11 +106,13 @@ public class App : Application
             .RegisterNavigation<VariablesView, VariablesViewModel>("Variables")
             .RegisterNavigation<DatasetsView, DatasetsViewModel>("Datasets")
             .RegisterNavigation<DictionariesView, DictionariesViewModel>("Dictionaries")
+            .RegisterNavigation<IssueView, IssueViewModel>("Issues")
             .AddSingleton<IDialogHostService, DialogHostService>();
 
         RegisterDialog<ProjectDialog, EditProjectViewModel>(services, "ProjectDialog");
         RegisterDialog<ImportSettingDatasetsDialog, ImportSettingDatasetsViewModel>(services, "ImportSettingDatasetsDialog");
         RegisterDialog<CommentDialog, CommentViewModel>(services, "CommentDialog");
+        RegisterDialog<DocumentDialog, DocumentViewModel>(services, "DocumentDialog");
         RegisterDialog<DictionaryDialog, DictionaryViewModel>(services, "DictionaryDialog");
         RegisterDialog<MethodDialog, MethodViewModel>(services, "MethodDialog");
         RegisterDialog<WhereClauseEditorDialog, WhereClauseEditorViewModel>(services, "WhereClauseEditorDialog");
@@ -174,6 +176,7 @@ public class App : Application
         services.AddTransient<FormProjectValidator>();
         services.AddTransient<FormDictionaryValidator>();
         services.AddTransient<FormCommentValidator>();
+        services.AddTransient<FormDocumentValidator>();
 
         var serviceProvider = services.BuildServiceProvider();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -88,6 +88,16 @@ public class IssueService(ISqlSugarClient sqlSugar, IMapper mapper) : IIssueServ
     {
         return await sqlSugar.Queryable<Issue>()
             .Where(x => x.EntityType == entityType && x.EntityId == entityId && x.ProjectId == projectId && x.CdiscDataType == cdiscDataType)
+            .Select<IssueDto>()
+            .ToListAsync();
+    }
+
+    public async Task<List<IssueDto>> GetProjectIssuesAsync(int projectId, CdiscDataType cdiscDataType)
+    {
+        return await sqlSugar.Queryable<Issue>()
+            .Where(x => x.ProjectId == projectId && x.CdiscDataType == cdiscDataType)
+            .OrderBy(x => x.Severity == "Error" ? 0 : 1)
+            .OrderByDescending(x => x.UpdatedAt)
             .Select<IssueDto>()
             .ToListAsync();
     }

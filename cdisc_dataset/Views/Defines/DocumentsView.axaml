@@ -9,6 +9,7 @@
     xmlns:antd-icons="https://atomui.net/icons/antdesign"
     xmlns:atom="https://atomui.net"
     xmlns:controls="using:cdisc_dataset.Controls"
+    xmlns:customGrid="using:cdisc_dataset.Controls.DataGrid"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:dialogs="clr-namespace:cdisc_dataset.ViewModels.Dialogs"
     xmlns:dto="clr-namespace:cdisc_dataset.Models.Dto"
@@ -26,6 +27,7 @@
         ParagraphRows="10"
         VerticalAlignment="Stretch">
         <Grid RowDefinitions="50,*,50">
+            <!-- Original native toolbar and DataGrid retained for migration reference.
         <DockPanel>
             <atom:LineEdit
                 DockPanel.Dock="Left"
@@ -89,28 +91,81 @@
 
             </DataGrid.Columns>
         </DataGrid>
-        <StackPanel
-            Grid.Row="2"
-            HorizontalAlignment="Right"
-            Margin="0,0,15,0"
-            Orientation="Horizontal"
-            Spacing="15"
-            VerticalAlignment="Center">
-            <atom:Button
-                ButtonType="Primary"
-                Command="{Binding SaveCommand}"
-                Content="保存"
-                IsEnabled="{Binding HasChanges}"
-                atom:ToolTip.Tip="保存所有数据(Ctrl+S)" />
+            -->
+            <customGrid:DataGrid
+                Background="White"
+                BorderBrush="#D0D0D0"
+                BorderThickness="1"
+                ColumnHeaderHeight="34"
+                Grid.Row="0"
+                Grid.RowSpan="2"
+                ItemsSource="{Binding Documents}"
+                LeftFrozenColumnCount="1"
+                Margin="8,4"
+                RowHeight="32">
+                <customGrid:DataGrid.Styles>
+                    <Style Selector="customGrid|DataGridRow">
+                        <Setter Property="ContextMenu">
+                            <atom:ContextMenu x:DataType="dto:DocumentDto">
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:DocumentsViewModel)DataContext).DeleteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Delete"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                            </atom:ContextMenu>
+                        </Setter>
+                    </Style>
+                </customGrid:DataGrid.Styles>
+                <customGrid:DataGrid.SearchBarRightContent>
+                    <atom:Button
+                        Color="Default"
+                        Command="{Binding AddDocumentCommand}"
+                        Content="新增"
+                        Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
+                        Variant="Solid" />
+                </customGrid:DataGrid.SearchBarRightContent>
+                <customGrid:DataGrid.Columns>
+                    <customGrid:DataGridTextColumn
+                        Binding="{Binding UniqueId}"
+                        Header="Id"
+                        IsReadOnly="False"
+                        Width="200" />
+                    <customGrid:DataGridTextColumn
+                        Binding="{Binding Title}"
+                        Header="Title"
+                        IsReadOnly="False"
+                        Width="*" />
+                    <customGrid:DataGridTextColumn
+                        Binding="{Binding Href}"
+                        Header="Href"
+                        IsReadOnly="False"
+                        Width="350" />
+                </customGrid:DataGrid.Columns>
+            </customGrid:DataGrid>
+            <StackPanel
+                Grid.Row="2"
+                HorizontalAlignment="Right"
+                Margin="0,0,15,0"
+                Orientation="Horizontal"
+                Spacing="15"
+                VerticalAlignment="Center">
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding SaveCommand}"
+                    Content="Save"
+                    IsEnabled="{Binding HasChanges}"
+                    SizeType="Middle"
+                    atom:ToolTip.Tip="Save(Ctrl+S)" />
 
-            <atom:Button
-                ButtonType="Primary"
-                Command="{Binding DiscardCommand}"
-                Content="放弃"
-                IsDanger="True"
-                IsEnabled="{Binding HasChanges}"
-                atom:ToolTip.Tip="撤销(Esc)" />
-        </StackPanel>
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding DiscardCommand}"
+                    Content="Discard"
+                    IsDanger="True"
+                    IsEnabled="{Binding HasChanges}"
+                    SizeType="Middle"
+                    atom:ToolTip.Tip="Discard(Esc)" />
+            </StackPanel>
         </Grid>
     </atom:Skeleton>
 </UserControl>

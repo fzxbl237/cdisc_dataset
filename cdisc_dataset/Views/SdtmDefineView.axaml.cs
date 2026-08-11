@@ -1,4 +1,4 @@
-using AsyncNavigation.Abstractions;
+﻿using AsyncNavigation.Abstractions;
 using AtomUI.Desktop.Controls;
 using Avalonia;
 using Avalonia.Controls;
@@ -14,17 +14,4 @@ public partial class SdtmDefineView : UserControl, IView
         InitializeComponent();
     }
     
-    // protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
-    // {
-    //     base.OnAttachedToVisualTree(e);
-    //     var topLevel = TopLevel.GetTopLevel(this);
-    //     if (this.DataContext is SdtmDefineViewModel viewModel)
-    //     {
-    //         viewModel.WindowMessageManager = new WindowMessageManager(topLevel)
-    //         {
-    //             MaxItems = 10
-    //         };
-    //     }
-    //
-    // }
 }

@@ -54,7 +54,8 @@ public partial class SdtmDefineViewModel : ViewModelBase, IDisposable
         new(){Header = "Methods"},      
         new(){Header = "Comments"},
         new(){Header = "Dictionaries"},  
-        new(){Header = "Documents"}
+        new(){Header = "Documents"},
+        new(){Header = "Issues"}
     ];
     
     public AvaloniaList<SegmentedItem> SegmentedItems{ get; set; } = [
@@ -66,7 +67,8 @@ public partial class SdtmDefineViewModel : ViewModelBase, IDisposable
         new(){Content = "Methods"},      
         new(){Content = "Comments"},
         new(){Content = "Dictionaries"},  
-        new(){Content = "Documents"}
+        new(){Content = "Documents"},
+        new(){Content = "Issues"}
     ];
 
     [ObservableProperty]

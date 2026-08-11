@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AtomUI.Controls;
@@ -19,6 +19,7 @@ using cdisc_dataset.Models;
 using cdisc_dataset.Models.Enums;
 using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using AsyncNavigation.Abstractions;
 
@@ -34,7 +35,10 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private NavMenuNode? _selectedNavMenuItem;
 
     [ObservableProperty] private Project? _currentProject;
+    [ObservableProperty] private bool _isNavigationCollapsed;
     
+    public int NavigationWidth => IsNavigationCollapsed ? 80 : 220;
+
     public TreeNodePath DefaultSelectedPath { get; set; } = new("/Projects");
 
     public AvaloniaList<Project> Projects { get; set; } = [];
@@ -68,6 +72,17 @@ public partial class MainWindowViewModel : ObservableObject
         new(){ Header = "Terminology",Icon = new CodeOutlined(),ItemKey = "Terminology"}
 
     ];
+
+    partial void OnIsNavigationCollapsedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(NavigationWidth));
+    }
+
+    [RelayCommand]
+    private void ToggleNavigation()
+    {
+        IsNavigationCollapsed = !IsNavigationCollapsed;
+    }
 
     partial void OnSelectedNavMenuItemChanged(NavMenuNode? value)
     {

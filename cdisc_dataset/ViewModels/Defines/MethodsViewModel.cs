@@ -3,6 +3,7 @@ using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -87,118 +88,73 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
             .DisposeMany()
             .Subscribe();
 
-        _sourceCache.Connect()
-            .WhenAnyPropertyChanged()
-            .Subscribe(_ =>
-            {
-                if (!HasChanges)
-                    HasChanges = true;
-            });
+    }
 
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.UniqueId, false)
-            .Subscribe(change =>
-            {
-                MarkDuplicates();
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(change.Sender, nameof(MethodDto.UniqueId));
-                    _sourceCache.AddOrUpdate(change.Sender);
-                });
-            });
+    private void MethodDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not MethodDto methodDto || string.IsNullOrWhiteSpace(e.PropertyName))
+            return;
 
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Name, false)
-            .Subscribe(change =>
-            {
-                MarkDuplicates();
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(change.Sender, nameof(MethodDto.Name));
-                    _sourceCache.AddOrUpdate(change.Sender);
-                });
-            });
+        if (e.PropertyName == nameof(MethodDto.HasChanged))
+            return;
 
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Type, false)
-            .Subscribe(change =>
+        Observable.StartAsync(async () =>
+        {
+            switch (e.PropertyName)
             {
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(change.Sender, nameof(MethodDto.Type));
-                    _sourceCache.AddOrUpdate(change.Sender);
-                });
-            });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Description, false)
-            .Subscribe(change =>
-            {
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(change.Sender, nameof(MethodDto.Description));
-                    _sourceCache.AddOrUpdate(change.Sender);
-                });
-            });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.DocumentUniqueId, false)
-            .Subscribe(change =>
-            {
-                var changeSender = change.Sender;
-                if (!string.IsNullOrWhiteSpace(changeSender.DocumentUniqueId) && _frozenDocumentDictionary!=null)
-                {
-                    _frozenDocumentDictionary.TryGetValue(changeSender.DocumentUniqueId, out Document? document);
-                    if (document != null)
+                case nameof(MethodDto.UniqueId):
+                    MarkDuplicates();
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.UniqueId));
+                    break;
+                case nameof(MethodDto.Name):
+                    MarkDuplicates();
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Name));
+                    break;
+                case nameof(MethodDto.Type):
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Type));
+                    break;
+                case nameof(MethodDto.Description):
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Description));
+                    break;
+                case nameof(MethodDto.DocumentUniqueId):
+                    if (!string.IsNullOrWhiteSpace(methodDto.DocumentUniqueId) && _frozenDocumentDictionary != null &&
+                        _frozenDocumentDictionary.TryGetValue(methodDto.DocumentUniqueId, out var document))
                     {
-                        changeSender.Document = document;
-                        changeSender.DocumentId = document.Id;
+                        methodDto.Document = document;
+                        methodDto.DocumentId = document.Id;
                     }
-                }
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender, "Pages");
-                    await _validator.ValidateDtoAsync(changeSender, nameof(MethodDto.DocumentUniqueId));
-                    _sourceCache.AddOrUpdate(changeSender);
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Pages, false)
-            .Subscribe((change) =>
-            {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender, "Pages");
-                    await _validator.ValidateDtoAsync(changeSender, "DocumentUniqueId");
-                    _sourceCache.AddOrUpdate(changeSender);
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.HasNameDuplicate, false)
-            .Subscribe((change) =>
-            {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender, "Name");
-                    _sourceCache.AddOrUpdate(changeSender);
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.HasUniqueIdDuplicate, false)
-            .Subscribe((change) =>
-            {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender, "UniqueId");
-                    _sourceCache.AddOrUpdate(changeSender);
-                });
-            });
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Pages));
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.DocumentUniqueId));
+                    break;
+                case nameof(MethodDto.Pages):
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Pages));
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.DocumentUniqueId));
+                    break;
+                case nameof(MethodDto.HasNameDuplicate):
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Name));
+                    break;
+                case nameof(MethodDto.HasUniqueIdDuplicate):
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.UniqueId));
+                    break;
+                default:
+                    return;
+            }
+
+            _sourceCache.AddOrUpdate(methodDto);
+        });
+
+        methodDto.HasChanged = true;
+        HasChanges = true;
+    }
+
+    private void RegisterMethodDtoPropertyChanged(MethodDto methodDto)
+    {
+        methodDto.PropertyChanged += MethodDtoOnPropertyChanged;
+    }
+
+    private void UnregisterMethodDtoPropertyChanged(MethodDto methodDto)
+    {
+        methodDto.PropertyChanged -= MethodDtoOnPropertyChanged;
     }
 
     private static Func<MethodDto, bool> BuildFilter(string? searchText)
@@ -215,13 +171,22 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     
     public async Task LoadMethods(int projectId, CdiscDataType cdiscDataType)
     {
+        foreach (var methodDto in _sourceCache.Items)
+            UnregisterMethodDtoPropertyChanged(methodDto);
+
         var list = await _methodService.GetAllMethodDtosAsync();
+        foreach (var methodDto in list)
+        {
+            await _validator.ValidateDtoAsync(methodDto);
+            RegisterMethodDtoPropertyChanged(methodDto);
+        }
 
         _sourceCache.Edit(o =>
         {
             o.Clear();
             o.AddOrUpdate(list);
         });
+        MarkDuplicates();
         HasChanges = false;
     }
 
@@ -283,6 +248,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
 
         var method = result.Parameters.GetValue<MethodDto>("Model");
         await _validator.ValidateDtoAsync(method);
+        RegisterMethodDtoPropertyChanged(method);
         _sourceCache.AddOrUpdate(method);
         MarkDuplicates();
         //await _methodService.InsertMethodAsync(method);
@@ -324,6 +290,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
             return;
 
         await _methodService.DeleteMethodAsync(methodDto);
+        UnregisterMethodDtoPropertyChanged(methodDto);
         _sourceCache.Remove(methodDto);
         MarkDuplicates();
         HasChanges = true;
@@ -367,5 +334,13 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     public override void ConfirmNavigationRequest(NavigationContext navigationContext, Action<bool> continuationCallback)
     {
         continuationCallback(true);
+    }
+
+    public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
+    {
+        foreach (var methodDto in _sourceCache.Items)
+            UnregisterMethodDtoPropertyChanged(methodDto);
+
+        return Task.CompletedTask;
     }
 }

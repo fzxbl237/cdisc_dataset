@@ -9,6 +9,7 @@
     xmlns:antd-icons="https://atomui.net/icons/antdesign"
     xmlns:atom="https://atomui.net"
     xmlns:controls="using:cdisc_dataset.Controls.DataGrid"
+    xmlns:converter="using:cdisc_dataset.Converters"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:model="clr-namespace:cdisc_dataset.Models.Dto"
@@ -180,13 +181,13 @@
             <!--  <atom:HyperLinkTextBlock  -->
             <!--  Command="{Binding #Root.((vm:DatasetsViewModel)DataContext).AddCommentCommand}"  -->
             <!--  CommandParameter="{Binding}"  -->
-            <!--  IsVisible="{Binding !CommentExist}"  -->
+            <!--  IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNull}}"  -->
             <!--  Text="Add New"  -->
             <!--  x:DataType="model:DatasetDto" />  -->
             <!--  <atom:HyperLinkTextBlock  -->
             <!--  Command="{Binding #Root.((vm:DatasetsViewModel)DataContext).ModifyCommentCommand}"  -->
             <!--  CommandParameter="{Binding}"  -->
-            <!--  IsVisible="{Binding CommentExist}"  -->
+            <!--  IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNotNull}}"  -->
             <!--  Text="Open in Editor"  -->
             <!--  x:DataType="model:DatasetDto" />  -->
             <!--                                             </StackPanel> -->
@@ -515,14 +516,14 @@
                                             Command="{Binding #Root.((vm:DatasetsViewModel)DataContext).AddCommentCommand}"
                                             CommandParameter="{Binding}"
                                             Content="Add New"
-                                            IsVisible="{Binding !CommentExist}"
+                                            IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNull}}"
                                             SizeType="Small" />
                                         <atom:Button
                                             ButtonType="Link"
                                             Command="{Binding #Root.((vm:DatasetsViewModel)DataContext).ModifyCommentCommand}"
                                             CommandParameter="{Binding}"
                                             Content="Open in Editor"
-                                            IsVisible="{Binding CommentExist}"
+                                            IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNotNull}}"
                                             SizeType="Small" />
                                     </StackPanel>
                                 </Border>

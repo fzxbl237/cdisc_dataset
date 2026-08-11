@@ -1,6 +1,7 @@
 ﻿using AsyncNavigation;
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -76,75 +77,56 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
             .DisposeMany()
             .Subscribe();
 
-        _documentSourceCache.Connect()
-            .WhenAnyPropertyChanged()
-            .Subscribe(_ =>
-            {
-                if (!HasChanges)
-                    HasChanges = true;
-            });
+    }
 
-        _documentSourceCache.Connect()
-            .WhenPropertyChanged(o => o.UniqueId, false)
-            .Subscribe(change =>
-            {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender,"UniqueId");
-                    _documentSourceCache.AddOrUpdate(changeSender);
-                });
-                MarkDuplicates();
-            });
+    private void DocumentDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not DocumentDto documentDto || string.IsNullOrWhiteSpace(e.PropertyName))
+            return;
 
-        _documentSourceCache.Connect()
-            .WhenPropertyChanged(o => o.Title, false)
-            .Subscribe(change =>
-            {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender,"Title");
-                    _documentSourceCache.AddOrUpdate(changeSender);
-                });
-                MarkDuplicates();
-            });
-        
-        _documentSourceCache.Connect()
-            .WhenPropertyChanged(o => o.Href, false)
-            .Subscribe(change =>
-            {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender,"Href");
-                    _documentSourceCache.AddOrUpdate(changeSender);
-                });
-            });
+        if (e.PropertyName == nameof(DocumentDto.HasChanged))
+            return;
 
-        _documentSourceCache.Connect()
-            .WhenPropertyChanged(o => o.HasUniqueIdDuplicate, false)
-            .Subscribe(change =>
+        Observable.StartAsync(async () =>
+        {
+            switch (e.PropertyName)
             {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender,"UniqueId");
-                    _documentSourceCache.AddOrUpdate(changeSender);
-                });
-            });
+                case nameof(DocumentDto.UniqueId):
+                    MarkDuplicates();
+                    await _validator.ValidateDtoAsync(documentDto, nameof(DocumentDto.UniqueId));
+                    break;
+                case nameof(DocumentDto.Title):
+                    MarkDuplicates();
+                    await _validator.ValidateDtoAsync(documentDto, nameof(DocumentDto.Title));
+                    break;
+                case nameof(DocumentDto.Href):
+                    await _validator.ValidateDtoAsync(documentDto, nameof(DocumentDto.Href));
+                    break;
+                case nameof(DocumentDto.HasUniqueIdDuplicate):
+                    await _validator.ValidateDtoAsync(documentDto, nameof(DocumentDto.UniqueId));
+                    break;
+                case nameof(DocumentDto.HasTitleDuplicate):
+                    await _validator.ValidateDtoAsync(documentDto, nameof(DocumentDto.Title));
+                    break;
+                default:
+                    return;
+            }
 
-        _documentSourceCache.Connect()
-            .WhenPropertyChanged(o => o.HasTitleDuplicate, false)
-            .Subscribe(change =>
-            {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender,"Title");
-                    _documentSourceCache.AddOrUpdate(changeSender);
-                });
-            });
+            _documentSourceCache.AddOrUpdate(documentDto);
+        });
+
+        documentDto.HasChanged = true;
+        HasChanges = true;
+    }
+
+    private void RegisterDocumentDtoPropertyChanged(DocumentDto documentDto)
+    {
+        documentDto.PropertyChanged += DocumentDtoOnPropertyChanged;
+    }
+
+    private void UnregisterDocumentDtoPropertyChanged(DocumentDto documentDto)
+    {
+        documentDto.PropertyChanged -= DocumentDtoOnPropertyChanged;
     }
 
     [RelayCommand]
@@ -153,17 +135,21 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         if (CurrentProject == null)
             return;
 
-        var dto = new DocumentDto()
+        var result = await _dialogHostService.ShowDialogAsync("DocumentDialog", new DialogParameters
         {
-            ProjectId = CurrentProject.Id,
-            CdiscDataType = CdiscDataType
-        };
-        
-        await _validator.ValidateDtoAsync(dto);
-        _documentSourceCache.AddOrUpdate(dto);
+            { "Title", "Add Document" },
+            { "Model", new DocumentDto { ProjectId = CurrentProject.Id, CdiscDataType = CdiscDataType } }
+        });
+        if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Model"))
+            return;
+
+        var document = result.Parameters.GetValue<DocumentDto>("Model");
+        await _validator.ValidateDtoAsync(document);
+        RegisterDocumentDtoPropertyChanged(document);
+        _documentSourceCache.AddOrUpdate(document);
         MarkDuplicates();
         HasChanges = true;
-        _messageService.Success("??????");
+        _messageService.Success("Document added");
     }
 
     [RelayCommand]
@@ -178,9 +164,10 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
             return;
 
         await _documentService.DeleteDocumentDtoAsync(documentDto);
+        UnregisterDocumentDtoPropertyChanged(documentDto);
         _documentSourceCache.Remove(documentDto);
         MarkDuplicates();
-        _messageService.Success("??????");
+        _messageService.Success("Delete successfully");
     }
 
     [RelayCommand]
@@ -222,6 +209,9 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
+        foreach (var documentDto in _documentSourceCache.Items)
+            UnregisterDocumentDtoPropertyChanged(documentDto);
+
         return Task.CompletedTask;
     }
 
@@ -232,10 +222,14 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     public async Task LoadDocuments(int id, CdiscDataType cdiscDataType)
     {
+        foreach (var documentDto in _documentSourceCache.Items)
+            UnregisterDocumentDtoPropertyChanged(documentDto);
+
         var dtoList = await _documentService.GetAllDocumentDtosAsync();
         foreach (var document in dtoList)
         {
             await _validator.ValidateDtoAsync(document);
+            RegisterDocumentDtoPropertyChanged(document);
         }
 
         _documentSourceCache.Edit(o =>

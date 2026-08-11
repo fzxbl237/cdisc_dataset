@@ -3,6 +3,7 @@ using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -82,83 +83,59 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
             .DisposeMany()
             .Subscribe();
 
-        _sourceCache.Connect()
-            .WhenAnyPropertyChanged()
-            .Subscribe(sender =>
-            {
-                sender?.HasChanged = true;   
-                HasChanges = true;
-            });
+    }
 
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.UniqueId, false)
-            .Subscribe(change =>
-            {
-                MarkDuplicates();
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(change.Sender, nameof(DictionaryDto.UniqueId));
-                    _sourceCache.AddOrUpdate(change.Sender);
-                });
-            });
+    private void DictionaryDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not DictionaryDto dictionaryDto || string.IsNullOrWhiteSpace(e.PropertyName))
+            return;
 
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Name, false)
-            .Subscribe(change =>
-            {
-                MarkDuplicates();
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(change.Sender, nameof(DictionaryDto.Name));
-                    _sourceCache.AddOrUpdate(change.Sender);
-                });
-            });
+        if (e.PropertyName == nameof(DictionaryDto.HasChanged))
+            return;
 
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.HasUniqueIdDuplicate, false)
-            .Subscribe(change =>
+        Observable.StartAsync(async () =>
+        {
+            switch (e.PropertyName)
             {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender, nameof(DictionaryDto.UniqueId));
-                    _sourceCache.AddOrUpdate(changeSender);
-                });
-            });
+                case nameof(DictionaryDto.UniqueId):
+                    MarkDuplicates();
+                    await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.UniqueId));
+                    break;
+                case nameof(DictionaryDto.Name):
+                    MarkDuplicates();
+                    await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.Name));
+                    break;
+                case nameof(DictionaryDto.HasUniqueIdDuplicate):
+                    await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.UniqueId));
+                    break;
+                case nameof(DictionaryDto.HasNameDuplicate):
+                    await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.Name));
+                    break;
+                case nameof(DictionaryDto.Version):
+                    await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.Version));
+                    break;
+                case nameof(DictionaryDto.DictionaryName):
+                    await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.DictionaryName));
+                    break;
+                default:
+                    return;
+            }
 
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.HasNameDuplicate, false)
-            .Subscribe(change =>
-            {
-                var changeSender = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(changeSender, nameof(DictionaryDto.Name));
-                    _sourceCache.AddOrUpdate(changeSender);
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Version, false)
-            .Subscribe(change =>
-            {
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(change.Sender, nameof(DictionaryDto.Version));
-                    _sourceCache.AddOrUpdate(change.Sender);
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.DictionaryName, false)
-            .Subscribe(change =>
-            {
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(change.Sender, nameof(DictionaryDto.DictionaryName));
-                    _sourceCache.AddOrUpdate(change.Sender);
-                });
-            });
+            _sourceCache.AddOrUpdate(dictionaryDto);
+        });
+
+        dictionaryDto.HasChanged = true;
+        HasChanges = true;
+    }
+
+    private void RegisterDictionaryDtoPropertyChanged(DictionaryDto dictionaryDto)
+    {
+        dictionaryDto.PropertyChanged += DictionaryDtoOnPropertyChanged;
+    }
+
+    private void UnregisterDictionaryDtoPropertyChanged(DictionaryDto dictionaryDto)
+    {
+        dictionaryDto.PropertyChanged -= DictionaryDtoOnPropertyChanged;
     }
 
     [RelayCommand]
@@ -174,6 +151,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
             return;
 
         await _dictionaryService.InsertDictionaryAsync(dictionary);
+        RegisterDictionaryDtoPropertyChanged(dictionary);
         _sourceCache.AddOrUpdate(dictionary);
         _messageService.Success("??????");
         await LoadDictionaries();
@@ -208,6 +186,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
             return;
 
         await _dictionaryService.DeleteDictionaryAsync(dictionary);
+        UnregisterDictionaryDtoPropertyChanged(dictionary);
         _sourceCache.Remove(dictionary);
         _messageService.Success("??????");
     }
@@ -255,9 +234,26 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
         continuationCallback(true);
     }
 
+    public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
+    {
+        foreach (var dictionaryDto in _sourceCache.Items)
+            UnregisterDictionaryDtoPropertyChanged(dictionaryDto);
+
+        return Task.CompletedTask;
+    }
+
     public async Task LoadDictionaries()
     {
+        foreach (var dictionaryDto in _sourceCache.Items)
+            UnregisterDictionaryDtoPropertyChanged(dictionaryDto);
+
         var list = await _dictionaryService.GetAllDictionaryDtosAsync();
+        foreach (var dictionaryDto in list)
+        {
+            await _validator.ValidateDtoAsync(dictionaryDto);
+            RegisterDictionaryDtoPropertyChanged(dictionaryDto);
+        }
+
         _sourceCache.Edit(o =>
         {
             o.Clear();

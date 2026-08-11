@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -111,20 +112,31 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             .DisposeMany()
             .Subscribe();
 
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.WhereClause, false)
-            .Subscribe((change) =>
+    }
+
+    private void ValueLevelDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not ValueLevelDto valueLevelDto || string.IsNullOrWhiteSpace(e.PropertyName))
+            return;
+
+        if (e.PropertyName == nameof(ValueLevelDto.HasChanged))
+            return;
+
+        Observable.StartAsync(async () =>
+        {
+            switch (e.PropertyName)
             {
-                var valueLevelDto = UpdateWhereClauses(change.Sender);
-                Observable.StartAsync(async () =>
+                case nameof(ValueLevelDto.WhereClause):
                 {
+                    valueLevelDto = UpdateWhereClauses(valueLevelDto);
                     var whereClauseDtos = valueLevelDto.WhereClauses;
                     valueLevelDto.IsWhereClauseEffective = true;
                     if (whereClauseDtos != null)
                     {
                         foreach (var whereClauseDto in whereClauseDtos)
                         {
-                            var variable = await _variableService.GetVariableByDatasetIdAndVariableNameWithoutError(valueLevelDto.DatasetId,whereClauseDto.Variable);
+                            var variable = await _variableService.GetVariableByDatasetIdAndVariableNameWithoutError(
+                                valueLevelDto.DatasetId, whereClauseDto.Variable);
                             if (variable == null && valueLevelDto.IsWhereClauseEffective)
                             {
                                 valueLevelDto.IsWhereClauseEffective = false;
@@ -132,173 +144,94 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
                             else
                             {
                                 whereClauseDto.VariableEntity = variable;
-                                whereClauseDto.VariableId = variable?.Id??0;
+                                whereClauseDto.VariableId = variable?.Id ?? 0;
                             }
                         }
                     }
-                    await _validator.ValidateDtoAsync(valueLevelDto, "WhereClause");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Type, false)
-            .Subscribe((change) =>
-            {
-                var valueLevelDto = UpdateWhereClauses(change.Sender);
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(valueLevelDto, "Type");
-                    await _validator.ValidateDtoAsync(valueLevelDto, "Length");
-                    await _validator.ValidateDtoAsync(valueLevelDto, "Digits");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
-
-        _sourceCache.Connect().WhenAnyPropertyChanged().Subscribe(_ => HasChanges = true);
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Dataset, false)
-            .Subscribe(change =>
-            {
-                var valueLevelDto = change.Sender;
-                Observable.StartAsync(async () =>
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.WhereClause));
+                    break;
+                }
+                case nameof(ValueLevelDto.Type):
+                    valueLevelDto = UpdateWhereClauses(valueLevelDto);
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Type));
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Length));
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Digits));
+                    break;
+                case nameof(ValueLevelDto.Dataset):
                 {
                     var datasetEntity = await _datasetService.GetDatasetByName(valueLevelDto.Dataset);
                     valueLevelDto.DatasetEntity = datasetEntity;
                     valueLevelDto.DatasetId = datasetEntity?.Id ?? 0;
-                    await _validator.ValidateDtoAsync(valueLevelDto, "Dataset");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Variable, false)
-            .Subscribe(change =>
-            {
-                var valueLevelDto = change.Sender;
-                Observable.StartAsync(async () =>
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Dataset));
+                    break;
+                }
+                case nameof(ValueLevelDto.Variable):
                 {
-                    var variableEntity = await _variableService
-                        .GetVariableByDatasetIdAndVariableNameWithoutError(
-                            valueLevelDto.DatasetId,
-                            valueLevelDto.Variable);
+                    var variableEntity = await _variableService.GetVariableByDatasetIdAndVariableNameWithoutError(
+                        valueLevelDto.DatasetId, valueLevelDto.Variable);
                     valueLevelDto.VariableEntity = variableEntity;
                     valueLevelDto.VariableId = variableEntity?.Id ?? 0;
-                    await _validator.ValidateDtoAsync(valueLevelDto, "Variable");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Label, false)
-            .Subscribe(change =>
-            {
-                var valueLevelDto = change.Sender;
-                Observable.StartAsync(async () =>
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Variable));
+                    break;
+                }
+                case nameof(ValueLevelDto.Label):
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Label));
+                    break;
+                case nameof(ValueLevelDto.Origin):
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Pages));
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.MethodUniqueId));
+                    break;
+                case nameof(ValueLevelDto.Pages):
+                case nameof(ValueLevelDto.Source):
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Pages));
+                    break;
+                case nameof(ValueLevelDto.MethodUniqueId):
                 {
-                    await _validator.ValidateDtoAsync(valueLevelDto, "Label");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Origin, false)
-            .Subscribe(change =>
-            {
-                var valueLevelDto = change.Sender;
-                Observable.StartAsync(async () =>
+                    var methodOption = MethodOptions
+                        .OfType<ValueLevelAutoCompleteOption>()
+                        .FirstOrDefault(o => string.Equals((string?)o.Content, valueLevelDto.MethodUniqueId,
+                            StringComparison.OrdinalIgnoreCase));
+                    valueLevelDto.Method = methodOption?.Method;
+                    valueLevelDto.MethodId = methodOption?.Method?.Id ?? 0;
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.MethodUniqueId));
+                    break;
+                }
+                case nameof(ValueLevelDto.CommentUniqueId):
                 {
-                    await _validator.ValidateDtoAsync(valueLevelDto, "Pages");
-                    await _validator.ValidateDtoAsync(valueLevelDto, "MethodUniqueId");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Pages, false)
-            .Subscribe(change =>
-            {
-                var valueLevelDto = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(valueLevelDto, "Pages");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
-        
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Source, false)
-            .Subscribe(change =>
-            {
-                var valueLevelDto = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(valueLevelDto, "Pages");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
+                    var commentOption = CommentOptions
+                        .OfType<ValueLevelAutoCompleteOption>()
+                        .FirstOrDefault(o => string.Equals((string?)o.Content, valueLevelDto.CommentUniqueId,
+                            StringComparison.OrdinalIgnoreCase));
+                    valueLevelDto.Comment = commentOption?.Comment;
+                    valueLevelDto.CommentId = commentOption?.Comment?.Id ?? 0;
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.CommentUniqueId));
+                    break;
+                }
+                case nameof(ValueLevelDto.Length):
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Length));
+                    break;
+                case nameof(ValueLevelDto.Digits):
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Digits));
+                    break;
+                default:
+                    return;
+            }
 
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.MethodUniqueId, false)
-            .Subscribe(change =>
-            {
-                var valueLevelDto = change.Sender;
-                var methodOption = MethodOptions
-                    .OfType<ValueLevelAutoCompleteOption>()
-                    .FirstOrDefault(o => string.Equals((string?)o.Content, valueLevelDto.MethodUniqueId, StringComparison.OrdinalIgnoreCase));
+            _sourceCache.AddOrUpdate(valueLevelDto);
+        });
 
-                valueLevelDto.Method = methodOption?.Method;
-                valueLevelDto.MethodId = methodOption?.Method?.Id ?? 0;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(valueLevelDto, "MethodUniqueId");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
+        valueLevelDto.HasChanged = true;
+        HasChanges = true;
+    }
 
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.CommentUniqueId, false)
-            .Subscribe(change =>
-            {
-                var valueLevelDto = change.Sender;
-                var commentOption = CommentOptions
-                    .OfType<ValueLevelAutoCompleteOption>()
-                    .FirstOrDefault(o => string.Equals((string?)o.Content, valueLevelDto.CommentUniqueId, StringComparison.OrdinalIgnoreCase));
+    private void RegisterValueLevelDtoPropertyChanged(ValueLevelDto valueLevelDto)
+    {
+        valueLevelDto.PropertyChanged += ValueLevelDtoOnPropertyChanged;
+    }
 
-                valueLevelDto.Comment = commentOption?.Comment;
-                valueLevelDto.CommentId = commentOption?.Comment?.Id ?? 0;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(valueLevelDto, "CommentUniqueId");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Length, false)
-            .Subscribe(change =>
-            {
-                var valueLevelDto = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(valueLevelDto, "Length");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
-
-        _sourceCache.Connect()
-            .WhenPropertyChanged(o => o.Digits, false)
-            .Subscribe(change =>
-            {
-                var valueLevelDto = change.Sender;
-                Observable.StartAsync(async () =>
-                {
-                    await _validator.ValidateDtoAsync(valueLevelDto, "Digits");
-                    _sourceCache.AddOrUpdate(valueLevelDto);
-                });
-            });
-        
+    private void UnregisterValueLevelDtoPropertyChanged(ValueLevelDto valueLevelDto)
+    {
+        valueLevelDto.PropertyChanged -= ValueLevelDtoOnPropertyChanged;
     }
     
     private ValueLevelDto UpdateWhereClauses(ValueLevelDto dto)
@@ -342,6 +275,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             Order = GetNextOrder()
         };
 
+        RegisterValueLevelDtoPropertyChanged(valueLevel);
         _sourceCache.AddOrUpdate(valueLevel);
         HasChanges = true;
     }
@@ -358,6 +292,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             return;
 
         await _valueLevelService.DeleteValueLevelAsync(valueLevelDto);
+        UnregisterValueLevelDtoPropertyChanged(valueLevelDto);
         _sourceCache.Remove(valueLevelDto);
         HasChanges = true;
         _messageService.Success("Delete Success");
@@ -499,6 +434,14 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         await LoadValueLevels(CurrentProject.Id, CdiscDataType);
     }
 
+    public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
+    {
+        foreach (var valueLevelDto in _sourceCache.Items)
+            UnregisterValueLevelDtoPropertyChanged(valueLevelDto);
+
+        return Task.CompletedTask;
+    }
+
     public override void ConfirmNavigationRequest(NavigationContext navigationContext, Action<bool> continuationCallback)
     {
         continuationCallback(true);
@@ -506,10 +449,14 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
     public async Task LoadValueLevels(int id, CdiscDataType cdiscDataType)
     {
+        foreach (var valueLevelDto in _sourceCache.Items)
+            UnregisterValueLevelDtoPropertyChanged(valueLevelDto);
+
         var dtoList = await _valueLevelService.GetAllValueLevelDtosAsync();
         foreach (var dto in dtoList)
         {
             await _validator.ValidateDtoAsync(dto);
+            RegisterValueLevelDtoPropertyChanged(dto);
         }
 
         _sourceCache.Edit(o =>
