@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -14,7 +14,11 @@ namespace cdisc_dataset.Models.Dto;
 public partial class DatasetDto:BaseDto
 {
     
-    [ObservableProperty] private string? _name;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanGenerateSupp))]
+    private string? _name;
+
+    public bool CanGenerateSupp => !string.IsNullOrWhiteSpace(Name) && Name.Length == 2 && Name.All(char.IsLetter);
     
     [ObservableProperty] private string? _label;
     

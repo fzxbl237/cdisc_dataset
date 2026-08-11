@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Xml;
 using cdisc_dataset.Models;
+using cdisc_dataset.Models.Settings;
 
 namespace cdisc_dataset.Utils;
 
 public static class XmlParser
 {
-    public static List<Dataset> GetDatasetFromXml(string path)
+    public static List<DatasetTemplate> GetDatasetFromXml(string path)
     {
         var xmlDoc = new XmlDocument();
         //xmlDoc.Load(@"C:\Users\zhi\Desktop\Temp\SDTM-IG 3.4 (FDA).xml");
@@ -23,18 +24,20 @@ public static class XmlParser
         var study = xmlDoc.SelectSingleNode("//ns:Study", xmlNamespaceManager);
         var version = study.Attributes["OID"].Value;
         XmlNodeList nodeList = xmlDoc.SelectNodes("//ns:ItemGroupDef", xmlNamespaceManager);
-        List<Dataset> list = new List<Dataset>();
+        List<DatasetTemplate> list = new List<DatasetTemplate>();
         if (nodeList != null)
         {
             foreach (XmlNode childNode in nodeList)
             {
-                var dataset = new Dataset();
-                dataset.Name = childNode.Attributes["Name"].Value;
-                dataset.Repeating = childNode.Attributes["Repeating"].Value;
-                dataset.ReferenceData = childNode.Attributes["IsReferenceData"].Value;
-                dataset.Class =  childNode.Attributes["def:Class"].Value;
-                dataset.Standard = version;
-                dataset.HasNoData = "No";
+                var dataset = new DatasetTemplate
+                {
+                    Name = childNode.Attributes["Name"].Value,
+                    Repeating = childNode.Attributes["Repeating"].Value,
+                    ReferenceData = childNode.Attributes["IsReferenceData"].Value,
+                    Class = childNode.Attributes["def:Class"].Value,
+                    Standard = version,
+                    HasNoData = "No"
+                };
                 var structure = childNode.Attributes["def:Structure"];
                 if (structure != null)
                 {
@@ -57,10 +60,10 @@ public static class XmlParser
                 dataset.KeyVariables = keyVars;
 
                 var vars = childNode.SelectNodes("ns:ItemRef",xmlNamespaceManager);
-                List<Variable> varList = new List<Variable>();
+                List<VariableTemplate> varList = new List<VariableTemplate>();
                 foreach (XmlNode var in vars)
                 {
-                    Variable variable = new Variable();
+                    VariableTemplate variable = new VariableTemplate();
                     var id = var.Attributes["ItemOID"].Value;
                     var order = var.Attributes["OrderNumber"].Value;
                     var orderNum = int.Parse(order);
@@ -82,7 +85,6 @@ public static class XmlParser
                     if (codelist != null)
                     {
                         var codelistValue = codelist.Value;
-                        variable.DefaultCodeList = codelistValue;
                     }
                     varList.Add(variable);
                     //Console.WriteLine(id);

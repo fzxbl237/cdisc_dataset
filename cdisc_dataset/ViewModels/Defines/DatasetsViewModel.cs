@@ -53,7 +53,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty] private string? _searchText;
     [ObservableProperty] private bool _hasChanges;
-    [ObservableProperty] private CdiscDataType _cdiscDataType;
 
     private readonly ReadOnlyObservableCollection<DatasetDto> _datasets;
     public ReadOnlyObservableCollection<DatasetDto> Datasets => _datasets;
@@ -90,9 +89,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     {
         if (sender is not DatasetDto datasetDto) return;
 
-        if (e.PropertyName == nameof(DatasetDto.CommentUniqueId))
-            HandleCommentUniqueIdChanged(datasetDto);
-
         if (e.PropertyName is nameof(DatasetDto.HasChanged) or nameof(DatasetDto.IsDuplicate))
             return;
 
@@ -105,6 +101,10 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
                     await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Standard));
                     _sourceCache.AddOrUpdate(datasetDto);
                     UpdateDuplicateFlags();
+                    break;
+                case nameof(DatasetDto.Standard):
+                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Name));
+                    _sourceCache.AddOrUpdate(datasetDto);
                     break;
                 case nameof(DatasetDto.Label):
                     await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Label));
@@ -123,6 +123,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
                     _sourceCache.AddOrUpdate(datasetDto);
                     break;
                 case nameof(DatasetDto.CommentUniqueId):
+                    HandleCommentUniqueIdChanged(datasetDto);
                     await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.CommentUniqueId));
                     break;
             }
@@ -232,6 +233,53 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
+    private async Task GenerateSuppAsync(DatasetDto dataset)
+    {
+        if (_currentProjectService.CurrentProject == null || !dataset.CanGenerateSupp)
+            return;
+
+        var suppName = $"SUPP{dataset.Name}";
+        
+        if (await _datasetService.GetDatasetByName(suppName) != null)
+        {
+            _messageService.Error($"Dataset {suppName} already exists.");
+            return;
+        }
+
+        var suppDataset = await _datasetService.GetSettingDatasetWithVariablesByNameAsync("SUPPQUAL");
+        if (suppDataset == null)
+        {
+            _messageService.Error("SUPPQUAL template was not found in settings.");
+            return;
+        }
+
+        var suppLabel = $"{suppDataset.Label} of {dataset.Name}";
+
+        var projectId = _currentProjectService.CurrentProject.Id;
+        suppDataset.Id = 0;
+        suppDataset.Name = suppName;
+        suppDataset.Label = suppLabel;
+        suppDataset.ProjectId = projectId;
+        suppDataset.CdiscDataType = _currentProjectService.CdiscDataType;
+        suppDataset.Variables = suppDataset.Variables?
+            .Where(variable => variable.Core is "Required" or "Expected" or "Permissible")
+            .ToList() ?? [];
+
+        foreach (var variable in suppDataset.Variables)
+        {
+            variable.Id = 0;
+            variable.DatasetId = 0;
+            variable.DatasetName = suppName;
+            variable.ProjectId = projectId;
+            variable.CdiscDataType = _currentProjectService.CdiscDataType;
+        }
+
+        await _datasetService.InsertDatasetsWithVariablesAsync([suppDataset]);
+        await LoadDatasets();
+        _messageService.Success($"Dataset {suppName} generated successfully.");
+    }
+
+    [RelayCommand]
     private async Task DeleteAsync(DatasetDto dataset)
     {
         var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
@@ -245,7 +293,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         UnregisterDatasetDtoPropertyChanged(dataset);
         await _datasetService.DeleteDatasetAsync(dataset);
         _sourceCache.Edit(o => o.Remove(dataset));
-        _messageService.Success("??????");
+        _messageService.Success("Delete successfully.");
     }
 
     [RelayCommand]
@@ -254,7 +302,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         if (!HasChanges) return;
         await _datasetService.SaveDatasetsAsync(_sourceCache.Items.Where(o => o.HasChanged).ToList());
         HasChanges = false;
-        _messageService.Success("??????");
+        _messageService.Success("Saved successfully.");
         await LoadDatasets();
     }
 
@@ -289,11 +337,12 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         if (result.Parameters.TryGetValue<CommentDto>("Model", out CommentDto? comment))
         {
             var entity = await _commentService.InsertCommentAsync(comment);
+            dataset.CommentUniqueId = entity.UniqueId;
             dataset.Comment = _mapper.Map<Comment>(entity);
             dataset.CommentId = entity.Id;
-            dataset.CommentUniqueId = entity.UniqueId;
             _sourceCache.AddOrUpdate(dataset);
             await _datasetService.UpdateDatasetAsync(dataset);
+            await LoadLookups();
             _messageService.Success("Comment add successful");
         }
     }
@@ -322,27 +371,51 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
-    private async Task AddDataset()
+    private async Task ImportSettingDatasetsAsync()
     {
-        if (_currentProjectService.CurrentProject == null) return;
+        if (_currentProjectService.CurrentProject == null)
+            return;
 
-        var result = await _dialogHostService.ShowDialogAsync("DatasetDialog", new DialogParameters());
+        var result = await _dialogHostService.ShowDialogAsync("ImportSettingDatasetsDialog", null);
         if (result.Result != ButtonResult.Yes ||
-            !result.Parameters.TryGetValue<List<Dataset>>("Datasets", out var datasets) ||
-            datasets.Count == 0)
+            !result.Parameters.TryGetValue<List<string>>("DatasetNames", out var selectedNames))
+            return;
+
+        var existingNames = (await _datasetService.GetDatasetNamesAsync())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var datasets = (await _datasetService.GetSettingDatasetsWithVariablesByNamesAsync(selectedNames))
+            .Where(dataset => !string.IsNullOrWhiteSpace(dataset.Name) && !existingNames.Contains(dataset.Name))
+            .ToList();
+        if (datasets.Count == 0)
         {
+            _messageService.Error("The selected datasets already exist in the current project.");
             return;
         }
 
+        var projectId = _currentProjectService.CurrentProject.Id;
         foreach (var dataset in datasets)
         {
-            dataset.ProjectId = _currentProjectService.CurrentProject.Id;
+            dataset.Id = 0;
+            dataset.ProjectId = projectId;
             dataset.CdiscDataType = _currentProjectService.CdiscDataType;
+            dataset.Variables = dataset.Variables?
+                .Where(variable => variable.Core is "Required" or "Expected" or "Permissible")
+                .ToList() ?? [];
+
+            foreach (var variable in dataset.Variables)
+            {
+                variable.Id = 0;
+                variable.DatasetId = 0;
+                variable.DatasetName = dataset.Name;
+                variable.ProjectId = projectId;
+                variable.CdiscDataType = _currentProjectService.CdiscDataType;
+            }
         }
 
         await _datasetService.InsertDatasetsWithVariablesAsync(datasets);
         await LoadDatasets();
-        _messageService.Success("Datasets add successfully");
+        _messageService.Success($"Imported {datasets.Count} dataset(s) successfully.");
     }
 
     public override async Task OnNavigatedFromAsync(NavigationContext navigationContext)
@@ -355,9 +428,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        CdiscDataType = _currentProjectService.CdiscDataType;
-
-        if (CdiscDataType == CdiscDataType.Sdtm)
+        if (_currentProjectService.CdiscDataType == CdiscDataType.Sdtm)
         {
             Classes.Clear();
             Standards.Clear();

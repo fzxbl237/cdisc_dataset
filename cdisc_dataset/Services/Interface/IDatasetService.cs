@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
@@ -12,8 +12,9 @@ public interface IDatasetService
     Task<List<Dataset>> GetAllDatasetsWithoutErrorAsync();
     Task<List<string?>> GetDatasetNamesAsync();
     Task<List<string?>> GetAvailableDatasetNamesAsync();
-    Task<List<Dataset>> GetAvailableTemplateDatasetsAsync();
-    Task<List<Dataset>> GetTemplateDatasetsWithVariablesByNamesAsync(IReadOnlyList<string?> names);
+    Task<List<Dataset>> GetAvailableSettingDatasetsAsync();
+    Task<List<Dataset>> GetSettingDatasetsWithVariablesByNamesAsync(IReadOnlyList<string> names);
+    Task<Dataset?> GetSettingDatasetWithVariablesByNameAsync(string datasetName);
     Task<Dataset?> GetDatasetByName(string? datasetName);
     Task<Dataset?> GetStandardSdtmDatasetByNameAsync(string? datasetName);
     Task<List<DatasetDto>> GetAllDatasetDtosWithoutErrorAsync();

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Models.Enums;
+using cdisc_dataset.Models.Settings;
 using cdisc_dataset.Services.Interface;
 using MapsterMapper;
 using SqlSugar;
@@ -104,11 +105,12 @@ public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
         if (string.IsNullOrWhiteSpace(datasetName) || string.IsNullOrWhiteSpace(variableName))
             return null;
 
-        return await sqlSugar.Queryable<Variable>()
-            .Where(x => x.ProjectId == 0 &&
+        return await sqlSugar.AsTenant().QueryableWithAttr<VariableTemplate>()
+            .Where(x =>
                         x.CdiscDataType == cdiscDataType &&
                         x.DatasetName == datasetName &&
                         x.VariableName == variableName)
+            .Select<Variable>()
             .FirstAsync();
     }
 

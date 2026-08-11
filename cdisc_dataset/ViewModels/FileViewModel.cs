@@ -231,7 +231,8 @@ public partial class FileViewModel : ViewModelBase
         List<CodeList> codeLists)
     {
         var name = parsedFile.Name;
-        var datasetStd = await _datasetService.GetStandardSdtmDatasetByNameAsync(name);
+        string queryName = name.StartsWith("SUPP")?"SUPPQUAL":name;
+        var datasetStd = await _datasetService.GetStandardSdtmDatasetByNameAsync(queryName);
         var dataset = new Dataset
         {
             Name = name,

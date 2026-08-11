@@ -39,11 +39,6 @@
             <!--  HorizontalAlignment="Right"  -->
             <!--  Orientation="Horizontal"  -->
             <!--  Spacing="10">  -->
-            <!--  <atom:Button  -->
-            <!--  ButtonType="Primary"  -->
-            <!--  Command="{Binding AddDatasetCommand}"  -->
-            <!--  Content="新增"  -->
-            <!--  Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />  -->
             <!--     </StackPanel> -->
             <!-- </DockPanel> -->
             <!--  <DataGrid  -->
@@ -367,6 +362,25 @@
                 LeftFrozenColumnCount="2"
                 Margin="8,4"
                 RowHeight="32">
+                <controls:DataGrid.Styles>
+                    <Style Selector="controls|DataGridRow">
+                        <Setter Property="ContextMenu">
+                            <atom:ContextMenu x:DataType="model:DatasetDto">
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:DatasetsViewModel)DataContext).GenerateSuppCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Generate SUPP"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=FormatPainterOutlined}"
+                                    IsVisible="{Binding CanGenerateSupp}" />
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:DatasetsViewModel)DataContext).DeleteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Delete"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                            </atom:ContextMenu>
+                        </Setter>
+                    </Style>
+                </controls:DataGrid.Styles>
                 <controls:DataGrid.SearchBarRightContent>
                     <StackPanel
                         HorizontalAlignment="Right"
@@ -374,9 +388,8 @@
                         Spacing="10">
                         <atom:Button
                             Color="Default"
-                            Command="{Binding AddDatasetCommand}"
-                            Content="新增"
-                            Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
+                            Command="{Binding ImportSettingDatasetsCommand}"
+                            Content="从设置导入"
                             Variant="Solid" />
                     </StackPanel>
                 </controls:DataGrid.SearchBarRightContent>
@@ -536,6 +549,7 @@
                     Command="{Binding SaveCommand}"
                     Content="Save"
                     IsEnabled="{Binding HasChanges}"
+                    SizeType="Middle"
                     atom:ToolTip.Tip="Save(Ctrl+S)" />
                 <atom:Button
                     ButtonType="Primary"
@@ -543,6 +557,7 @@
                     Content="Discard"
                     IsDanger="True"
                     IsEnabled="{Binding HasChanges}"
+                    SizeType="Middle"
                     atom:ToolTip.Tip="Discard(Esc)" />
             </StackPanel>
         </Grid>

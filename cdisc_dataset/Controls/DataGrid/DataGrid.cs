@@ -45,10 +45,6 @@ public class DataGrid : TemplatedControl
     private double _verticalOffset;
     private double _horizontalOffset;
     private double _lastArrangeHeight;
-    private DateTime _lastClickTime;
-    private DataGridCell? _lastCommittedCell;
-    private DateTime _lastCommitTime;
-    private bool _pendingEditAfterCommit;
     private bool _itemsDirty = true;
     private List<object>? _cachedItems;
     private TextBlock? _statusBar;
@@ -100,6 +96,9 @@ public class DataGrid : TemplatedControl
     public static readonly StyledProperty<IBrush?> AlternatingRowBackgroundProperty =
         AvaloniaProperty.Register<DataGrid, IBrush?>(nameof(AlternatingRowBackground),
             new SolidColorBrush(Color.Parse("#F8F8F8")));
+    public static readonly StyledProperty<IBrush?> RowHoverBackgroundProperty =
+        AvaloniaProperty.Register<DataGrid, IBrush?>(nameof(RowHoverBackground),
+            new SolidColorBrush(Color.Parse("#F5FAFF")));
     public static readonly StyledProperty<int> LeftFrozenColumnCountProperty =
         AvaloniaProperty.Register<DataGrid, int>(nameof(LeftFrozenColumnCount), 0);
     public static readonly StyledProperty<int> RightFrozenColumnCountProperty =
@@ -117,6 +116,7 @@ public class DataGrid : TemplatedControl
     public IBrush? HeaderBackground { get => GetValue(HeaderBackgroundProperty); set => SetValue(HeaderBackgroundProperty, value); }
     public IBrush? RowBackground { get => GetValue(RowBackgroundProperty); set => SetValue(RowBackgroundProperty, value); }
     public IBrush? AlternatingRowBackground { get => GetValue(AlternatingRowBackgroundProperty); set => SetValue(AlternatingRowBackgroundProperty, value); }
+    public IBrush? RowHoverBackground { get => GetValue(RowHoverBackgroundProperty); set => SetValue(RowHoverBackgroundProperty, value); }
     public int LeftFrozenColumnCount { get => GetValue(LeftFrozenColumnCountProperty); set => SetValue(LeftFrozenColumnCountProperty, value); }
     public int RightFrozenColumnCount { get => GetValue(RightFrozenColumnCountProperty); set => SetValue(RightFrozenColumnCountProperty, value); }
     public bool IsReadOnly { get => GetValue(IsReadOnlyProperty); set => SetValue(IsReadOnlyProperty, value); }
@@ -938,55 +938,9 @@ public class DataGrid : TemplatedControl
         var pos = e.GetPosition(row);
         var pt = e.GetCurrentPoint(this);
         DataGridCell? cell = pt.Properties.IsLeftButtonPressed ? HitTestCell(row, pos.X) : null;
-        var now = DateTime.UtcNow;
-
-        if (_pendingEditAfterCommit && cell != null
-            && (now - _lastCommitTime).TotalMilliseconds < 600
-            && cell.Column is { IsReadOnly: false } && cell.DataItem != null)
-        {
-            _pendingEditAfterCommit = false;
-            if (_currentRow != null && _currentRow != row) _currentRow.IsSelected = false;
-            row.IsSelected = true;
-            _currentRow = row;
-            SelectedIndex = row.Index;
-            SelectedItem = row.DataContext;
-            if (_currentCell != null && _currentCell != cell) _currentCell.IsSelected = false;
-            cell.IsSelected = true;
-            _currentCell = cell;
-            BeginEdit(cell);
-            SelectionChanged?.Invoke(this, EventArgs.Empty);
-            e.Handled = true;
-            return;
-        }
-        _pendingEditAfterCommit = false;
-
         if (_isEditing && cell != null && cell != _currentCell)
         {
             CommitEdit();
-            _lastCommittedCell = cell;
-            _lastCommitTime = now;
-        }
-        else if (cell != null && _lastCommittedCell == cell
-            && (now - _lastCommitTime).TotalMilliseconds < 400
-            && !_isEditing && cell.Column is { IsReadOnly: false } && cell.DataItem != null)
-        {
-            _lastCommittedCell = null;
-            if (_currentRow != null && _currentRow != row) _currentRow.IsSelected = false;
-            row.IsSelected = true;
-            _currentRow = row;
-            SelectedIndex = row.Index;
-            SelectedItem = row.DataContext;
-            if (_currentCell != null && _currentCell != cell) _currentCell.IsSelected = false;
-            cell.IsSelected = true;
-            _currentCell = cell;
-            BeginEdit(cell);
-            SelectionChanged?.Invoke(this, EventArgs.Empty);
-            e.Handled = true;
-            return;
-        }
-        else
-        {
-            _lastCommittedCell = null;
         }
 
         if (_currentRow != null && _currentRow != row) _currentRow.IsSelected = false;
@@ -1011,7 +965,6 @@ public class DataGrid : TemplatedControl
 
         }
 
-        _lastClickTime = now;
         SelectionChanged?.Invoke(this, EventArgs.Empty);
         e.Handled = true;
     }
@@ -1063,14 +1016,8 @@ public class DataGrid : TemplatedControl
 
     internal void OnComboBoxDropDownClosed()
     {
-        if (!_isEditing) return;
-        var cell = _currentCell;
-        CommitEdit();
-        if (cell != null && cell.Column is { IsReadOnly: false } && cell.DataItem != null)
-        {
-            _pendingEditAfterCommit = true;
-            _lastCommitTime = DateTime.UtcNow;
-        }
+        if (_isEditing)
+            CommitEdit();
     }
 
     private static void CommitCellValue(DataGridCell cell, object? value)

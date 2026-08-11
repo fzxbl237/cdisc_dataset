@@ -56,9 +56,9 @@ public static class ValidationExtensions
 
     }
 
-    public static void ValidateDto<TDto>(this IValidator<TDto> validator, TDto dto, string? propertyName = null)
-        where TDto : BaseDto
-    {
-        validator.ValidateDtoAsync(dto,propertyName).Await();
-    }
+    // public static void ValidateDto<TDto>(this IValidator<TDto> validator, TDto dto, string? propertyName = null)
+    //     where TDto : BaseDto
+    // {
+    //     validator.ValidateDtoAsync(dto,propertyName).Await();
+    // }
 }

@@ -425,13 +425,18 @@ public class DataGridCell : Control
         else if (IsFrozenCell())
         {
             var grid = OwningRow?.OwningGrid;
-            _border.Background = grid?.RowBackground ?? new SolidColorBrush(Colors.White);
+            _border.Background = OwningRow?.IsPointerOver == true
+                ? grid?.RowHoverBackground ?? Brushes.Transparent
+                : grid?.RowBackground ?? new SolidColorBrush(Colors.White);
             _border.BorderBrush = new SolidColorBrush(Color.Parse("#E8E8E8"));
             _border.BorderThickness = new Thickness(0, 0, right, bottom);
         }
         else
         {
-            _border.Background = Brushes.Transparent;
+            var grid = OwningRow?.OwningGrid;
+            _border.Background = OwningRow?.IsPointerOver == true
+                ? grid?.RowHoverBackground ?? Brushes.Transparent
+                : Brushes.Transparent;
             _border.BorderBrush = new SolidColorBrush(Color.Parse("#E8E8E8"));
             _border.BorderThickness = new Thickness(0, 0, right, bottom);
         }

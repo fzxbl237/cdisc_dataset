@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 
 namespace cdisc_dataset.Controls.DataGrid;
@@ -21,8 +22,10 @@ public class DataGridRow : Control
         AvaloniaProperty.Register<DataGridRow, DataGridValidationSeverity>(nameof(ValidationSeverity));
 
     private readonly List<DataGridCell> _cells = new();
+    private bool _isPointerOver;
 
     public int Index { get => GetValue(IndexProperty); set => SetValue(IndexProperty, value); }
+    internal bool IsPointerOver => _isPointerOver;
     public bool IsSelected { get => GetValue(IsSelectedProperty); set { SetValue(IsSelectedProperty, value); RefreshVisuals(); } }
     public bool IsValid { get => GetValue(IsValidProperty); set => SetValue(IsValidProperty, value); }
     public DataGridValidationSeverity ValidationSeverity { get => GetValue(ValidationSeverityProperty); set => SetValue(ValidationSeverityProperty, value); }
@@ -141,6 +144,20 @@ public class DataGridRow : Control
             }
         }
 
+        RefreshVisuals();
+    }
+
+    protected override void OnPointerEntered(PointerEventArgs e)
+    {
+        base.OnPointerEntered(e);
+        _isPointerOver = true;
+        RefreshVisuals();
+    }
+
+    protected override void OnPointerExited(PointerEventArgs e)
+    {
+        base.OnPointerExited(e);
+        _isPointerOver = false;
         RefreshVisuals();
     }
 

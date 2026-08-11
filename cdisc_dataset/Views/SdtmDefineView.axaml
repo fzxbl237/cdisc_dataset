@@ -5,18 +5,18 @@
     x:Class="cdisc_dataset.Views.SdtmDefineView"
     x:DataType="vm:SdtmDefineViewModel"
     xmlns="https://github.com/avaloniaui"
+    xmlns:an="https://github.com/NeverMorewd/AsyncNavigation"
     xmlns:antd-icons="https://atomui.net/icons/antdesign"
     xmlns:atom="https://atomui.net"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:model="using:cdisc_dataset.Models"
-    xmlns:an="https://github.com/NeverMorewd/AsyncNavigation"
     xmlns:system="clr-namespace:System;assembly=System.Runtime"
     xmlns:vm="using:cdisc_dataset.ViewModels"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Interaction.Behaviors>
         <EventTriggerBehavior EventName="Loaded">
-            <InvokeCommandAction Command="{Binding LoadedCommand}" />
+            <InvokeCommandAction Command="{Binding LoadCommand}" />
         </EventTriggerBehavior>
     </Interaction.Behaviors>
     <Grid RowDefinitions="30,*">
@@ -24,6 +24,7 @@
         <atom:ThemeConfigProvider Config="{Binding SegmentedConfig}">
             <atom:Segmented ItemsSource="{Binding SegmentedItems}" SelectedItem="{Binding SelectedSegmentedItem}" />
         </atom:ThemeConfigProvider>
+        <!-- <atom:Segmented ItemsSource="{Binding SegmentedItems}" SelectedItem="{Binding SelectedSegmentedItem}" /> -->
         <ContentControl
             Grid.Row="1"
             Margin="12,12,12,12"

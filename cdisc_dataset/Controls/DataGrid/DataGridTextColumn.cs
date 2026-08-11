@@ -1,4 +1,4 @@
-using LineEdit = AtomUI.Desktop.Controls.LineEdit;
+﻿using LineEdit = AtomUI.Desktop.Controls.LineEdit;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
@@ -73,6 +73,21 @@ public class DataGridTextColumn : DataGridBoundColumn
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
             Margin = new Thickness(0),
         };
+    }
+
+    public override Control? GenerateEditingElement(DataGridCell cell, object? dataItem)
+    {
+        var element = GenerateEditingElementDirect(cell, dataItem);
+        if (element is not LineEdit lineEdit || dataItem == null)
+            return element;
+
+        if (!string.IsNullOrWhiteSpace(BindingPath))
+        {
+            var property = dataItem.GetType().GetProperty(BindingPath);
+            lineEdit.Text = property?.GetValue(dataItem)?.ToString() ?? string.Empty;
+        }
+
+        return lineEdit;
     }
 
     public override object? PrepareCellForEdit(Control editingElement, RoutedEventArgs? editingEventArgs)

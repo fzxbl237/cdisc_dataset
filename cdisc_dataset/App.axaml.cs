@@ -109,7 +109,7 @@ public class App : Application
             .AddSingleton<IDialogHostService, DialogHostService>();
 
         RegisterDialog<ProjectDialog, EditProjectViewModel>(services, "ProjectDialog");
-        RegisterDialog<DatasetDialog, DatasetViewModel>(services, "DatasetDialog");
+        RegisterDialog<ImportSettingDatasetsDialog, ImportSettingDatasetsViewModel>(services, "ImportSettingDatasetsDialog");
         RegisterDialog<CommentDialog, CommentViewModel>(services, "CommentDialog");
         RegisterDialog<DictionaryDialog, DictionaryViewModel>(services, "DictionaryDialog");
         RegisterDialog<MethodDialog, MethodViewModel>(services, "MethodDialog");
@@ -138,7 +138,8 @@ public class App : Application
             sqlSugarProject.CodeFirst.InitTables<Project, Document, Dataset, Variable>();
             sqlSugarProject.CodeFirst.InitTables<CodeList, Term, Comment, Method, ValueLevel>();
             sqlSugarProject.CodeFirst.InitTables<Dictionary, Issue, WhereClause, DictionaryVersion>();
-            sqlSugar.GetConnection("setting").CodeFirst.InitTables<VariableCodeList, CodeListTerm, CodeListReference>();
+            sqlSugar.GetConnection("setting").CodeFirst.InitTables<VariableCodeList, CodeListTerm, 
+                CodeListReference,DatasetTemplate,VariableTemplate>();
             FixHasErrorsDefault(sqlSugar);
             return sqlSugar;
         });

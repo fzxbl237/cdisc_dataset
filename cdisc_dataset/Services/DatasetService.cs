@@ -5,6 +5,7 @@ using cdisc_dataset.Extensions;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Models.Enums;
+using cdisc_dataset.Models.Settings;
 using cdisc_dataset.Services.Interface;
 using MapsterMapper;
 using SqlSugar;
@@ -86,41 +87,66 @@ public class DatasetService(
             .ToListAsync();
     }
 
-    public async Task<List<Dataset>> GetAvailableTemplateDatasetsAsync()
+    public async Task<List<Dataset>> GetAvailableSettingDatasetsAsync()
     {
         var projectId = currentProjectService.CurrentProject?.Id ?? 0;
         var dataType = currentProjectService.CdiscDataType;
-
         var existingNames = await sqlSugar.Queryable<Dataset>()
-            .Where(o => o.ProjectId == projectId &&
-                        o.CdiscDataType == dataType &&
-                        !string.IsNullOrWhiteSpace(o.Name))
+            .Where(o => o.ProjectId == projectId && o.CdiscDataType == dataType && !string.IsNullOrWhiteSpace(o.Name))
             .Select(o => o.Name)
             .ToListAsync();
 
-        return await sqlSugar.Queryable<Dataset>()
-            .Where(o => o.ProjectId == 0 &&
-                        o.CdiscDataType == dataType &&
-                        !string.IsNullOrWhiteSpace(o.Name) &&
-                        !string.IsNullOrWhiteSpace(o.Label) &&
-                        !existingNames.Contains(o.Name))
+        var templates = await sqlSugar.AsTenant().QueryableWithAttr<DatasetTemplate>()
+            .Where(o => !string.IsNullOrWhiteSpace(o.Name) && !existingNames.Contains(o.Name))
             .ToListAsync();
+        return templates.Select(MapSettingDataset).ToList();
     }
 
-    public async Task<List<Dataset>> GetTemplateDatasetsWithVariablesByNamesAsync(IReadOnlyList<string?> names)
+    public async Task<List<Dataset>> GetSettingDatasetsWithVariablesByNamesAsync(IReadOnlyList<string> names)
     {
-        if (names.Count == 0) return [];
+        var nameList = names.Where(name => !string.IsNullOrWhiteSpace(name)).Distinct().ToList();
+        if (nameList.Count == 0) return [];
 
-        var dataType = currentProjectService.CdiscDataType;
-        var nameList = names.Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
-
-        return await sqlSugar.Queryable<Dataset>()
+        var templates = await sqlSugar.AsTenant().QueryableWithAttr<DatasetTemplate>()
             .Includes(o => o.Variables)
-            .Where(o => o.ProjectId == 0 &&
-                        o.CdiscDataType == dataType &&
-                        !string.IsNullOrWhiteSpace(o.Name) &&
-                        nameList.Contains(o.Name))
+            .Where(o => o.Name != null && nameList.Contains(o.Name))
             .ToListAsync();
+        return templates.Select(MapSettingDataset).ToList();
+    }
+
+    public async Task<Dataset?> GetSettingDatasetWithVariablesByNameAsync(string datasetName)
+    {
+        var templates = await GetSettingDatasetsWithVariablesByNamesAsync([datasetName]);
+        return templates.FirstOrDefault();
+    }
+
+    private static Dataset MapSettingDataset(DatasetTemplate template)
+    {
+        return new Dataset
+        {
+            Name = template.Name,
+            Label = template.Label,
+            Class = template.Class,
+            SubClass = template.SubClass,
+            Structure = template.Structure,
+            KeyVariables = template.KeyVariables,
+            Standard = template.Standard,
+            HasNoData = template.HasNoData,
+            Repeating = template.Repeating,
+            ReferenceData = template.ReferenceData,
+            Language = template.Language,
+            Variables = template.Variables?.Select(variable => new Variable
+            {
+                Order = variable.Order,
+                DatasetName = variable.DatasetName,
+                VariableName = variable.VariableName,
+                Label = variable.Label,
+                DataType = variable.DataType,
+                Mandatory = variable.Mandatory,
+                Role = variable.Role,
+                Core = variable.Core
+            }).ToList()
+        };
     }
 
     public async Task<Dataset?> GetDatasetByName(string? datasetName)
@@ -141,9 +167,10 @@ public class DatasetService(
         if (string.IsNullOrWhiteSpace(datasetName))
             return null;
 
-        return await sqlSugar.Queryable<Dataset>()
-            .Includes(o => o.Comment)
-            .FirstAsync(x => x.ProjectId == 0 && x.CdiscDataType == CdiscDataType.Sdtm && x.Name == datasetName);
+        return await sqlSugar.AsTenant().QueryableWithAttr<DatasetTemplate>()
+                .Select<Dataset>()
+                .FirstAsync(x => x.CdiscDataType == CdiscDataType.Sdtm 
+                                 && x.Name == datasetName) ;
     }
 
     public async Task<List<DatasetDto>> GetAllDatasetDtosWithoutErorrAsync()

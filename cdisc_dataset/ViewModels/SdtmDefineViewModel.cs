@@ -30,6 +30,7 @@ using DynamicData.Binding;
 using Prism.Dialogs;
 using Prism.Navigation;
 using AsyncNavigation.Abstractions;
+using cdisc_dataset.Models.Settings;
 using ReactiveUI;
 using SqlSugar;
 
@@ -101,6 +102,7 @@ public partial class SdtmDefineViewModel : ViewModelBase, IDisposable
                 new ControlTokenIdentity("AtomUI", "Segmented"),
                 new ControlThemeConfigBuilder()
                     .WithAlgorithm(algorithm)
+                    .WithToken("ItemActiveBg","#ebedf0")
                     .WithToken("ItemSelectedBg","#000000")
                     .WithToken("ItemSelectedColor","#ffffff")
                     .WithToken("ItemHoverBg","#ebedf0")
@@ -126,31 +128,11 @@ public partial class SdtmDefineViewModel : ViewModelBase, IDisposable
     }
     
     [RelayCommand]
-    private void Load()
+    private async Task Load()
     {
-        
-        var list = XmlParser.GetDatasetFromXml(@"C:\Users\zhi\Desktop\Temp\SDTM-IG 3.4 (FDA).xml");
-        _sqlSugar.CodeFirst.InitTables<Dataset, Variable>();
-        _sqlSugar.InsertNav(list).Include(o => o.Variables).ExecuteCommand();
-    }
-    
-    [RelayCommand]
-    private void Loaded()
-    {
-        // var navigationParameters = new NavigationParameters
-        // {
-        //     { "CurrentProject", _currentProjectService.CurrentProject },
-        //     { "CdiscDataType", _cdiscDataType }
-        // };
-        //
-        // var containsRegionWithName = _regionManager.Regions.ContainsRegionWithName("SdtmDefineRegion");
-        // var commentsView = _container.Resolve<CommentsView>();
-        // var commentsViewModel = _container.Resolve<CommentsViewModel>();
-        // commentsView.DataContext = commentsViewModel;
-        // var mainRegion = _regionManager.Regions["SdtmDefineRegion"];
-        // mainRegion.Add(commentsView);
-        // if (containsRegionWithName && SelectedTabStripItem is { Header: string header })
-        //     _regionManager.Regions["SdtmDefineRegion"].RequestNavigate(header,navigationParameters);
+        // var list = XmlParser.GetDatasetFromXml(@"C:\Users\zhi\Documents\Pinnacle 21 Community\configs\2508.1\SDTM-IG 3.4 (FDA).xml");
+        // var connectionWithAttr = _sqlSugar.AsTenant().GetConnectionWithAttr<DatasetTemplate>();
+        // await connectionWithAttr.InsertNav(list).Include(o=>o.Variables).ExecuteCommandAsync();
     }
     
     public void Dispose()
