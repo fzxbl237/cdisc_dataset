@@ -24,7 +24,6 @@ class Program
                     .WithViewsFromAssembly(Assembly.GetExecutingAssembly())
                     ;
             })
-            .With(new Win32PlatformOptions())
-            .LogToTrace();
+            .With(new Win32PlatformOptions());
     }
 }

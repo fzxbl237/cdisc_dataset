@@ -4,7 +4,6 @@ using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
@@ -153,8 +152,6 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     
     public async Task LoadVariablesAsync()
     {
-        var sw = Stopwatch.StartNew();
-        
         foreach (var variableDto in _sourceCache.Items)
         {
             variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;
@@ -166,16 +163,11 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
            await _validator.ValidateDtoAsync(variableDto);
            variableDto.PropertyChanged+= VariableDtoOnPropertyChanged;
         }
-        var swElapsedMilliseconds = sw.ElapsedMilliseconds;
-        sw.Restart();
         _sourceCache.Edit(o =>
         {
             o.Clear();
             o.AddOrUpdate(list);
         });
-        var swElapsedMilliseconds2 = sw.ElapsedMilliseconds;
-        sw.Restart();
-        Console.WriteLine(swElapsedMilliseconds+" "+swElapsedMilliseconds2+" ");
         HasChanges = false;
     }
 

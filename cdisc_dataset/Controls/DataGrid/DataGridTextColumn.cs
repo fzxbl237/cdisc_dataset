@@ -1,4 +1,4 @@
-﻿using LineEdit = AtomUI.Desktop.Controls.LineEdit;
+﻿﻿using LineEdit = AtomUI.Desktop.Controls.LineEdit;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using cdisc_dataset.Extensions;
@@ -26,10 +27,13 @@ public class DatasetService(
 
         var list = await sqlSugar.Queryable<Dataset>()
             .Includes(o=>o.Comment)
-            .Where(x => x.ProjectId == projectId && x.CdiscDataType==dataType).ToListAsync();
-        var dtos = mapper.Map<List<DatasetDto>>(list);
-        await issueService.RestoreIssuesAsync(dtos.Cast<BaseDto>(), nameof(DatasetDto), dto => dto.Id);
-        return dtos;
+            .Where(x => x.ProjectId == projectId && x.CdiscDataType==dataType)
+            .Select(o=> new DatasetDto(){
+                Comment = o.Comment
+            },true).ToListAsync();
+        //var dtos = mapper.Map<List<DatasetDto>>(list);
+        //await issueService.RestoreIssuesAsync(dtos.Cast<BaseDto>(), nameof(DatasetDto), dto => dto.Id);
+        return list;
     }
 
     public async Task<List<Dataset>> GetAllDatasetsWithoutErorrAsync()
@@ -63,6 +67,19 @@ public class DatasetService(
                         o.CdiscDataType == dataType &&
                         !string.IsNullOrWhiteSpace(o.Name))
             .Select(o => o.Name)
+            .ToListAsync();
+    }
+
+    public async Task<List<Dataset>> GetStandardDatasetsAsync()
+    {
+        var dataType = currentProjectService.CdiscDataType;
+        return await sqlSugar.Queryable<Dataset>()
+            .Where(o => o.ProjectId == 0 && o.CdiscDataType == dataType)
+            .Select(o => new Dataset
+            {
+                Name = o.Name,
+                Label = o.Label
+            })
             .ToListAsync();
     }
 

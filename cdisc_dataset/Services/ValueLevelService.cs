@@ -31,12 +31,20 @@ public class ValueLevelService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueS
             .Includes(o => o.Method)
             .Includes(o => o.Comment)
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType)
+            .Select(o=> new ValueLevelDto(){
+                DatasetEntity = o.DatasetEntity,
+                VariableEntity = o.VariableEntity,
+                Method = o.Method,
+                //WhereClauses = o.WhereClauses,
+                CodeList = o.CodeList,
+                Comment = o.Comment
+            },true)
             .ToListAsync();
 
-        var dtos = mapper.Map<List<ValueLevelDto>>(list);
-        await issueService.RestoreIssuesAsync(dtos.Cast<BaseDto>(), nameof(ValueLevelDto), dto => dto.Id);
+        //var dtos = mapper.Map<List<ValueLevelDto>>(list);
+        //await issueService.RestoreIssuesAsync(list.Cast<BaseDto>(), nameof(ValueLevelDto), dto => dto.Id);
 
-        return dtos;
+        return list;
     }
 
     public async Task<List<ValueLevelDto>> GetAllValueLevelDtosWithoutErorrAsync()

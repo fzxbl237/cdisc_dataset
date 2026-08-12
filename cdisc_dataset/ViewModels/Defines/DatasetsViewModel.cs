@@ -3,7 +3,9 @@ using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Text;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -16,6 +18,8 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using cdisc_dataset.Constants;
 using cdisc_dataset.Extensions;
+using GridValidationResult = Avalonia.Controls.DataGridValidationResult;
+using GridValidationSeverity = Avalonia.Controls.DataGridValidationSeverity;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Models.Enums;
@@ -41,18 +45,21 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IMapper _mapper;
     private readonly IValidator<DatasetDto> _validator;
-
     public AvaloniaList<string> Yns { get; set; } = ["Yes", "No"];
     public AvaloniaList<string> Classes { get; set; } = [];
     public AvaloniaList<string> Standards { get; set; } = [];
     public AvaloniaList<IAutoCompleteOption> CommentOptions { get; set; } = [];
 
     private FrozenDictionary<string, Comment>? _frozenCommentDictionary;
+    private FrozenDictionary<string, string?> _standardLabels = FrozenDictionary<string, string?>.Empty;
 
     private readonly SourceCache<DatasetDto, int> _sourceCache = new(o => o.Id);
 
     [ObservableProperty] private string? _searchText;
     [ObservableProperty] private bool _hasChanges;
+    [ObservableProperty] private bool _isInitialLoadCompleted;
+
+    public bool ShowLoading => !IsInitialLoadCompleted;
 
     private readonly ReadOnlyObservableCollection<DatasetDto> _datasets;
     public ReadOnlyObservableCollection<DatasetDto> Datasets => _datasets;
@@ -78,11 +85,29 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             .Throttle(TimeSpan.FromMilliseconds(250))
             .Select(BuildFilter);
         _sourceCache.Connect()
-            .Filter(filter)
+            //.Filter(filter)
             .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Bind(out _datasets)
             .SortAndBind(out _datasets, SortExpressionComparer<DatasetDto>.Ascending(o => o.Name ?? string.Empty))
             .DisposeMany()
             .Subscribe();
+
+    }
+
+    partial void OnIsInitialLoadCompletedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowLoading));
+    }
+
+    public async Task LoadInitialDataAsync()
+    {
+        if (IsInitialLoadCompleted)
+        {
+            return;
+        }
+
+        await LoadDatasetsAsync();
+        IsInitialLoadCompleted = true;
     }
 
     private void DatasetDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -100,7 +125,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
                     await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Name));
                     await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Standard));
                     _sourceCache.AddOrUpdate(datasetDto);
-                    UpdateDuplicateFlags();
+                    UpdateDuplicateFlags(_sourceCache.Items.ToList());
                     break;
                 case nameof(DatasetDto.Standard):
                     await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Name));
@@ -108,7 +133,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
                     break;
                 case nameof(DatasetDto.Label):
                     await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Label));
-                    _sourceCache.AddOrUpdate(datasetDto);
+                    //_sourceCache.AddOrUpdate(datasetDto);
                     break;
                 case nameof(DatasetDto.Class):
                     await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Class));
@@ -131,6 +156,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
         datasetDto.HasChanged = true;
         HasChanges = true;
+
     }
 
     private void HandleCommentUniqueIdChanged(DatasetDto datasetDto)
@@ -158,10 +184,9 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         datasetDto.PropertyChanged -= DatasetDtoOnPropertyChanged;
     }
 
-    private void UpdateDuplicateFlags()
+    private void UpdateDuplicateFlags(List<DatasetDto> datasets)
     {
-        var all = _sourceCache.Items.ToList();
-        var nameGroups = all.GroupBy(o => o.Name ?? string.Empty).ToList();
+        var nameGroups = datasets.GroupBy(o => o.Name ?? string.Empty).ToList();
         foreach (var group in nameGroups)
         {
             var isDuplicate = group.Count() > 1;
@@ -170,7 +195,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
                 if (dto.IsDuplicate != isDuplicate)
                 {
                     dto.IsDuplicate = isDuplicate;
-                    _sourceCache.AddOrUpdate(dto);
+                    //_sourceCache.AddOrUpdate(dto);
                 }
             }
         }
@@ -191,29 +216,35 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         return !string.IsNullOrWhiteSpace(value) && value.Contains(searchText!, StringComparison.OrdinalIgnoreCase);
     }
 
-    public async Task LoadDatasets()
+    public async Task LoadDatasetsAsync()
     {
         foreach (var datasetDto in _sourceCache.Items)
             UnregisterDatasetDtoPropertyChanged(datasetDto);
 
         var list = await _datasetService.GetAllDatasetsAsync();
+        UpdateDuplicateFlags(list);
         foreach (var datasetDto in list)
-        {
-            await _validator.ValidateDtoAsync(datasetDto);
             RegisterDatasetDtoPropertyChanged(datasetDto);
-        }
+
         _sourceCache.Edit(o =>
         {
             o.Clear();
-            o.Load(list);
+            o.AddOrUpdate(list);
         });
-        UpdateDuplicateFlags();
+
+        foreach (var datasetDto in list)
+            await _validator.ValidateDtoAsync(datasetDto);
+
+
         HasChanges = false;
     }
 
     public async Task LoadLookups()
     {
-        if (_currentProjectService.CurrentProject == null) return;
+        if (_currentProjectService.CurrentProject == null)
+        {
+            return;
+        }
 
         var comments = await _commentService.GetAllCommentsWithoutErorrAsync();
 
@@ -275,7 +306,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         }
 
         await _datasetService.InsertDatasetsWithVariablesAsync([suppDataset]);
-        await LoadDatasets();
+        await LoadDatasetsAsync();
         _messageService.Success($"Dataset {suppName} generated successfully.");
     }
 
@@ -303,14 +334,14 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         await _datasetService.SaveDatasetsAsync(_sourceCache.Items.Where(o => o.HasChanged).ToList());
         HasChanges = false;
         _messageService.Success("Saved successfully.");
-        await LoadDatasets();
+        await LoadDatasetsAsync();
     }
 
     [RelayCommand]
     private async Task Discard()
     {
         if (!HasChanges || _currentProjectService.CurrentProject == null) return;
-        await LoadDatasets();
+        await LoadDatasetsAsync();
     }
 
     [RelayCommand]
@@ -414,7 +445,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         }
 
         await _datasetService.InsertDatasetsWithVariablesAsync(datasets);
-        await LoadDatasets();
+        await LoadDatasetsAsync();
         _messageService.Success($"Imported {datasets.Count} dataset(s) successfully.");
     }
 
@@ -426,7 +457,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             UnregisterDatasetDtoPropertyChanged(datasetDto);
     }
 
-    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
+    public override async Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
         if (_currentProjectService.CdiscDataType == CdiscDataType.Sdtm)
         {
@@ -435,17 +466,15 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             Classes.AddRange([.. ConstantOptions.Classes]);
             Standards.AddRange([.. ConstantOptions.SdtmStandards]);
         }
-
-        return Task.CompletedTask;
-    }
-
-    public async Task LoadDataAsync()
-    {
-        if (_currentProjectService.CurrentProject == null)
-            return;
-
         await LoadLookups();
-        await LoadDatasets();
+
+        if (IsInitialLoadCompleted)
+        {
+            foreach (var datasetDto in _sourceCache.Items)
+                RegisterDatasetDtoPropertyChanged(datasetDto);
+        }
+
+        // return Task.CompletedTask;
     }
 
     public override void ConfirmNavigationRequest(NavigationContext navigationContext, Action<bool> continuationCallback)

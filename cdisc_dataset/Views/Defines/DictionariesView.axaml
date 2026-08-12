@@ -166,6 +166,11 @@
                         <Setter Property="ContextMenu">
                             <atom:ContextMenu x:DataType="dto:DictionaryDto">
                                 <atom:MenuItem
+                                    Command="{Binding #Root.((vm:DictionariesViewModel)DataContext).ModifyCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Edit"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=EditOutlined}" />
+                                <atom:MenuItem
                                     Command="{Binding #Root.((vm:DictionariesViewModel)DataContext).DeleteCommand}"
                                     CommandParameter="{Binding}"
                                     Header="Delete"
@@ -192,7 +197,7 @@
                         Binding="{Binding Name}"
                         Header="Name"
                         IsReadOnly="False"
-                        Width="200" />
+                        Width="*" />
                     <customGrid:DataGridComboBoxColumn
                         Binding="{Binding DataType}"
                         Header="Data Type"
@@ -216,42 +221,11 @@
                             </DataTemplate>
                         </customGrid:DataGridAutoCompleteColumn.OptionTemplate>
                     </customGrid:DataGridAutoCompleteColumn>
-                    <customGrid:DataGridTemplateColumn
+                    <customGrid:DataGridDynamicColumn
+                        Binding="{Binding Version}"
                         Header="Version"
                         IsReadOnly="False"
-                        Width="160">
-                        <customGrid:DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate x:DataType="dto:DictionaryDto">
-                                <Grid>
-                                    <atom:ComboBox
-                                        HorizontalAlignment="Stretch"
-                                        IsVisible="{Binding ShowComboBox}"
-                                        ItemsSource="{Binding Versions}"
-                                        SelectedItem="{Binding Version, Mode=TwoWay}"
-                                        StyleVariant="Borderless" />
-                                    <atom:LineEdit
-                                        IsVisible="{Binding !ShowComboBox}"
-                                        StyleVariant="Borderless"
-                                        Text="{Binding Version, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
-                                </Grid>
-                            </DataTemplate>
-                        </customGrid:DataGridTemplateColumn.CellTemplate>
-                    </customGrid:DataGridTemplateColumn>
-                    <customGrid:DataGridTemplateColumn
-                        Header="Options"
-                        IsReadOnly="True"
-                        Width="100">
-                        <customGrid:DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <atom:Button
-                                    ButtonType="Link"
-                                    Command="{Binding #Root.((vm:DictionariesViewModel)DataContext).ModifyCommand}"
-                                    CommandParameter="{Binding}"
-                                    Content="Edit"
-                                    SizeType="Small" />
-                            </DataTemplate>
-                        </customGrid:DataGridTemplateColumn.CellTemplate>
-                    </customGrid:DataGridTemplateColumn>
+                        Width="160" />
                 </customGrid:DataGrid.Columns>
             </customGrid:DataGrid>
             <StackPanel

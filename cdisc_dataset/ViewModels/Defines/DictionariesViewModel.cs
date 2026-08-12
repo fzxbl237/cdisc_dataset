@@ -11,7 +11,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using AtomUI.Desktop.Controls;
 using Avalonia.Collections;
+using Avalonia.Controls;
 using cdisc_dataset.Constants;
+using cdisc_dataset.Controls.DataGrid;
 using cdisc_dataset.Extensions;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
@@ -28,7 +30,7 @@ using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
-public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
+public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDataGridDynamicEditorProvider
 {
     private readonly IDictionaryService _dictionaryService;
     private readonly IMessageService _messageService;
@@ -90,7 +92,15 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
         if (sender is not DictionaryDto dictionaryDto || string.IsNullOrWhiteSpace(e.PropertyName))
             return;
 
-        if (e.PropertyName == nameof(DictionaryDto.HasChanged))
+        var marksDirty = e.PropertyName is nameof(DictionaryDto.UniqueId)
+            or nameof(DictionaryDto.Name)
+            or nameof(DictionaryDto.DataType)
+            or nameof(DictionaryDto.DictionaryName)
+            or nameof(DictionaryDto.Version);
+        var requiresValidation = marksDirty || e.PropertyName is nameof(DictionaryDto.HasUniqueIdDuplicate)
+            or nameof(DictionaryDto.HasNameDuplicate);
+
+        if (!requiresValidation)
             return;
 
         Observable.StartAsync(async () =>
@@ -117,15 +127,18 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
                 case nameof(DictionaryDto.DictionaryName):
                     await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.DictionaryName));
                     break;
-                default:
-                    return;
+                case nameof(DictionaryDto.DataType):
+                    break;
             }
 
             _sourceCache.AddOrUpdate(dictionaryDto);
         });
 
-        dictionaryDto.HasChanged = true;
-        HasChanges = true;
+        if (marksDirty)
+        {
+            dictionaryDto.HasChanged = true;
+            HasChanges = true;
+        }
     }
 
     private void RegisterDictionaryDtoPropertyChanged(DictionaryDto dictionaryDto)
@@ -188,7 +201,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
         await _dictionaryService.DeleteDictionaryAsync(dictionary);
         UnregisterDictionaryDtoPropertyChanged(dictionary);
         _sourceCache.Remove(dictionary);
-        _messageService.Success("??????");
+        _messageService.Success("Delete successfully");
     }
 
     [RelayCommand]
@@ -199,7 +212,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
 
         await _dictionaryService.SaveDictionariesAsync(Dictionarys.ToList());
         HasChanges = false;
-        _messageService.Success("Dictionarys Save Success");
+        _messageService.Success("Dictionaries Save Success");
         await LoadDictionaries();
     }
 
@@ -274,6 +287,60 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase
                 Header = o,
                 Content = o
             }));
+    }
+
+    public async Task<Control?> CreateEditorAsync(
+        DataGridDynamicEditorContext context,
+        CancellationToken cancellationToken)
+    {
+        if (context.DataItem is not DictionaryDto dictionaryDto)
+            return null;
+
+        if (string.IsNullOrWhiteSpace(dictionaryDto.DictionaryName))
+        {
+            return new LineEdit
+            {
+                PlaceholderText = "Please input version"
+            };
+        }
+
+        var versions = await _dictionaryService
+            .GetDictionaryVersionsByDictionaryNameAsync(dictionaryDto.DictionaryName);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (versions.Count == 0)
+        {
+            return new LineEdit
+            {
+                PlaceholderText = "Please input version"
+            };
+        }
+
+        if (versions.Count <= 12)
+        {
+            return new AtomUI.Desktop.Controls.ComboBox
+            {
+                ItemsSource = versions,
+                MaxDropDownHeight = 300
+            };
+        }
+
+        return new AtomUI.Desktop.Controls.ComboBox
+        {
+            ItemsSource = versions,
+            MaxDropDownHeight = 300
+        };
+
+        // return new AutoComplete
+        // {
+        //     MinimumPrefixLength = 0,
+        //     IsPopupMatchSelectWidth = true,
+        //     OptionsSource = versions.Select(version => new AutoCompleteOption
+        //     {
+        //         Header = version,
+        //         Content = version
+        //     })
+        // };
     }
 
     private void MarkDuplicates()

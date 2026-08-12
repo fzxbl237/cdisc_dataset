@@ -1,9 +1,7 @@
 ﻿using AsyncNavigation.Abstractions;
-using Avalonia;
-using Avalonia.Controls;
+using System;
 using System.Threading.Tasks;
-using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
+using Avalonia.Controls;
 using cdisc_dataset.ViewModels.Defines;
 using ReactiveUI;
 using ReactiveUI.Primitives.Disposables;
@@ -17,17 +15,16 @@ public partial class DatasetsView : UserControl, IActivatableView, IView
         InitializeComponent();
         this.WhenActivated((MultipleDisposable disposables) =>
         {
-            if (DataContext is DatasetsViewModel vm)
-            {
-                Dispatcher.UIThread.InvokeAsync(async () =>
-                {
-                    await vm.ExecuteLoadingAsync(async () =>
-                    {
-                        await Task.Delay(250);
-                        await vm.LoadDataAsync();
-                    });
-                }, DispatcherPriority.Background);
-            }
+            if (DataContext is DatasetsViewModel vm && !vm.IsInitialLoadCompleted)
+                _ = LoadAsync(vm);
+        });
+    }
+
+    private async Task LoadAsync(DatasetsViewModel vm)
+    {
+        await vm.ExecuteLoadingAsync(async () =>
+        {
+            await vm.LoadInitialDataAsync();
         });
     }
 }

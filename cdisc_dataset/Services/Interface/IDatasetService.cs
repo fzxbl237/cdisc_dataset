@@ -12,6 +12,7 @@ public interface IDatasetService
     Task<List<Dataset>> GetAllDatasetsWithoutErrorAsync();
     Task<List<string?>> GetDatasetNamesAsync();
     Task<List<string?>> GetAvailableDatasetNamesAsync();
+    Task<List<Dataset>> GetStandardDatasetsAsync();
     Task<List<Dataset>> GetAvailableSettingDatasetsAsync();
     Task<List<Dataset>> GetSettingDatasetsWithVariablesByNamesAsync(IReadOnlyList<string> names);
     Task<Dataset?> GetSettingDatasetWithVariablesByNameAsync(string datasetName);

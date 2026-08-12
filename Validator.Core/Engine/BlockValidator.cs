@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using P21.Validator.Api.Events;
 using P21.Validator.Api.Events.Util;
 using P21.Validator.Api.Models;
@@ -14,8 +14,6 @@ namespace P21.Validator.Core.Engine;
 public sealed class BlockValidator : ValidationEngine
 {
     private static readonly Dispatcher Dispatcher = new();
-    //private static readonly ILogger Logger = Log.ForContext<BlockValidator>();
-
     private readonly HashSet<EngineEntity> _entities = new();
     private readonly HashSet<DiagnosticListener> _diagnosticListeners;
     private readonly HashSet<Action<ValidationEvent>> _eventListeners;
@@ -31,10 +29,6 @@ public sealed class BlockValidator : ValidationEngine
         _eventListeners = eventListeners;
         _scheduler = scheduler;
         _global = global;
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Debug() // 设置最低日志级别
-            .WriteTo.Console()    // 关键：仅写入控制台
-            .CreateLogger();
     }
 
     public void Prepare(EngineEntity entity)
@@ -114,17 +108,11 @@ public sealed class BlockValidator : ValidationEngine
         private readonly int _id;
         private readonly BlockValidator _blockValidator;
         private readonly EngineEntity _entity;
-        private static readonly ILogger Logger = Log.ForContext<BlockTask>();
-
         public BlockTask(EngineEntity entity, int taskNumber, BlockValidator blockValidator)
         {
             _id = taskNumber;
             this._blockValidator = blockValidator;
             _entity = entity;
-            Log.Logger = new LoggerConfiguration()
-                .MinimumLevel.Debug() // 设置最低日志级别
-                .WriteTo.Console()    // 关键：仅写入控制台
-                .CreateLogger();
         }
 
         public bool Call()
@@ -245,7 +233,6 @@ public sealed class BlockValidator : ValidationEngine
                             {
                                 
                                 //TODO EXCEPTION can not be print
-                                Logger.Information(e.Message);
                             }
                         }
 

@@ -1,4 +1,4 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using System.Text;
 using P21.Validator.Api.Models;
 using P21.Validator.Api.Options;
@@ -125,9 +125,8 @@ public sealed class SasTransportDataSource : AbstractDataSource
 
                         looksNull = observation.Value.Span[i] == 32;
                     }
-                    catch (Exception e)
+                    catch (Exception)
                     {
-                        Console.WriteLine(e);
                         throw;
                     }
 

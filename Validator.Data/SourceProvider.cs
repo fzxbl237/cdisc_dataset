@@ -1,4 +1,4 @@
-using P21.Validator.Api.Models;
+﻿using P21.Validator.Api.Models;
 using P21.Validator.Api.Options;
 using System;
 using System.Collections.Generic;
@@ -199,9 +199,8 @@ public sealed class SourceProvider
                 headerless = _params.Remove("headerless");
                 unquoted = _params.Remove("unquoted");
             }
-            catch (UriFormatException e)
+            catch (UriFormatException)
             {
-                Console.WriteLine($"Unable to parse {connectionString} as a valid URI to create source options");
             }
         }
 

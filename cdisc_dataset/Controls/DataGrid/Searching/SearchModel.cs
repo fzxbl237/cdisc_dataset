@@ -179,7 +179,6 @@ public sealed class SearchModel : ISearchModel
 
     public void Clear()
     {
-        Debug.WriteLine($"[SearchModel.Clear] descriptors={_descriptors.Count}, results={_results.Count}\n{Environment.StackTrace}");
         if (_descriptors.Count == 0) { if (_results.Count > 0) UpdateResults(Array.Empty<SearchResult>()); return; }
         ApplyState(new List<SearchDescriptor>());
     }

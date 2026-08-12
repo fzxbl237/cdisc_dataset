@@ -226,7 +226,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
     private void RegisterValueLevelDtoPropertyChanged(ValueLevelDto valueLevelDto)
     {
-        valueLevelDto.PropertyChanged += ValueLevelDtoOnPropertyChanged;
+       valueLevelDto.PropertyChanged += ValueLevelDtoOnPropertyChanged;
     }
 
     private void UnregisterValueLevelDtoPropertyChanged(ValueLevelDto valueLevelDto)
@@ -394,7 +394,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         HasChanges = false;
         _messageService.Success("ValueLevels Save Success");
         if (CurrentProject != null)
-            await LoadValueLevels(CurrentProject.Id, CdiscDataType);
+            await LoadValueLevels();
     }
 
     [RelayCommand]
@@ -403,7 +403,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         if (!HasChanges || CurrentProject == null)
             return;
 
-        await LoadValueLevels(CurrentProject.Id, CdiscDataType);
+        await LoadValueLevels();
     }
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
@@ -429,9 +429,9 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     {
         if (CurrentProject == null)
             return;
+        await LoadValueLevels();
+        await LoadLookups();
 
-        await LoadLookups(CurrentProject.Id, CdiscDataType);
-        await LoadValueLevels(CurrentProject.Id, CdiscDataType);
     }
 
     public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
@@ -447,7 +447,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         continuationCallback(true);
     }
 
-    public async Task LoadValueLevels(int id, CdiscDataType cdiscDataType)
+    public async Task LoadValueLevels()
     {
         foreach (var valueLevelDto in _sourceCache.Items)
             UnregisterValueLevelDtoPropertyChanged(valueLevelDto);
@@ -458,17 +458,16 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             await _validator.ValidateDtoAsync(dto);
             RegisterValueLevelDtoPropertyChanged(dto);
         }
-
-        _sourceCache.Edit(o =>
+        _sourceCache.Edit(cache =>
         {
-            o.Clear();
-            o.AddOrUpdate(dtoList);
+            cache.Clear();
+            cache.AddOrUpdate(dtoList);
         });
 
         HasChanges = false;
     }
 
-    public async Task LoadLookups(int id, CdiscDataType cdiscDataType)
+    public async Task LoadLookups()
     {
         var datasets = await _datasetService.GetAllDatasetsWithoutErrorAsync();
         DatasetOptions.Clear();

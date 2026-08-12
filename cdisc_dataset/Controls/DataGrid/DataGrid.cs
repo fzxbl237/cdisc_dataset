@@ -1,10 +1,9 @@
-﻿using System;
+﻿﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia;
@@ -825,7 +824,6 @@ public class DataGrid : TemplatedControl
                 var item = i < items.Count ? items[i] : null;
                 if (!ReferenceEquals(existing.DataContext, item))
                 {
-                    Debug.WriteLine($"[DataGrid.UpdateViewport.Rebind] index={i}, old={existing.DataContext}#{(existing.DataContext == null ? 0 : RuntimeHelpers.GetHashCode(existing.DataContext))}, new={item}#{(item == null ? 0 : RuntimeHelpers.GetHashCode(item))}");
                     existing.DataContext = item;
                     existing.UpdateCells();
                 }
@@ -884,7 +882,6 @@ public class DataGrid : TemplatedControl
                     source = source.Where(item => matched.Contains(item));
                 }
                 _cachedItems = source.ToList();
-                Debug.WriteLine($"[DataGrid.GetItemsList] count={_cachedItems.Count}, items={string.Join(" | ", _cachedItems.Select((item, index) => $"{index}:{item}#{RuntimeHelpers.GetHashCode(item)}"))}");
             }
             _itemsDirty = false;
         }
@@ -997,7 +994,11 @@ public class DataGrid : TemplatedControl
 
     public void BeginEdit(DataGridCell cell)
     {
-        if (cell.Column?.IsReadOnly == true || cell.DataItem == null || _isEditing) return;
+        if (cell.Column?.IsReadOnly == true || cell.DataItem == null || _isEditing)
+        {
+            return;
+        }
+
         _isEditing = true;
         _currentCell = cell;
         cell.BeginEdit();
@@ -1006,12 +1007,14 @@ public class DataGrid : TemplatedControl
     public void CommitEdit()
     {
         if (!_isEditing || _currentCell == null) return;
-        var args = new DataGridCellEditEndingEventArgs(_currentCell, _currentCell.Column, DataGridEditAction.Commit);
+        var cell = _currentCell;
+        var args = new DataGridCellEditEndingEventArgs(cell, cell.Column, DataGridEditAction.Commit);
         CellEditEnding?.Invoke(this, args);
         if (args.Cancel) return;
-        var value = _currentCell.CommitEdit();
-        CommitCellValue(_currentCell, value);
+        var value = cell.CommitEdit();
+        CommitCellValue(cell, value);
         _isEditing = false;
+
     }
 
     internal void OnComboBoxDropDownClosed()

@@ -23,7 +23,8 @@ public partial class ValueLevelsView : UserControl, IActivatableView, IView
                     await vm.ExecuteLoadingAsync(async () =>
                     {
                         await Task.Delay(250);
-                        await vm.LoadDataAsync();
+                        await vm.LoadValueLevels();
+                        await vm.LoadLookups();
                     });
                 }, DispatcherPriority.Background);
             }

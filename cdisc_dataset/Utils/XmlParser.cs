@@ -87,7 +87,6 @@ public static class XmlParser
                         var codelistValue = codelist.Value;
                     }
                     varList.Add(variable);
-                    //Console.WriteLine(id);
                 }
                 dataset.Variables = varList;
                 list.Add(dataset);

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using AtomUI;
 using AtomUI.Controls;
 using AtomUI.Desktop.Controls;
@@ -9,6 +10,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
+using cdisc_dataset.Navigation;
 using cdisc_dataset.Models.Settings;
 using cdisc_dataset.Services;
 using cdisc_dataset.Services.Interface;
@@ -91,7 +93,11 @@ public class App : Application
         base.OnFrameworkInitializationCompleted();
 
         var services = new ServiceCollection();
-        services.AddNavigationSupport()
+        services.AddNavigationSupport(new NavigationOptions
+            {
+                LoadingIndicatorDelay = TimeSpan.Zero
+            })
+            .RegisterInnerIndicatorProvider<DefineNavigationIndicatorProvider>()
             .AddSingleton<MainWindowViewModel>()
             .RegisterNavigation<ProjectView, ProjectViewModel>("Projects")
             .RegisterNavigation<SdtmDefineView, SdtmDefineViewModel>("SdtmDefine")

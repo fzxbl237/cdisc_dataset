@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -41,9 +41,6 @@ public class DataGridSearchAdapter : IDisposable
     {
         if (_isDisposed) return;
         var results = ComputeResults(_model.Descriptors);
-        Debug.WriteLine($"[SearchAdapter.RefreshResults] query={string.Join(" | ", _model.Descriptors.Select(d => d.Query))}, results={results.Count}, rows={results.Select(r => r.RowIndex).Distinct().Count()}");
-        foreach (var result in results)
-            Debug.WriteLine($"[SearchAdapter.Match] row={result.RowIndex}, column={result.ColumnName}, text={result.Text}, item={result.Item}");
         _model.UpdateResults(results);
     }
 
@@ -67,7 +64,6 @@ public class DataGridSearchAdapter : IDisposable
             colInfos.Add(new ColInfo(col, name, i, path, tp));
         }
 
-        Debug.WriteLine($"[SearchAdapter.Columns] {string.Join(", ", colInfos.Select(c => $"{c.Index}:{c.Name} path={c.BindingPath ?? "<none>"}"))}");
         var results = new List<SearchResult>();
         int ri = 0;
         foreach (var item in items)

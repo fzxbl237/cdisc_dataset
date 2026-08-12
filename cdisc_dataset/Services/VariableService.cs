@@ -1,6 +1,5 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using cdisc_dataset.Models;
@@ -155,7 +154,6 @@ public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
 
     public async Task<int> SaveVariablesAsync(IReadOnlyList<VariableDto> variableDtos)
     {
-        var sw = Stopwatch.StartNew();
         var list = await Task.Run(() => mapper.Map<List<Variable>>(variableDtos));
         await sqlSugar.Utilities.PageEachAsync(list, 200, async pageList =>
         {
@@ -163,9 +161,6 @@ public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
             var inserted = await storage.AsInsertable.ExecuteCommandAsync();
             var updated = await storage.AsUpdateable.ExecuteCommandAsync();
         });
-        var cost = sw.ElapsedMilliseconds;
-        sw.Restart();
-        Console.WriteLine($"cost:{cost}");
         return 1;
     }
 

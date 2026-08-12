@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
@@ -33,24 +33,38 @@ public class DataGridComboBoxColumn : DataGridBoundColumn
 
     public override Control GenerateElement(DataGridCell cell, object? dataItem)
     {
-        var tb = new TextBlock
+        var comboBox = new ComboBox
         {
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(4, 0),
+            ItemsSource = ItemsSource,
+            MaxDropDownHeight = MaxDropDownHeight,
             FontSize = FontSize,
+            MinHeight = 22,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            FocusAdorner = null,
+            StyleVariant = AtomUI.Controls.InputControlStyleVariant.Borderless,
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(Colors.Transparent),
+            IsHitTestVisible = false,
         };
-        if (Foreground != null) tb.Foreground = Foreground;
+
+        if (Foreground != null)
+            comboBox.Foreground = Foreground;
+        if (ItemTemplate != null)
+            comboBox.ItemTemplate = ItemTemplate;
         if (Binding != null && dataItem != null)
         {
-            var b = CloneBinding(Binding);
-            if (b is Binding binding) binding.Mode = BindingMode.OneWay;
-            tb.Bind(TextBlock.TextProperty, b);
+            var binding = CloneBinding(Binding);
+            if (binding is Binding dataBinding)
+                dataBinding.Mode = BindingMode.OneWay;
+            comboBox.Bind(ComboBox.SelectedItemProperty, binding);
         }
         else if (dataItem != null)
         {
-            tb.Text = dataItem.ToString();
+            comboBox.SelectedItem = dataItem;
         }
-        return tb;
+
+        return comboBox;
     }
 
     protected override Control? GenerateEditingElementDirect(DataGridCell cell, object? dataItem)
