@@ -193,7 +193,7 @@
                                                                 Text="Add New"
                                                                 x:DataType="model:VariableDto" />
                                                             <atom:HyperLinkTextBlock
-                                                                Command="{Binding #Root.((vm:VariablesViewModel)DataContext).ModifyCommentCommand}"
+                                                                Command="{Binding #Root.((vm:VariablesViewModel)DataContext).EditCommentCommand}"
                                                                 CommandParameter="{Binding}"
                                                                 IsVisible="{Binding CommentExist}"
                                                                 Text="Open in Editor"
@@ -612,7 +612,7 @@
                                 <Border Background="White" BorderBrush="{atom:SharedTokenResource ColorPrimary}" BorderThickness="0.5" BoxShadow="0 1 6 0 #18000000" CornerRadius="4" Padding="2">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:VariablesViewModel)DataContext).AddCommentCommand}" CommandParameter="{Binding}" Content="Add New" IsVisible="{Binding !CommentExist}" SizeType="Small" />
-                                        <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:VariablesViewModel)DataContext).ModifyCommentCommand}" CommandParameter="{Binding}" Content="Open in Editor" IsVisible="{Binding CommentExist}" SizeType="Small" />
+                                        <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:VariablesViewModel)DataContext).EditCommentCommand}" CommandParameter="{Binding}" Content="Open in Editor" IsVisible="{Binding CommentExist}" SizeType="Small" />
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>

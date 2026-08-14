@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Services.Interface;
@@ -25,9 +25,15 @@ public class CommentValidator : AbstractValidator<CommentDto>
 
         RuleFor(x => x.UniqueId)
             .Empty()
-            .When(o => o.HasUniqueIdDuplicate)
+            .When(o => o.IsUniqueIdDuplicate)
             .WithSeverity(Severity.Error)
             .WithMessage("Duplicate Id");
+
+        RuleFor(x => x.Description)
+            .Empty()
+            .When(o => o.IsDescriptionDuplicate)
+            .WithSeverity(Severity.Error)
+            .WithMessage("Duplicate description");
 
         RuleFor(x => x.Pages)
             .NotEmpty()

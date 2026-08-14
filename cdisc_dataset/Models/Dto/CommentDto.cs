@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -33,5 +33,8 @@ public partial class CommentDto : BaseDto
     
     
     [ObservableProperty]
-    private bool _hasUniqueIdDuplicate;
+    private bool _isUniqueIdDuplicate;
+
+    [ObservableProperty]
+    private bool _isDescriptionDuplicate;
 }

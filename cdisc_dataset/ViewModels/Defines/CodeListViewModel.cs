@@ -34,6 +34,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     private readonly ICodeListService _codeListService;
     private readonly ICommentService _commentService;
     private readonly IDialogHostService _dialogHostService;
+    private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly IMessageService _messageService;
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IVariableService _variableService;
@@ -61,9 +62,6 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     [ObservableProperty] private string? _searchText;
     
     [ObservableProperty] private bool _hasChanges;
-    [ObservableProperty]
-    private CdiscDataType _cdiscDataType;
-    
     private readonly SourceCache<CodeListDto,int> _sourceCache = new(o=>o.Id);
     
     private readonly ReadOnlyObservableCollection<CodeListDto> _codeLists;
@@ -72,6 +70,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     public CodeListViewModel(ICodeListService codeListService,
         ICommentService commentService,
         IDialogHostService dialogHostService,
+        cdisc_dataset.Services.IDialogService dialogService,
         IMessageService messageService,
         ICurrentProjectService currentProjectService,
         IVariableService variableService,
@@ -81,6 +80,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         _codeListService = codeListService;
         _commentService = commentService;
         _dialogHostService = dialogHostService;
+        _dialogService = dialogService;
         _messageService = messageService;
         _currentProjectService = currentProjectService;
         _variableService = variableService;
@@ -329,45 +329,37 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         {
             o.Remove(codeList);
         });
-        _messageService.Success("Delete successfully");
+        _messageService.Success("Code list deleted successfully.");
     }
     
     [RelayCommand]
     private async Task AddComment(CodeListDto codeList)
     {
-        var dialogParameters = new DialogParameters
-        {
-            { "Title", "Add Comment" },
-            { "DefaultId",$"COM.CL.{codeList.UniqueId}"}
-        };
-        var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
-        if (result.Parameters.TryGetValue<Comment>("Model",out Comment? comment))
-        {
-            Comment entity = await _commentService.InsertCommentAsync(comment);
-            codeList.Comment = entity;
-            codeList.CommentId = entity.Id;
-            codeList.CommentUniqueId = entity.UniqueId;
-            _sourceCache.Edit(o=>o.AddOrUpdate(codeList));
-            var updateResult = await _codeListService.UpdateCodeListAsync(codeList);
-            if(updateResult>0)
-                _messageService.Success("Comment add successfully");
-        }
+        var result = await _dialogService.ShowAddCommentModelAsync($"COM.CL.{codeList.UniqueId}");
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<CommentDto>("Model", out var comment))
+            return;
+
+        var entity = await _commentService.InsertCommentAsync(comment);
+        codeList.Comment = _mapper.Map<Comment>(entity);
+        codeList.CommentId = entity.Id;
+        codeList.CommentUniqueId = entity.UniqueId;
+        _sourceCache.Edit(o => o.AddOrUpdate(codeList));
+        var updateResult = await _codeListService.UpdateCodeListAsync(codeList);
+        if (updateResult > 0)
+            _messageService.Success("Comment added successfully.");
     }
     
     [RelayCommand]
-    private async Task ModifyComment(Comment comment)
+    private async Task EditCommentAsync(Comment comment)
     {
-        var dialogParameters = new DialogParameters
-        {
-            { "Title", "Modify Comment" },
-            { "Model", comment }
-        };
-        var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
-        if (result.Parameters.TryGetValue<Comment>("Model",out Comment? resultModel))
-        {
-            await _commentService.UpdateCommentAsync(resultModel);
-            _messageService.Success("Comment update successfully");
-        }
+        var result = await _dialogService.ShowEditCommentModelAsync(_mapper.Map<CommentDto>(comment));
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<CommentDto>("Model", out var updatedComment))
+            return;
+
+        await _commentService.UpdateCommentAsync(updatedComment);
+        _messageService.Success("Comment updated successfully.");
     }
 
     [RelayCommand]
@@ -396,7 +388,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
                     codeList.Comment = null;
                 }
                 _sourceCache.Edit(o=>o.AddOrUpdate(codeLists));
-                _messageService.Success("Comment delete successfully");
+                _messageService.Success("Comment deleted successfully.");
             }
         }
     }
@@ -411,7 +403,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             CodeListDto entity = await _codeListService.InsertCodeListAsync(codeList);
             await ValidateCodeListDtoAsync(entity);
             _sourceCache.Edit(o=>o.AddOrUpdate(entity));
-            _messageService.Success("CodeList add successfully");
+            _messageService.Success("Code list added successfully.");
         }
     }
     
@@ -433,14 +425,14 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
 
         await ValidateCodeListDtoAsync(entity);
         _sourceCache.Edit(o => o.AddOrUpdate(entity));
-        _messageService.Success("CodeList created and linked to variable successfully");
+        _messageService.Success("Code list created and linked to the variable successfully.");
     }
 
     [RelayCommand]
     private async Task Save()
     {
         await _codeListService.SaveCodeListsAsync(CodeLists.ToList());
-        _messageService.Success("CodeList save successfully");
+        _messageService.Success("Code lists saved successfully.");
         HasChanges = false;
     }
     
@@ -484,7 +476,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
 
         if(!HasChanges) return Task.CompletedTask;
         _codeListService.SaveCodeListsAsync(CodeLists.ToList()).Await();
-        _messageService.Success("CodeList save successfully");
+        _messageService.Success("Code lists saved successfully.");
         return Task.CompletedTask;
     }
     

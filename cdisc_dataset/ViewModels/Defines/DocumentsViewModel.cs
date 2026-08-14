@@ -28,14 +28,9 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
     private readonly IDocumentService _documentService;
     private readonly IIssueService _issueService;
     private readonly IDialogHostService _dialogHostService;
+    private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IValidator<DocumentDto> _validator;
-
-    [ObservableProperty]
-    private Project? _currentProject;
-
-    [ObservableProperty]
-    private CdiscDataType _cdiscDataType;
 
     [ObservableProperty]
     private bool _hasChanges;
@@ -50,6 +45,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         IDocumentService documentService,
         IIssueService issueService,
         IDialogHostService dialogHostService,
+        cdisc_dataset.Services.IDialogService dialogService,
         ICurrentProjectService currentProjectService,
         IValidator<DocumentDto> validator)
     {
@@ -57,6 +53,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         _documentService = documentService;
         _issueService = issueService;
         _dialogHostService = dialogHostService;
+        _dialogService = dialogService;
         _currentProjectService = currentProjectService;
         _validator = validator;
 
@@ -153,7 +150,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task ImportFromSettingsAsync()
     {
-        if (CurrentProject == null)
+        if (_currentProjectService.CurrentProject == null)
             return;
 
         var result = await _dialogHostService.ShowDialogAsync("ImportSettingDocumentsDialog", null);
@@ -166,36 +163,33 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         var importedCount = await _documentService.ImportSettingDocumentsAsync(templateDocumentIds);
         if (importedCount == 0)
         {
-            _messageService.Info("No selected documents are available for import");
+            _messageService.Info("No selected documents are available for import.");
             return;
         }
 
-        await LoadDocuments(CurrentProject.Id, CdiscDataType);
-        _messageService.Success($"Imported {importedCount} document(s) from settings");
+        await LoadDocuments();
+        _messageService.Success($"{importedCount} document(s) imported from settings successfully.");
     }
 
     [RelayCommand]
     private async Task AddDocumentAsync()
     {
-        if (CurrentProject == null)
+        if (_currentProjectService.CurrentProject == null)
             return;
 
-        var result = await _dialogHostService.ShowDialogAsync("DocumentDialog", new DialogParameters
-        {
-            { "Title", "Add Document" },
-            { "Model", new DocumentDto { ProjectId = CurrentProject.Id, CdiscDataType = CdiscDataType } }
-        });
-        if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Model"))
+        var result = await _dialogService.ShowAddDocumentModelAsync(
+            new DocumentDto { ProjectId = _currentProjectService.CurrentProject.Id, CdiscDataType = _currentProjectService.CdiscDataType });
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<DocumentDto>("Model", out var document))
             return;
 
-        var document = result.Parameters.GetValue<DocumentDto>("Model");
         await _documentService.InsertDocumentAsync(document);
         await _validator.ValidateDtoAsync(document);
         RegisterDocumentDtoPropertyChanged(document);
         Documents.Add(document);
         MarkDuplicates();
         //HasChanges = true;
-        _messageService.Success("Document added");
+        _messageService.Success("Document added successfully.");
     }
 
     [RelayCommand]
@@ -211,15 +205,11 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
             Href = documentDto.Href,
         };
 
-        var result = await _dialogHostService.ShowDialogAsync("DocumentDialog", new DialogParameters
-        {
-            { "Title", "Edit Document" },
-            { "Model", editedDocument }
-        });
-        if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Model"))
+        var result = await _dialogService.ShowEditDocumentModelAsync(editedDocument);
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<DocumentDto>("Model", out var updatedDocument))
             return;
 
-        var updatedDocument = result.Parameters.GetValue<DocumentDto>("Model");
         await _documentService.UpdateDocumentAsync(updatedDocument);
         await _validator.ValidateDtoAsync(updatedDocument);
         UnregisterDocumentDtoPropertyChanged(documentDto);
@@ -229,7 +219,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
             Documents[index] = updatedDocument;
         MarkDuplicates();
         //HasChanges = true;
-        _messageService.Success("Document updated");
+        _messageService.Success("Document updated successfully.");
     }
 
     [RelayCommand]
@@ -248,44 +238,42 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         Documents.Remove(documentDto);
         MarkDuplicates();
         //HasChanges = true;
-        _messageService.Success("Delete successfully");
+        _messageService.Success("Document deleted successfully.");
     }
 
     [RelayCommand]
     private async Task Save()
     {
-        if (CurrentProject == null)
+        if (_currentProjectService.CurrentProject == null)
             return;
 
         await _documentService.SaveDocumentsAsync(Documents.ToList());
         HasChanges = false;
-        _messageService.Success("Documents Save Success");
-        await LoadDocuments(CurrentProject.Id, CdiscDataType);
+        _messageService.Success("Documents saved successfully.");
+        await LoadDocuments();
     }
 
     [RelayCommand]
     private async Task Discard()
     {
-        if (!HasChanges || CurrentProject == null)
+        if (!HasChanges || _currentProjectService.CurrentProject == null)
             return;
 
-        await LoadDocuments(CurrentProject.Id, CdiscDataType);
+        await LoadDocuments();
         HasChanges = false;
     }
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        CdiscDataType = _currentProjectService.CdiscDataType;
-        CurrentProject = _currentProjectService.CurrentProject;
         return Task.CompletedTask;
     }
 
     public async Task LoadDataAsync()
     {
-        if (CurrentProject == null)
+        if (_currentProjectService.CurrentProject == null)
             return;
 
-        await LoadDocuments(CurrentProject.Id, CdiscDataType);
+        await LoadDocuments();
     }
 
     public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
@@ -301,7 +289,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         continuationCallback(true);
     }
 
-    public async Task LoadDocuments(int id, CdiscDataType cdiscDataType)
+    public async Task LoadDocuments()
     {
         foreach (var documentDto in Documents)
             UnregisterDocumentDtoPropertyChanged(documentDto);

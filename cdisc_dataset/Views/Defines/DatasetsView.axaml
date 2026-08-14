@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d"
@@ -196,7 +196,7 @@
                                             SizeType="Small" />
                                         <atom:Button
                                             ButtonType="Link"
-                                            Command="{Binding #Root.((vm:DatasetsViewModel)DataContext).ModifyCommentCommand}"
+                                            Command="{Binding #Root.((vm:DatasetsViewModel)DataContext).EditCommentCommand}"
                                             CommandParameter="{Binding}"
                                             Content="Open in Editor"
                                             IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNotNull}}"

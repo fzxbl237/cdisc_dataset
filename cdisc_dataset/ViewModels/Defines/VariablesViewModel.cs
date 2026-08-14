@@ -44,6 +44,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     private readonly IDictionaryService _dictionaryService;
     private readonly IMessageService _messageService;
     private readonly IDialogHostService _dialogHostService;
+    private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IMapper _mapper;
     private readonly IValidator<VariableDto> _validator;
@@ -59,7 +60,6 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty] private string? _searchText;
     [ObservableProperty] private bool _hasChanges;
-    [ObservableProperty] private CdiscDataType _cdiscDataType;
     [ObservableProperty] private string? _datasetFilter;
     [ObservableProperty] private string? _variableFilter;
     
@@ -86,6 +86,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         IDictionaryService dictionaryService,
         IMessageService messageService,
         IDialogHostService dialogHostService,
+        cdisc_dataset.Services.IDialogService dialogService,
         ICurrentProjectService currentProjectService,
         IMapper mapper,
         IValidator<VariableDto> validator)
@@ -97,6 +98,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         _dictionaryService = dictionaryService;
         _messageService = messageService;
         _dialogHostService = dialogHostService;
+        _dialogService = dialogService;
         _currentProjectService = currentProjectService;
         _mapper = mapper;
         _validator = validator;
@@ -342,7 +344,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         {
             o.Remove(variable);
         });
-        _messageService.Success("Delete successful");
+        _messageService.Success("Variable deleted successfully.");
     }
     
     [RelayCommand]
@@ -363,7 +365,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         }
         await _variableService.SaveVariablesAsync(variables);
         await LoadVariablesAsync();
-        _messageService.Success("Variable add successful");
+        _messageService.Success("Variable added successfully.");
     }
 
     [RelayCommand]
@@ -390,7 +392,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         variable.CodeList = _mapper.Map<CodeList>(entity);
         await _variableService.UpdateVariableAsync(variable);
         _sourceCache.Edit(o => o.AddOrUpdate(variable));
-        _messageService.Success("CodeList created and linked to variable successfully");
+        _messageService.Success("Code list created and linked to the variable successfully.");
     }
     
     [RelayCommand]
@@ -400,7 +402,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         await _variableService.SaveVariablesAsync(_sourceCache.Items.Where(o=>o.HasChanged).ToList());
         //await _variableService.SaveVariablesAsync(_sourceCache.Items);
         HasChanges = false;
-        _messageService.Success("Save successful");
+        _messageService.Success("Variables saved successfully.");
         await LoadVariablesAsync();
     }
     
@@ -414,13 +416,9 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task AddComment(VariableDto variable)
     {
-        var dialogParameters = new DialogParameters
-        {
-            { "Title", "Add Comment" },
-            { "DefaultId",$"COM.{variable.VariableName}"}
-        };
-        var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
-        if (result.Parameters.TryGetValue<CommentDto>("Model",out CommentDto? comment))
+        var result = await _dialogService.ShowAddCommentModelAsync($"COM.{variable.VariableName}");
+        if (result.Result == ButtonResult.Yes &&
+            result.Parameters.TryGetValue<CommentDto>("Model", out var comment))
         {
             var commentDto = await _commentService.InsertCommentAsync(comment);
             var entity = _mapper.Map<Comment>(comment);
@@ -429,22 +427,18 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             variable.CommentUniqueId = entity.UniqueId;
             _sourceCache.Edit(o=>o.AddOrUpdate(variable));
             await _variableService.UpdateVariableAsync(variable);
-            _messageService.Success("Comment added successful");
+            _messageService.Success("Comment added successfully.");
         }
     }
     
     [RelayCommand]
-    private async Task ModifyComment(VariableDto variable)
+    private async Task EditCommentAsync(VariableDto variable)
     {
         if(variable.Comment==null) return;
         var commentDto = _mapper.Map<CommentDto>(variable.Comment);
-        var dialogParameters = new DialogParameters
-        {
-            { "Title", "Modify Comment" },
-            { "Model", commentDto }
-        };
-        var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
-        if (result.Parameters.TryGetValue<CommentDto>("Model",out CommentDto? model))
+        var result = await _dialogService.ShowEditCommentModelAsync(commentDto);
+        if (result.Result == ButtonResult.Yes &&
+            result.Parameters.TryGetValue<CommentDto>("Model", out var model))
         {
             var entity = await _commentService.UpdateCommentAsync(model);
             variable.Comment = entity;
@@ -452,7 +446,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             variable.CommentUniqueId = entity.UniqueId;
             _sourceCache.Edit(o=>o.AddOrUpdate(variable));
             await _variableService.UpdateVariableAsync(variable);
-            _messageService.Success("Comment modify successful");
+            _messageService.Success("Comment updated successfully.");
         }
     }
 
@@ -470,8 +464,8 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        CdiscDataType = _currentProjectService.CdiscDataType;
-        Origins.AddRange(CdiscDataType == CdiscDataType.Sdtm ? [.. ConstantOptions.SdtmOrigins] : [.. ConstantOptions.AdamOrigins]);
+        var cdiscDataType = _currentProjectService.CdiscDataType;
+        Origins.AddRange(cdiscDataType == CdiscDataType.Sdtm ? [.. ConstantOptions.SdtmOrigins] : [.. ConstantOptions.AdamOrigins]);
         return Task.CompletedTask;
     }
 

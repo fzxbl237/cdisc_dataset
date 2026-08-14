@@ -139,7 +139,7 @@
                         <DataTemplate>
                             <StackPanel Margin="10,0,0,0">
                                 <atom:HyperLinkTextBlock
-                                    Command="{Binding $parent[DataGrid].((vm:DictionariesViewModel)DataContext).ModifyCommand}"
+                                    Command="{Binding $parent[DataGrid].((vm:DictionariesViewModel)DataContext).EditDictionaryCommand}"
                                     CommandParameter="{Binding}"
                                     Text="Edit"
                                     VerticalAlignment="Center" />
@@ -166,7 +166,7 @@
                         <Setter Property="ContextMenu">
                             <atom:ContextMenu x:DataType="dto:DictionaryDto">
                                 <atom:MenuItem
-                                    Command="{Binding #Root.((vm:DictionariesViewModel)DataContext).ModifyCommand}"
+                                    Command="{Binding #Root.((vm:DictionariesViewModel)DataContext).EditDictionaryCommand}"
                                     CommandParameter="{Binding}"
                                     Header="Edit"
                                     Icon="{antd-icons:AntDesignIconProvider Kind=EditOutlined}" />

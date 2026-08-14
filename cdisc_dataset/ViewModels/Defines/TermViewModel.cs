@@ -61,8 +61,6 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     [ObservableProperty] private string? _searchText;
     
     [ObservableProperty] private bool _hasChanges;
-    [ObservableProperty]
-    private CdiscDataType _cdiscDataType;
     
     [ObservableProperty]
     private int _codeListId;
@@ -336,7 +334,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         });
         MarkNameDuplicates();
         UpdateDecodedValueConsistent();
-        _messageService.Success("Delete Success");
+        _messageService.Success("Term deleted successfully.");
     }
     
     [RelayCommand]
@@ -346,7 +344,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         {
             Order = 1,
             ProjectId = _currentProjectService.CurrentProject?.Id??0,
-            CdiscDataType = CdiscDataType
+            CdiscDataType = _currentProjectService.CdiscDataType
         };
         await _validator.ValidateDtoAsync(termDto);
         _sourceCache.AddOrUpdate(termDto);
@@ -357,7 +355,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     private async Task Save()
     {
         await _termService.SaveTermsAsync(Terms.ToList());
-        _messageService.Success("Terms Save Success");
+        _messageService.Success("Terms saved successfully.");
         await LoadTermsAsync();
         HasChanges = false;
     }
@@ -395,7 +393,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         if (result.Result == ButtonResult.Yes)
         {
             await LoadTermsAsync();
-            _messageService.Success("Terms paired success");
+            _messageService.Success("Terms paired successfully.");
         }
     }
     
@@ -412,7 +410,6 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        CdiscDataType = _currentProjectService.CdiscDataType;
         return Task.CompletedTask;
     }
 
@@ -427,7 +424,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         if(HasChanges)
         {
             _termService.SaveTermsAsync(Terms.ToList()).Await();
-            _messageService.Success("Terms Save Success");
+            _messageService.Success("Terms saved successfully.");
         }
         DetachAll();
         return Task.CompletedTask;

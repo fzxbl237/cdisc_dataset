@@ -151,7 +151,8 @@ public class App : Application
             .RegisterNavigation<DatasetsView, DatasetsViewModel>("Datasets")
             .RegisterNavigation<DictionariesView, DictionariesViewModel>("Dictionaries")
             .RegisterNavigation<IssueView, IssueViewModel>("Issues")
-            .AddSingleton<IDialogHostService, DialogHostService>();
+            .AddSingleton<IDialogHostService, DialogHostService>()
+            .AddSingleton<cdisc_dataset.Services.IDialogService, cdisc_dataset.Services.DialogService>();
 
         RegisterDialog<ProjectDialog, EditProjectViewModel>(services, "ProjectDialog");
         RegisterDialog<ImportSettingDatasetsDialog, ImportSettingDatasetsViewModel>(services, "ImportSettingDatasetsDialog");

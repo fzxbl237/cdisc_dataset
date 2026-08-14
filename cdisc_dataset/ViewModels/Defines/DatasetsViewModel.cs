@@ -35,6 +35,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     private readonly IDatasetService _datasetService;
     private readonly ICommentService _commentService;
     private readonly IDialogHostService _dialogHostService;
+    private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IMapper _mapper;
     private readonly IValidator<DatasetDto> _validator;
@@ -60,6 +61,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         ICommentService commentService,
         ICurrentProjectService currentProjectService,
         IDialogHostService dialogHostService,
+        cdisc_dataset.Services.IDialogService dialogService,
         IMapper mapper,
         IValidator<DatasetDto> validator)
     {
@@ -68,6 +70,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         _commentService = commentService;
         _currentProjectService = currentProjectService;
         _dialogHostService = dialogHostService;
+        _dialogService = dialogService;
         _mapper = mapper;
         _validator = validator;
 
@@ -321,7 +324,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         _sourceCache.Remove(dataset);
         MarkDuplicates();
         HasChanges = true;
-        _messageService.Success("Delete successfully.");
+        _messageService.Success("Dataset deleted successfully.");
     }
 
     [RelayCommand]
@@ -330,7 +333,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         if (!HasChanges) return;
         await _datasetService.SaveDatasetsAsync(_sourceCache.Items.Where(dataset => dataset.HasChanged).ToList());
         HasChanges = false;
-        _messageService.Success("Saved successfully.");
+        _messageService.Success("Datasets saved successfully.");
         await LoadDatasetsAsync();
     }
 
@@ -352,7 +355,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
-    private async Task EditKeyVariables(DatasetDto dataset)
+    private async Task EditKeyVariablesAsync(DatasetDto dataset)
     {
         var dialogParameters = new DialogParameters { { "DatasetDto", dataset } };
         var result = await _dialogHostService.ShowDialogAsync("EditKeyVariables", dialogParameters);
@@ -365,44 +368,37 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task AddCommentAsync(DatasetDto dataset)
     {
-        var dialogParameters = new DialogParameters
-        {
-            { "Title", "Add Comment" },
-            { "DefaultId", $"COM.{dataset.Name}" }
-        };
-        var result = await _dialogHostService.ShowDialogAsync("CommentDialog", dialogParameters);
-        if (result.Parameters.TryGetValue<CommentDto>("Model", out CommentDto? comment))
-        {
-            var entity = await _commentService.InsertCommentAsync(comment);
-            dataset.CommentUniqueId = entity.UniqueId;
-            dataset.Comment = _mapper.Map<Comment>(entity);
-            dataset.CommentId = entity.Id;
-            await _datasetService.UpdateDatasetAsync(dataset);
-            await LoadLookups();
-            _messageService.Success("Comment add successful");
-        }
+        var result = await _dialogService.ShowAddCommentModelAsync($"COM.{dataset.Name}");
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<CommentDto>("Model", out var comment))
+            return;
+
+        var entity = await _commentService.InsertCommentAsync(comment);
+        dataset.CommentUniqueId = entity.UniqueId;
+        dataset.Comment = _mapper.Map<Comment>(entity);
+        dataset.CommentId = entity.Id;
+        await _datasetService.UpdateDatasetAsync(dataset);
+        await LoadLookups();
+        _messageService.Success("Comment added successfully.");
     }
 
     [RelayCommand]
-    private async Task ModifyCommentAsync(DatasetDto dataset)
+    private async Task EditCommentAsync(DatasetDto dataset)
     {
-        if (dataset.Comment == null) return;
-        var commentDto = _mapper.Map<CommentDto>(dataset.Comment);
-        var dialogParameters = new DialogParameters
-        {
-            { "Title", "Modify Comment" },
-            { "Model", commentDto }
-        };
-        var result = await _dialogHostService.ShowDialogAsync("CommentDialog", dialogParameters);
-        if (result.Parameters.TryGetValue<CommentDto>("Model", out CommentDto? model))
-        {
-            var entity = await _commentService.UpdateCommentAsync(model);
-            dataset.Comment = entity;
-            dataset.CommentId = entity.Id;
-            dataset.CommentUniqueId = entity.UniqueId;
-            await _datasetService.UpdateDatasetAsync(dataset);
-            _messageService.Success("Comment modify successfully");
-        }
+        if (dataset.Comment == null)
+            return;
+
+        var result = await _dialogService.ShowEditCommentModelAsync(_mapper.Map<CommentDto>(dataset.Comment));
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<CommentDto>("Model", out var model))
+            return;
+
+        var entity = await _commentService.UpdateCommentAsync(model);
+        dataset.Comment = entity;
+        dataset.CommentId = entity.Id;
+        dataset.CommentUniqueId = entity.UniqueId;
+        await _datasetService.UpdateDatasetAsync(dataset);
+        _messageService.Success("Comment updated successfully.");
     }
 
     [RelayCommand]
@@ -450,7 +446,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
         await _datasetService.InsertDatasetsWithVariablesAsync(datasets);
         await LoadDatasetsAsync();
-        _messageService.Success($"Imported {datasets.Count} dataset(s) successfully.");
+        _messageService.Success($"{datasets.Count} dataset(s) imported successfully.");
     }
 
     public override async Task OnNavigatedFromAsync(NavigationContext navigationContext)

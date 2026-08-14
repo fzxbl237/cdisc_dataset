@@ -15,12 +15,6 @@ public partial class IssueViewModel : ConfirmNavigationViewModelBase
     private readonly ICurrentProjectService _currentProjectService;
 
     [ObservableProperty]
-    private Project? _currentProject;
-
-    [ObservableProperty]
-    private CdiscDataType _cdiscDataType;
-
-    [ObservableProperty]
     private AvaloniaList<IssueDto> _issues = [];
 
     public IssueViewModel(
@@ -34,16 +28,16 @@ public partial class IssueViewModel : ConfirmNavigationViewModelBase
     [RelayCommand]
     public async Task LoadDataAsync()
     {
-        CurrentProject = _currentProjectService.CurrentProject;
-        CdiscDataType = _currentProjectService.CdiscDataType;
-
-        if (CurrentProject == null)
+        var currentProject = _currentProjectService.CurrentProject;
+        if (currentProject == null)
         {
             Issues.Clear();
             return;
         }
 
-        var issues = await _issueService.GetProjectIssuesAsync(CurrentProject.Id, CdiscDataType);
+        var issues = await _issueService.GetProjectIssuesAsync(
+            currentProject.Id,
+            _currentProjectService.CdiscDataType);
         Issues.Clear();
         Issues.AddRange(issues);
     }

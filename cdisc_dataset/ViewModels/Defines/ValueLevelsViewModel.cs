@@ -22,6 +22,7 @@ using CommunityToolkit.Mvvm.Input;
 using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
+using MapsterMapper;
 using Net.Pinnacle21.Define.Parser;
 using Prism.Dialogs;
 using NavigationContext = AsyncNavigation.NavigationContext;
@@ -41,14 +42,10 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     private readonly IDocumentService _documentService;
     private readonly ICommentService _commentService;
     private readonly IDialogHostService _dialogHostService;
+    private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly ICurrentProjectService _currentProjectService;
+    private readonly IMapper _mapper;
     private readonly IValidator<ValueLevelDto> _validator;
-
-    [ObservableProperty]
-    private Project? _currentProject;
-
-    [ObservableProperty]
-    private CdiscDataType _cdiscDataType;
 
     [ObservableProperty]
     private bool _hasChanges;
@@ -84,7 +81,9 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         IDocumentService documentService,
         ICommentService commentService,
         IDialogHostService dialogHostService,
+        cdisc_dataset.Services.IDialogService dialogService,
         ICurrentProjectService currentProjectService,
+        IMapper mapper,
         IValidator<ValueLevelDto> validator)
     {
         _messageService = messageService;
@@ -96,7 +95,9 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         _documentService = documentService;
         _commentService = commentService;
         _dialogHostService = dialogHostService;
+        _dialogService = dialogService;
         _currentProjectService = currentProjectService;
+        _mapper = mapper;
         _validator = validator;
 
         var filter = this.WhenValueChanged(t => t.SearchText)
@@ -265,13 +266,14 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     [RelayCommand]
     private void AddValueLevel()
     {
-        if (CurrentProject == null)
+        var currentProject = _currentProjectService.CurrentProject;
+        if (currentProject == null)
             return;
 
         var valueLevel = new ValueLevelDto
         {
-            ProjectId = CurrentProject.Id,
-            CdiscDataType = CdiscDataType,
+            ProjectId = currentProject.Id,
+            CdiscDataType = _currentProjectService.CdiscDataType,
             Order = GetNextOrder()
         };
 
@@ -295,7 +297,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         UnregisterValueLevelDtoPropertyChanged(valueLevelDto);
         _sourceCache.Remove(valueLevelDto);
         HasChanges = true;
-        _messageService.Success("Delete Success");
+        _messageService.Success("Value level deleted successfully.");
     }
 
     private int GetNextOrder()
@@ -313,13 +315,13 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     {
         if (string.IsNullOrWhiteSpace(valueLevel.Dataset))
         {
-            _messageService.Error("Dataset cannot be empty before editing WhereClause");
+            _messageService.Error("Dataset name is required before editing the WHERE clause.");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(valueLevel.Variable))
         {
-            _messageService.Error("Variable cannot be empty before editing WhereClause");
+            _messageService.Error("Variable name is required before editing the WHERE clause.");
             return;
         }
         
@@ -381,26 +383,67 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
+    private async Task AddCommentAsync(ValueLevelDto valueLevel)
+    {
+        var defaultId = string.Join(".", new[] { "COM", valueLevel.Dataset, valueLevel.Variable }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        var result = await _dialogService.ShowAddCommentModelAsync(defaultId);
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<CommentDto>("Model", out var comment))
+            return;
+
+        var entity = await _commentService.InsertCommentAsync(comment);
+        valueLevel.Comment = _mapper.Map<Comment>(entity);
+        valueLevel.CommentId = entity.Id;
+        valueLevel.CommentUniqueId = entity.UniqueId;
+        _sourceCache.AddOrUpdate(valueLevel);
+        await _valueLevelService.UpdateValueLevelAsync(valueLevel);
+        await LoadLookups();
+        _messageService.Success("Comment added successfully.");
+    }
+
+    [RelayCommand]
+    private async Task EditCommentAsync(ValueLevelDto valueLevel)
+    {
+        if (valueLevel.Comment is null)
+            return;
+
+        var result = await _dialogService.ShowEditCommentModelAsync(_mapper.Map<CommentDto>(valueLevel.Comment));
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<CommentDto>("Model", out var comment))
+            return;
+
+        var entity = await _commentService.UpdateCommentAsync(comment);
+        valueLevel.Comment = entity;
+        valueLevel.CommentId = entity.Id;
+        valueLevel.CommentUniqueId = entity.UniqueId;
+        _sourceCache.AddOrUpdate(valueLevel);
+        await _valueLevelService.UpdateValueLevelAsync(valueLevel);
+        await LoadLookups();
+        _messageService.Success("Comment updated successfully.");
+    }
+
+    [RelayCommand]
     private async Task Save()
     {
         foreach (var valueLevel in ValueLevels)
         {
-            valueLevel.ProjectId = CurrentProject?.Id ?? valueLevel.ProjectId;
-            valueLevel.CdiscDataType = CdiscDataType;
+            valueLevel.ProjectId = _currentProjectService.CurrentProject?.Id ?? valueLevel.ProjectId;
+            valueLevel.CdiscDataType = _currentProjectService.CdiscDataType;
             valueLevel.WhereClauseExist = !string.IsNullOrWhiteSpace(valueLevel.WhereClause);
         }
 
         await _valueLevelService.SaveValueLevelsAsync(ValueLevels.ToList());
         HasChanges = false;
-        _messageService.Success("ValueLevels Save Success");
-        if (CurrentProject != null)
+        _messageService.Success("Value levels saved successfully.");
+        if (_currentProjectService.CurrentProject != null)
             await LoadValueLevels();
     }
 
     [RelayCommand]
     private async Task Discard()
     {
-        if (!HasChanges || CurrentProject == null)
+        if (!HasChanges || _currentProjectService.CurrentProject == null)
             return;
 
         await LoadValueLevels();
@@ -408,9 +451,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        CdiscDataType = _currentProjectService.CdiscDataType;
-        CurrentProject = _currentProjectService.CurrentProject;
-        if (CdiscDataType == CdiscDataType.Sdtm)
+        if (_currentProjectService.CdiscDataType == CdiscDataType.Sdtm)
         {
             Origins.AddRange([
                 "", "Collected", "Derived", "Assigned", "Protocol", "Predecessor"
@@ -427,7 +468,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
     public async Task LoadDataAsync()
     {
-        if (CurrentProject == null)
+        if (_currentProjectService.CurrentProject == null)
             return;
         await LoadValueLevels();
         await LoadLookups();

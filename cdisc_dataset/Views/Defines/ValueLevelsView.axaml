@@ -9,6 +9,7 @@
     xmlns:antd-icons="https://atomui.net/icons/antdesign"
     xmlns:atom="https://atomui.net"
     xmlns:controls="using:cdisc_dataset.Controls"
+    xmlns:converter="using:cdisc_dataset.Converters"
     xmlns:customGrid="using:cdisc_dataset.Controls.DataGrid"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -657,6 +658,34 @@
                                 </StackPanel>
                             </DataTemplate>
                         </customGrid:DataGridAutoCompleteColumn.OptionTemplate>
+                        <customGrid:FloatingBar.FloatingBarTemplate>
+                            <DataTemplate x:DataType="model:ValueLevelDto">
+                                <Border
+                                    Background="White"
+                                    BorderBrush="{atom:SharedTokenResource ColorPrimary}"
+                                    BorderThickness="0.5"
+                                    BoxShadow="0 1 6 0 #18000000"
+                                    CornerRadius="4"
+                                    Padding="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <atom:Button
+                                            ButtonType="Link"
+                                            Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).AddCommentCommand}"
+                                            CommandParameter="{Binding}"
+                                            Content="Add New"
+                                            IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNull}}"
+                                            SizeType="Small" />
+                                        <atom:Button
+                                            ButtonType="Link"
+                                            Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).EditCommentCommand}"
+                                            CommandParameter="{Binding}"
+                                            Content="Open in Editor"
+                                            IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNotNull}}"
+                                            SizeType="Small" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </customGrid:FloatingBar.FloatingBarTemplate>
                     </customGrid:DataGridAutoCompleteColumn>
                     <customGrid:DataGridTextColumn
                         Binding="{Binding DeveloperNotes}"

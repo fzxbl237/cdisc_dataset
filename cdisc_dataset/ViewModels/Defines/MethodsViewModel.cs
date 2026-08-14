@@ -36,11 +36,9 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     private readonly IDocumentService _documentService;
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IDialogHostService _dialogHostService;
+    private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly IMapper _mapper;
     private readonly IValidator<MethodDto> _validator;
-
-    [ObservableProperty]
-    private CdiscDataType _cdiscDataType;
 
     [ObservableProperty]
     private bool _hasChanges;
@@ -65,6 +63,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         IDocumentService documentService,
         ICurrentProjectService currentProjectService,
         IDialogHostService dialogHostService,
+        cdisc_dataset.Services.IDialogService dialogService,
         IMapper mapper,
         IValidator<MethodDto> validator)
     {
@@ -73,6 +72,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         _documentService = documentService;
         _currentProjectService = currentProjectService;
         _dialogHostService = dialogHostService;
+        _dialogService = dialogService;
         _mapper = mapper;
         _validator = validator;
 
@@ -117,12 +117,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
                     await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Description));
                     break;
                 case nameof(MethodDto.DocumentUniqueId):
-                    if (!string.IsNullOrWhiteSpace(methodDto.DocumentUniqueId) && _frozenDocumentDictionary != null &&
-                        _frozenDocumentDictionary.TryGetValue(methodDto.DocumentUniqueId, out var document))
-                    {
-                        methodDto.Document = document;
-                        methodDto.DocumentId = document.Id;
-                    }
+                    ApplyDocument(methodDto, methodDto.DocumentUniqueId);
                     await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Pages));
                     await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.DocumentUniqueId));
                     break;
@@ -169,7 +164,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
             x => x.Pages,
             x => x.DocumentUniqueId);
     
-    public async Task LoadMethods(int projectId, CdiscDataType cdiscDataType)
+    public async Task LoadMethods()
     {
         foreach (var methodDto in _sourceCache.Items)
             UnregisterMethodDtoPropertyChanged(methodDto);
@@ -190,7 +185,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         HasChanges = false;
     }
 
-    public async Task LoadDocuments(int projectId, CdiscDataType cdiscDataType)
+    public async Task LoadDocuments()
     {
         var list = await _documentService.GetAllDocumentsWithoutErorrAsync();
         List<IAutoCompleteOption> res = [];
@@ -208,6 +203,9 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         DocumentOptions.AddRange(res);
         _frozenDocumentDictionary=list.Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
             .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
+
+        foreach (var methodDto in Methods)
+            ApplyDocument(methodDto, methodDto.DocumentUniqueId);
     }
     
 
@@ -225,6 +223,50 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
+    private async Task AddDocument(MethodDto methodDto)
+    {
+        var result = await _dialogService.ShowAddDocumentModelAsync(new DocumentDto());
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<DocumentDto>("Model", out var documentDto))
+            return;
+
+        await _documentService.InsertDocumentAsync(documentDto);
+        await LoadDocuments();
+        ApplyDocument(methodDto, documentDto.UniqueId);
+    }
+
+    [RelayCommand]
+    private async Task EditDocumentAsync(MethodDto methodDto)
+    {
+        if (methodDto.Document == null)
+            return;
+
+        var result = await _dialogService.ShowEditDocumentModelAsync(_mapper.Map<DocumentDto>(methodDto.Document));
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<DocumentDto>("Model", out var documentDto))
+            return;
+
+        await _documentService.UpdateDocumentAsync(documentDto);
+        await LoadDocuments();
+        ApplyDocument(methodDto, documentDto.UniqueId);
+    }
+
+    private void ApplyDocument(MethodDto methodDto, string? documentUniqueId)
+    {
+        if (string.IsNullOrWhiteSpace(documentUniqueId) || _frozenDocumentDictionary == null ||
+            !_frozenDocumentDictionary.TryGetValue(documentUniqueId, out var document))
+        {
+            methodDto.Document = null;
+            methodDto.DocumentId = 0;
+            return;
+        }
+
+        methodDto.Document = document;
+        methodDto.DocumentId = document.Id;
+        methodDto.DocumentUniqueId = document.UniqueId;
+    }
+
+    [RelayCommand]
     private async Task AddMethod()
     {
         if (_currentProjectService.CurrentProject == null)
@@ -233,20 +275,14 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         var dto = new MethodDto
         {
             ProjectId = _currentProjectService.CurrentProject.Id,
-            CdiscDataType = CdiscDataType,
+            CdiscDataType = _currentProjectService.CdiscDataType,
         };
 
-        var parameters = new DialogParameters
-        {
-            { "Title", "???? Method" },
-            { "Model", dto }
-        };
-
-        var result = await _dialogHostService.ShowDialogAsync("MethodDialog", parameters);
-        if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Model"))
+        var result = await _dialogService.ShowAddMethodModelAsync(dto);
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<MethodDto>("Model", out var method))
             return;
 
-        var method = result.Parameters.GetValue<MethodDto>("Model");
         await _validator.ValidateDtoAsync(method);
         RegisterMethodDtoPropertyChanged(method);
         _sourceCache.AddOrUpdate(method);
@@ -256,22 +292,16 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
-    private async Task EditMethod(MethodDto methodDto)
+    private async Task EditMethodAsync(MethodDto methodDto)
     {
         if (_currentProjectService.CurrentProject == null)
             return;
         
-        var parameters = new DialogParameters
-        {
-            { "Title", "?? Method" },
-            { "Model", methodDto }
-        };
-
-        var result = await _dialogHostService.ShowDialogAsync("MethodDialog", parameters);
-        if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Model"))
+        var result = await _dialogService.ShowEditMethodModelAsync(methodDto);
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<MethodDto>("Model", out var editedMethod))
             return;
 
-        var editedMethod = result.Parameters.GetValue<MethodDto>("Model");
         await _validator.ValidateDtoAsync(editedMethod);
         _sourceCache.AddOrUpdate(editedMethod);
         MarkDuplicates();
@@ -294,7 +324,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         _sourceCache.Remove(methodDto);
         MarkDuplicates();
         HasChanges = true;
-        _messageService.Success("Delete Success");
+        _messageService.Success("Method deleted successfully.");
     }
 
     [RelayCommand]
@@ -302,9 +332,9 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     {
         await _methodService.SaveMethodsAsync(Methods.ToList());
         HasChanges = false;
-        _messageService.Success("Methods Save Success");
+        _messageService.Success("Methods saved successfully.");
         if (_currentProjectService.CurrentProject != null)
-            await LoadMethods(_currentProjectService.CurrentProject.Id, CdiscDataType);
+            await LoadMethods();
     }
 
     [RelayCommand]
@@ -313,12 +343,11 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         if (!HasChanges || _currentProjectService.CurrentProject == null)
             return;
 
-        await LoadMethods(_currentProjectService.CurrentProject.Id, CdiscDataType);
+        await LoadMethods();
     }
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        CdiscDataType = _currentProjectService.CdiscDataType;
         return Task.CompletedTask;
     }
 
@@ -327,8 +356,8 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         if (_currentProjectService.CurrentProject == null)
             return;
 
-        await LoadMethods(_currentProjectService.CurrentProject.Id, CdiscDataType);
-        await LoadDocuments(_currentProjectService.CurrentProject.Id, CdiscDataType);
+        await LoadMethods();
+        await LoadDocuments();
     }
 
     public override void ConfirmNavigationRequest(NavigationContext navigationContext, Action<bool> continuationCallback)

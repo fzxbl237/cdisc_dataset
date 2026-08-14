@@ -121,7 +121,7 @@
                                                             Orientation="Horizontal"
                                                             Spacing="15">
                                                             <atom:HyperLinkTextBlock
-                                                                Command="{Binding #Root.((vm:CodeListViewModel)DataContext).ModifyCommentCommand}"
+                                                                Command="{Binding #Root.((vm:CodeListViewModel)DataContext).EditCommentCommand}"
                                                                 CommandParameter="{Binding Comment}"
                                                                 IsVisible="{Binding CommentExist}"
                                                                 Text="Open in Editor"
@@ -326,7 +326,7 @@
                                 <Border Background="White" BorderBrush="{atom:SharedTokenResource ColorPrimary}" BorderThickness="0.5" BoxShadow="0 1 6 0 #18000000" CornerRadius="4" Padding="2">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:CodeListViewModel)DataContext).AddCommentCommand}" CommandParameter="{Binding}" Content="Add New" IsVisible="{Binding !CommentExist}" SizeType="Small" />
-                                        <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:CodeListViewModel)DataContext).ModifyCommentCommand}" CommandParameter="{Binding Comment}" Content="Open in Editor" IsVisible="{Binding CommentExist}" SizeType="Small" />
+                                        <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:CodeListViewModel)DataContext).EditCommentCommand}" CommandParameter="{Binding Comment}" Content="Open in Editor" IsVisible="{Binding CommentExist}" SizeType="Small" />
                                         <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:CodeListViewModel)DataContext).DeleteCommentCommand}" CommandParameter="{Binding Comment}" Content="Delete" IsVisible="{Binding CommentExist}" SizeType="Small" />
                                     </StackPanel>
                                 </Border>

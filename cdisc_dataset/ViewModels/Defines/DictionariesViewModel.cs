@@ -30,14 +30,9 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
     private readonly IDictionaryService _dictionaryService;
     private readonly IMessageService _messageService;
     private readonly IDialogHostService _dialogHostService;
+    private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IValidator<DictionaryDto> _validator;
-
-    [ObservableProperty]
-    private Project? _currentProject;
-
-    [ObservableProperty]
-    private CdiscDataType _cdiscDataType;
 
     [ObservableProperty]
     private bool _hasChanges;
@@ -57,12 +52,14 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
         IDictionaryService dictionaryService,
         IMessageService messageService,
         IDialogHostService dialogHostService,
+        cdisc_dataset.Services.IDialogService dialogService,
         ICurrentProjectService currentProjectService,
         IValidator<DictionaryDto> validator)
     {
         _dictionaryService = dictionaryService;
         _messageService = messageService;
         _dialogHostService = dialogHostService;
+        _dialogService = dialogService;
         _currentProjectService = currentProjectService;
         _validator = validator;
 
@@ -137,37 +134,31 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
     }
 
     [RelayCommand]
-    private async Task AddDictionary()
+    private async Task AddDictionaryAsync()
     {
-        var dialogParameters = new DialogParameters
-        {
-            { "Title", "Add Dictionary" }
-        };
-
-        var result = await _dialogHostService.ShowDialogAsync("DictionaryDialog", dialogParameters);
-        if (!result.Parameters.TryGetValue<DictionaryDto>("Model", out var dictionary) || CurrentProject == null)
+        var result = await _dialogService.ShowAddDictionaryModelAsync();
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<DictionaryDto>("Model", out var dictionary) ||
+            _currentProjectService.CurrentProject == null)
             return;
 
         await _dictionaryService.InsertDictionaryAsync(dictionary);
         RegisterDictionaryDtoPropertyChanged(dictionary);
-        _messageService.Success("??????");
+        _messageService.Success("Dictionary added successfully.");
         await LoadDictionaries();
     }
 
     [RelayCommand]
-    private async Task Modify(DictionaryDto dictionary)
+    private async Task EditDictionaryAsync(DictionaryDto dictionary)
     {
-        var dialogParameters = new DialogParameters
-        {
-            { "Title", "Modify Dictionary" },
-            { "Model", dictionary }
-        };
-        var result = await _dialogHostService.ShowDialogAsync("DictionaryDialog", dialogParameters);
-        if (!result.Parameters.TryGetValue<DictionaryDto>("Model", out var model) || CurrentProject == null)
+        var result = await _dialogService.ShowEditDictionaryModelAsync(dictionary);
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<DictionaryDto>("Model", out var model) ||
+            _currentProjectService.CurrentProject == null)
             return;
 
         await _dictionaryService.UpdateDictionaryAsync(model);
-        _messageService.Success("Dictionary???3??");
+        _messageService.Success("Dictionary updated successfully.");
         await LoadDictionaries();
     }
 
@@ -186,25 +177,25 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
         UnregisterDictionaryDtoPropertyChanged(dictionary);
         Dictionarys.Remove(dictionary);
         MarkDuplicates();
-        _messageService.Success("Delete successfully");
+        _messageService.Success("Dictionary deleted successfully.");
     }
 
     [RelayCommand]
     private async Task Save()
     {
-        if (CurrentProject == null)
+        if (_currentProjectService.CurrentProject == null)
             return;
 
         await _dictionaryService.SaveDictionariesAsync(Dictionarys.ToList());
         HasChanges = false;
-        _messageService.Success("Dictionaries Save Success");
+        _messageService.Success("Dictionaries saved successfully.");
         await LoadDictionaries();
     }
 
     [RelayCommand]
     private async Task Discard()
     {
-        if (!HasChanges || CurrentProject == null)
+        if (!HasChanges || _currentProjectService.CurrentProject == null)
             return;
 
         await LoadDictionaries();
@@ -213,14 +204,12 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
     public override Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
-        CdiscDataType = _currentProjectService.CdiscDataType;
-        CurrentProject = _currentProjectService.CurrentProject;
         return Task.CompletedTask;
     }
 
     public async Task LoadDataAsync()
     {
-        if (CurrentProject == null)
+        if (_currentProjectService.CurrentProject == null)
             return;
 
         await LoadDictionaries();

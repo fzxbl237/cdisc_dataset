@@ -25,16 +25,25 @@ public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueServ
     {
         var (projectId, _) = GetCurrentProjectContext();
         var comments = await sqlSugar.Queryable<Comment>()
-            .Where(x => x.ProjectId == projectId && x.CdiscDataType == CdiscDataType.Sdtm).Select<CommentDto>().ToListAsync();
-        await RestoreCommentErrorsAsync(comments);
+            .Where(x => x.ProjectId == projectId && x.CdiscDataType == CdiscDataType.Sdtm)
+            .Includes(o=>o.Document)
+            .Select<CommentDto>(o=> new CommentDto(){
+                Document = o.Document
+            },true).ToListAsync();
+        //await RestoreCommentErrorsAsync(comments);
         return comments;
     }
 
     public async Task<List<CommentDto>> GetAllCommentDtosAsync()
     {
         var (projectId, dataType) = GetCurrentProjectContext();
-        var comments = await sqlSugar.Queryable<Comment>().Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType).Select<CommentDto>().ToListAsync();
-        await RestoreCommentErrorsAsync(comments);
+        var comments = await sqlSugar.Queryable<Comment>()
+            .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType)
+            .Includes(o=>o.Document)
+            .Select<CommentDto>(o=> new CommentDto(){
+                Document = o.Document
+            },true).ToListAsync();
+        //await RestoreCommentErrorsAsync(comments);
         return comments;
     }
 
@@ -144,7 +153,7 @@ public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueServ
 
     public async Task<Comment> InsertCommentAsync(Comment comment)
     {
-        return await sqlSugar.Insertable(comment).ExecuteReturnEntityAsync();
+        return await sqlSugar.InsertNav(comment).Include(o=>o.Document).ExecuteReturnEntityAsync();
     }
 
     public async Task<CommentDto> InsertCommentAsync(CommentDto commentDto)
