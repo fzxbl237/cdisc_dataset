@@ -11,7 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AtomUI.Desktop.Controls;
 using Avalonia.Collections;
-using Avalonia.Controls;
+using cdisc_dataset.Controls.DataGrid;
 using cdisc_dataset.Extensions;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;

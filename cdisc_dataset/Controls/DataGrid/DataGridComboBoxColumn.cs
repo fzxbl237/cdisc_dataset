@@ -6,6 +6,8 @@ using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using AtomUI.Icons.AntDesign;
+using AtomIconButton = AtomUI.Desktop.Controls.IconButton;
 using ComboBox = AtomUI.Desktop.Controls.ComboBox;
 
 namespace cdisc_dataset.Controls.DataGrid;
@@ -33,35 +35,80 @@ public class DataGridComboBoxColumn : DataGridBoundColumn
 
     public override Control GenerateElement(DataGridCell cell, object? dataItem)
     {
-        var comboBox = new ComboBox
+        var panel = new Grid
         {
-            ItemsSource = ItemsSource,
-            MaxDropDownHeight = MaxDropDownHeight,
-            FontSize = FontSize,
-            MinHeight = 22,
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
-            FocusAdorner = null,
-            StyleVariant = AtomUI.Controls.InputControlStyleVariant.Borderless,
-            BorderThickness = new Thickness(0),
-            Background = new SolidColorBrush(Colors.Transparent),
             IsHitTestVisible = false,
         };
 
+        var textBlock = new TextBlock
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 4, 0),
+            FontSize = FontSize,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        };
         if (Foreground != null)
-            comboBox.Foreground = Foreground;
-        if (ItemTemplate != null)
-            comboBox.ItemTemplate = ItemTemplate;
+            textBlock.Foreground = Foreground;
+
+        var arrow = new AtomIconButton
+        {
+            Icon = new DownOutlined(),
+            Width = 18,
+            Height = 18,
+            MinWidth = 0,
+            FontSize = 12,
+            Padding = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 0, 4, 0),
+        };
+
+        Grid.SetColumn(textBlock, 0);
+        Grid.SetColumn(arrow, 1);
+        panel.Children.Add(textBlock);
+        panel.Children.Add(arrow);
+
         if (Binding != null && dataItem != null)
         {
             var binding = CloneBinding(Binding);
             if (binding is Binding dataBinding)
                 dataBinding.Mode = BindingMode.OneWay;
-            comboBox.Bind(ComboBox.SelectedItemProperty, binding);
+            textBlock.Bind(TextBlock.TextProperty, binding);
+        }
+        else if (dataItem != null && !string.IsNullOrWhiteSpace(BindingPath))
+        {
+            var property = dataItem.GetType().GetProperty(BindingPath);
+            textBlock.Text = property?.GetValue(dataItem)?.ToString();
         }
         else if (dataItem != null)
         {
-            comboBox.SelectedItem = dataItem;
+            textBlock.Text = dataItem.ToString();
+        }
+
+        return panel;
+    }
+
+    public override Control? GenerateEditingElement(DataGridCell cell, object? dataItem)
+    {
+        var editingElement = GenerateEditingElementDirect(cell, dataItem);
+        if (editingElement is not ComboBox comboBox || dataItem == null)
+            return editingElement;
+
+        if (!string.IsNullOrWhiteSpace(BindingPath))
+        {
+            var property = dataItem.GetType().GetProperty(BindingPath);
+            comboBox.SelectedItem = property?.GetValue(dataItem);
+        }
+
+        if (Binding != null)
+        {
+            var binding = CloneBinding(Binding);
+            if (binding is Binding dataBinding)
+                dataBinding.Mode = BindingMode.OneWay;
+            comboBox.Bind(ComboBox.SelectedItemProperty, binding);
         }
 
         return comboBox;
@@ -85,13 +132,6 @@ public class DataGridComboBoxColumn : DataGridBoundColumn
         cb.DropDownClosed += (_, _) => DataGridOwner?.OnComboBoxDropDownClosed();
 
         if (ItemTemplate != null) cb.ItemTemplate = ItemTemplate;
-
-        if (dataItem != null && Binding is Binding srcBinding)
-        {
-            var b = (Binding)CloneBinding(srcBinding);
-            b.Mode = BindingMode.TwoWay;
-            cb.Bind(ComboBox.SelectedItemProperty, b);
-        }
 
         return cb;
     }
@@ -118,4 +158,5 @@ public class DataGridComboBoxColumn : DataGridBoundColumn
         if (editingElement is ComboBox cb) return cb.SelectedItem;
         return null;
     }
+
 }

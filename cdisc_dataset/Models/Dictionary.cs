@@ -1,9 +1,9 @@
-using cdisc_dataset.Models.Enums;
+﻿using cdisc_dataset.Models.Enums;
 using SqlSugar;
 
 namespace cdisc_dataset.Models;
 
-[TenantAttribute("project")]
+[Tenant("project")]
 public class Dictionary
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
@@ -25,8 +25,6 @@ public class Dictionary
     public string? Version { get; set; }
     
     public bool HasErrors { get; set; } = false;
-    public bool HasUniqueIdDuplicate { get; set; } = false;
-    public bool HasNameDuplicate { get; set; } = false;
     
     public CdiscDataType CdiscDataType { get; set; }
     

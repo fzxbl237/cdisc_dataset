@@ -1,4 +1,4 @@
-using cdisc_dataset.Models.Dto;
+﻿using cdisc_dataset.Models.Dto;
 using FluentValidation;
 using FluentValidation.Results;
 
@@ -20,13 +20,13 @@ public class DictionaryValidator : AbstractValidator<DictionaryDto>
         
         RuleFor(x => x.UniqueId)
             .Empty()
-            .When(o => o.HasUniqueIdDuplicate)
+            .When(o => o.IsUniqueIdDuplicate)
             .WithSeverity(Severity.Error)
             .WithMessage("Dictionary unique id is duplicate");
 
         RuleFor(x => x.Name)
             .Empty()
-            .When(o => o.HasNameDuplicate)
+            .When(o => o.IsNameDuplicate)
             .WithSeverity(Severity.Error)
             .WithMessage("Dictionary name is duplicate");
         
@@ -34,6 +34,12 @@ public class DictionaryValidator : AbstractValidator<DictionaryDto>
             .NotEmpty()
             .WithSeverity(Severity.Error)
             .WithMessage("Dictionary name cannot be empty");
+
+        RuleFor(x => x.DictionaryName)
+            .Empty()
+            .When(o => o.IsDictionaryNameDuplicate)
+            .WithSeverity(Severity.Error)
+            .WithMessage("Dictionary name is duplicate");
         
         RuleFor(x => x.Version)
             .NotEmpty()

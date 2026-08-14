@@ -2,8 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using Avalonia.Controls;
+using cdisc_dataset.Controls.DataGrid;
 using cdisc_dataset.Models.Enums;
 using CommunityToolkit.Mvvm.ComponentModel;
 

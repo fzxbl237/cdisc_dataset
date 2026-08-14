@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d"
@@ -19,11 +19,33 @@
             <InvokeCommandAction Command="{Binding LoadCommand}" />
         </EventTriggerBehavior>
     </Interaction.Behaviors>
-    <Grid RowDefinitions="30,*">
-        <!-- <atom:Button Content="Click" Command="{Binding LoadCommand}"/> -->
-        <atom:ThemeConfigProvider Config="{Binding SegmentedConfig}">
-            <atom:Segmented ItemsSource="{Binding SegmentedItems}" SelectedItem="{Binding SelectedSegmentedItem}" />
-        </atom:ThemeConfigProvider>
+    <Grid RowDefinitions="36,*">
+        <Grid ColumnDefinitions="*,Auto">
+            <atom:ThemeConfigProvider Config="{Binding SegmentedConfig}">
+                <atom:Segmented ItemsSource="{Binding SegmentedItems}" SelectedItem="{Binding SelectedSegmentedItem}" />
+            </atom:ThemeConfigProvider>
+            <atom:SplitButton
+                Grid.Column="1"
+                Command="{Binding PreviewDefineXmlCommand}"
+                Content="预览"
+                Icon="{antd-icons:AntDesignIconProvider Kind=EyeOutlined}"
+                Margin="0,0,12,0">
+                <atom:SplitButton.Flyout>
+                    <atom:Flyout Placement="Bottom">
+                        <StackPanel>
+                            <atom:MenuItem
+                                Command="{Binding ExportDefineXmlCommand}"
+                                Header="导出 XML"
+                                Icon="{antd-icons:AntDesignIconProvider Kind=ExportOutlined}" />
+                            <atom:MenuItem
+                                Command="{Binding ExportDefineExcelCommand}"
+                                Header="导出 Excel"
+                                Icon="{antd-icons:AntDesignIconProvider Kind=ExportOutlined}" />
+                        </StackPanel>
+                    </atom:Flyout>
+                </atom:SplitButton.Flyout>
+            </atom:SplitButton>
+        </Grid>
         <!-- <atom:Segmented ItemsSource="{Binding SegmentedItems}" SelectedItem="{Binding SelectedSegmentedItem}" /> -->
         <ContentControl
             Grid.Row="1"

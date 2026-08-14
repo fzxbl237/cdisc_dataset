@@ -1,25 +1,18 @@
-﻿using AsyncNavigation;
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.ComponentModel;
-using System.Text;
+using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using AtomUI.Controls;
 using AtomUI.Desktop.Controls;
 using Avalonia.Collections;
-using Avalonia.Controls;
-using Avalonia.Threading;
 using cdisc_dataset.Constants;
 using cdisc_dataset.Extensions;
-using GridValidationResult = Avalonia.Controls.DataGridValidationResult;
-using GridValidationSeverity = Avalonia.Controls.DataGridValidationSeverity;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Models.Enums;
@@ -51,16 +44,13 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     public AvaloniaList<IAutoCompleteOption> CommentOptions { get; set; } = [];
 
     private FrozenDictionary<string, Comment>? _frozenCommentDictionary;
-    private FrozenDictionary<string, string?> _standardLabels = FrozenDictionary<string, string?>.Empty;
-
-    private readonly SourceCache<DatasetDto, int> _sourceCache = new(o => o.Id);
 
     [ObservableProperty] private string? _searchText;
     [ObservableProperty] private bool _hasChanges;
     [ObservableProperty] private bool _isInitialLoadCompleted;
+    [ObservableProperty] private bool _showLoading = true;
 
-    public bool ShowLoading => !IsInitialLoadCompleted;
-
+    private readonly SourceCache<DatasetDto, int> _sourceCache = new(o => o.Id);
     private readonly ReadOnlyObservableCollection<DatasetDto> _datasets;
     public ReadOnlyObservableCollection<DatasetDto> Datasets => _datasets;
 
@@ -81,22 +71,11 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         _mapper = mapper;
         _validator = validator;
 
-        var filter = this.WhenValueChanged(t => t.SearchText)
-            .Throttle(TimeSpan.FromMilliseconds(250))
-            .Select(BuildFilter);
         _sourceCache.Connect()
-            //.Filter(filter)
             .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
-            .Bind(out _datasets)
             .SortAndBind(out _datasets, SortExpressionComparer<DatasetDto>.Ascending(o => o.Name ?? string.Empty))
             .DisposeMany()
             .Subscribe();
-
-    }
-
-    partial void OnIsInitialLoadCompletedChanged(bool value)
-    {
-        OnPropertyChanged(nameof(ShowLoading));
     }
 
     public async Task LoadInitialDataAsync()
@@ -106,57 +85,79 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             return;
         }
 
-        await LoadDatasetsAsync();
-        IsInitialLoadCompleted = true;
+        var totalSw = Stopwatch.StartNew();
+        ShowLoading = true;
+        try
+        {
+            await LoadDatasetsAsync();
+            IsInitialLoadCompleted = true;
+        }
+        finally
+        {
+            ShowLoading = false;
+            totalSw.Stop();
+            Debug.WriteLine($"[PerfTrace] datasets-initial-load total={totalSw.ElapsedMilliseconds}ms");
+        }
     }
 
     private void DatasetDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (sender is not DatasetDto datasetDto) return;
-
-        if (e.PropertyName is nameof(DatasetDto.HasChanged) or nameof(DatasetDto.IsDuplicate))
+        if (sender is not DatasetDto datasetDto)
             return;
 
-        Observable.StartAsync(async () =>
-        {
-            switch (e.PropertyName)
-            {
-                case nameof(DatasetDto.Name):
-                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Name));
-                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Standard));
-                    _sourceCache.AddOrUpdate(datasetDto);
-                    UpdateDuplicateFlags(_sourceCache.Items.ToList());
-                    break;
-                case nameof(DatasetDto.Standard):
-                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Name));
-                    _sourceCache.AddOrUpdate(datasetDto);
-                    break;
-                case nameof(DatasetDto.Label):
-                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Label));
-                    //_sourceCache.AddOrUpdate(datasetDto);
-                    break;
-                case nameof(DatasetDto.Class):
-                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Class));
-                    _sourceCache.AddOrUpdate(datasetDto);
-                    break;
-                case nameof(DatasetDto.SubClass):
-                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.SubClass));
-                    _sourceCache.AddOrUpdate(datasetDto);
-                    break;
-                case nameof(DatasetDto.Repeating):
-                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Repeating));
-                    _sourceCache.AddOrUpdate(datasetDto);
-                    break;
-                case nameof(DatasetDto.CommentUniqueId):
-                    HandleCommentUniqueIdChanged(datasetDto);
-                    await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.CommentUniqueId));
-                    break;
-            }
-        });
+        var isEditable = IsEditableProperty(e.PropertyName);
+        if (!isEditable)
+            return;
 
+        HandleDatasetDtoPropertyChangedAsync(datasetDto, e.PropertyName).AwaitWithOpt();
         datasetDto.HasChanged = true;
         HasChanges = true;
+    }
 
+    private static bool IsEditableProperty(string? propertyName)
+    {
+        return propertyName is nameof(DatasetDto.Name)
+            or nameof(DatasetDto.Label)
+            or nameof(DatasetDto.Class)
+            or nameof(DatasetDto.SubClass)
+            or nameof(DatasetDto.Structure)
+            or nameof(DatasetDto.KeyVariables)
+            or nameof(DatasetDto.Standard)
+            or nameof(DatasetDto.HasNoData)
+            or nameof(DatasetDto.Repeating)
+            or nameof(DatasetDto.ReferenceData)
+            or nameof(DatasetDto.CommentUniqueId)
+            or nameof(DatasetDto.DeveloperNotes);
+    }
+
+    private async Task HandleDatasetDtoPropertyChangedAsync(DatasetDto datasetDto, string? propertyName)
+    {
+        switch (propertyName)
+        {
+            case nameof(DatasetDto.Name):
+                MarkDuplicates();
+                await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Name), nameof(DatasetDto.Standard));
+                break;
+            case nameof(DatasetDto.Standard):
+                await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Name));
+                break;
+            case nameof(DatasetDto.Label):
+                await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Label));
+                break;
+            case nameof(DatasetDto.Class):
+                await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Class));
+                break;
+            case nameof(DatasetDto.SubClass):
+                await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.SubClass));
+                break;
+            case nameof(DatasetDto.Repeating):
+                await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.Repeating));
+                break;
+            case nameof(DatasetDto.CommentUniqueId):
+                HandleCommentUniqueIdChanged(datasetDto);
+                await _validator.ValidateDtoAsync(datasetDto, nameof(DatasetDto.CommentUniqueId));
+                break;
+        }
     }
 
     private void HandleCommentUniqueIdChanged(DatasetDto datasetDto)
@@ -184,59 +185,53 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         datasetDto.PropertyChanged -= DatasetDtoOnPropertyChanged;
     }
 
-    private void UpdateDuplicateFlags(List<DatasetDto> datasets)
+    private void MarkDuplicates()
     {
-        var nameGroups = datasets.GroupBy(o => o.Name ?? string.Empty).ToList();
-        foreach (var group in nameGroups)
-        {
-            var isDuplicate = group.Count() > 1;
-            foreach (var dto in group)
-            {
-                if (dto.IsDuplicate != isDuplicate)
-                {
-                    dto.IsDuplicate = isDuplicate;
-                    //_sourceCache.AddOrUpdate(dto);
-                }
-            }
-        }
-    }
-
-    private static Func<DatasetDto, bool> BuildFilter(string? searchText)
-    {
-        if (string.IsNullOrEmpty(searchText)) return _ => true;
-        return o => Contains(searchText, o.Name)
-                    || Contains(searchText, o.Label)
-                    || Contains(searchText, o.Class)
-                    || Contains(searchText, o.SubClass)
-                    || Contains(searchText, o.Structure);
-    }
-
-    private static bool Contains(string? searchText, string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value) && value.Contains(searchText!, StringComparison.OrdinalIgnoreCase);
+        _sourceCache.Items.MarkDuplicates(
+            dataset => dataset.Name ?? string.Empty,
+            (dataset, isDuplicate) => dataset.IsDuplicate = isDuplicate,
+            key => !string.IsNullOrWhiteSpace(key));
     }
 
     public async Task LoadDatasetsAsync()
     {
-        foreach (var datasetDto in _sourceCache.Items)
+        var totalSw = Stopwatch.StartNew();
+
+        var unregisterSw = Stopwatch.StartNew();
+        foreach (var datasetDto in Datasets)
             UnregisterDatasetDtoPropertyChanged(datasetDto);
+        unregisterSw.Stop();
 
+        var dbSw = Stopwatch.StartNew();
         var list = await _datasetService.GetAllDatasetsAsync();
-        UpdateDuplicateFlags(list);
-        foreach (var datasetDto in list)
-            RegisterDatasetDtoPropertyChanged(datasetDto);
+        dbSw.Stop();
 
-        _sourceCache.Edit(o =>
+        var validateSw = Stopwatch.StartNew();
+        long validateMaxMs = 0;
+        foreach (var datasetDto in list)
         {
-            o.Clear();
-            o.AddOrUpdate(list);
-        });
-
-        foreach (var datasetDto in list)
+            var oneSw = Stopwatch.StartNew();
             await _validator.ValidateDtoAsync(datasetDto);
+            oneSw.Stop();
+            if (oneSw.ElapsedMilliseconds > validateMaxMs)
+                validateMaxMs = oneSw.ElapsedMilliseconds;
+            RegisterDatasetDtoPropertyChanged(datasetDto);
+        }
+        validateSw.Stop();
 
-
+        var applySw = Stopwatch.StartNew();
+        _sourceCache.Edit(cache =>
+        {
+            cache.Clear();
+            cache.AddOrUpdate(list);
+        });
+        MarkDuplicates();
         HasChanges = false;
+        applySw.Stop();
+
+        totalSw.Stop();
+        var avgMs = list.Count == 0 ? 0 : validateSw.ElapsedMilliseconds / list.Count;
+        Debug.WriteLine($"[PerfTrace] datasets-load count={list.Count} unregister={unregisterSw.ElapsedMilliseconds}ms db={dbSw.ElapsedMilliseconds}ms validate={validateSw.ElapsedMilliseconds}ms avg={avgMs}ms max={validateMaxMs}ms apply={applySw.ElapsedMilliseconds}ms total={totalSw.ElapsedMilliseconds}ms");
     }
 
     public async Task LoadLookups()
@@ -323,7 +318,9 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
         UnregisterDatasetDtoPropertyChanged(dataset);
         await _datasetService.DeleteDatasetAsync(dataset);
-        _sourceCache.Edit(o => o.Remove(dataset));
+        _sourceCache.Remove(dataset);
+        MarkDuplicates();
+        HasChanges = true;
         _messageService.Success("Delete successfully.");
     }
 
@@ -331,7 +328,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     private async Task Save()
     {
         if (!HasChanges) return;
-        await _datasetService.SaveDatasetsAsync(_sourceCache.Items.Where(o => o.HasChanged).ToList());
+        await _datasetService.SaveDatasetsAsync(_sourceCache.Items.Where(dataset => dataset.HasChanged).ToList());
         HasChanges = false;
         _messageService.Success("Saved successfully.");
         await LoadDatasetsAsync();
@@ -341,7 +338,17 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     private async Task Discard()
     {
         if (!HasChanges || _currentProjectService.CurrentProject == null) return;
-        await LoadDatasetsAsync();
+
+        ShowLoading = true;
+        try
+        {
+            await LoadDatasetsAsync();
+            await Task.Delay(250);
+        }
+        finally
+        {
+            ShowLoading = false;
+        }
     }
 
     [RelayCommand]
@@ -352,7 +359,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         if (result.Parameters.TryGetValue<string>("KeyVariables", out string? keyVariables))
         {
             dataset.KeyVariables = keyVariables;
-            _sourceCache.AddOrUpdate(dataset);
         }
     }
 
@@ -371,7 +377,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             dataset.CommentUniqueId = entity.UniqueId;
             dataset.Comment = _mapper.Map<Comment>(entity);
             dataset.CommentId = entity.Id;
-            _sourceCache.AddOrUpdate(dataset);
             await _datasetService.UpdateDatasetAsync(dataset);
             await LoadLookups();
             _messageService.Success("Comment add successful");
@@ -395,7 +400,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             dataset.Comment = entity;
             dataset.CommentId = entity.Id;
             dataset.CommentUniqueId = entity.UniqueId;
-            _sourceCache.AddOrUpdate(dataset);
             await _datasetService.UpdateDatasetAsync(dataset);
             _messageService.Success("Comment modify successfully");
         }
@@ -453,7 +457,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     {
         await base.OnNavigatedFromAsync(navigationContext);
 
-        foreach (var datasetDto in _sourceCache.Items)
+        foreach (var datasetDto in Datasets)
             UnregisterDatasetDtoPropertyChanged(datasetDto);
     }
 
@@ -461,16 +465,23 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     {
         if (_currentProjectService.CdiscDataType == CdiscDataType.Sdtm)
         {
-            Classes.Clear();
-            Standards.Clear();
-            Classes.AddRange([.. ConstantOptions.Classes]);
-            Standards.AddRange([.. ConstantOptions.SdtmStandards]);
+            if (!Classes.SequenceEqual(ConstantOptions.Classes))
+            {
+                Classes.Clear();
+                Classes.AddRange([.. ConstantOptions.Classes]);
+            }
+
+            if (!Standards.SequenceEqual(ConstantOptions.SdtmStandards))
+            {
+                Standards.Clear();
+                Standards.AddRange([.. ConstantOptions.SdtmStandards]);
+            }
         }
         await LoadLookups();
 
         if (IsInitialLoadCompleted)
         {
-            foreach (var datasetDto in _sourceCache.Items)
+            foreach (var datasetDto in Datasets)
                 RegisterDatasetDtoPropertyChanged(datasetDto);
         }
 

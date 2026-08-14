@@ -67,7 +67,6 @@
                     <atom:DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <atom:Tag
-                                Foreground="White"
                                 Padding="10,4"
                                 TagColor="{Binding FileType, Converter={x:Static converters:FileTypeColorConverter.Instance}}"
                                 Text="{Binding FileType}" />

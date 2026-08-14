@@ -5,7 +5,7 @@ namespace cdisc_dataset.Extensions;
 
 public static class TaskExtensions
 {
-    public static async void Await(this Task task, Action? onCompleted = null, Action<Exception>? onError = null)
+    public static async void AwaitWithOpt(this Task task, Action? onCompleted = null, Action<Exception>? onError = null)
     {
         try
         {

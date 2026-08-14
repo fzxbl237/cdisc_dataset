@@ -1,32 +1,40 @@
-﻿using System.Threading.Tasks;
-using Avalonia.Controls;
+﻿using System;
+using System.Linq;
+using System.Threading.Tasks;
+using cdisc_dataset.Controls.DataGrid;
 using cdisc_dataset.Models.Dto;
-using cdisc_dataset.Services;
-using cdisc_dataset.Services.Interface;
-using cdisc_dataset.Views;
 using FluentValidation;
 
 namespace cdisc_dataset.Extensions;
 
 public static class ValidationExtensions
 {
-    public static async Task ValidateDtoAsync<TDto>(this IValidator<TDto> validator, TDto dto, string? propertyName = null)
+    public static async Task ValidateDtoAsync<TDto>(this IValidator<TDto> validator, TDto dto, params string[]? propertyNames)
         where TDto : BaseDto
     {
-        if (string.IsNullOrWhiteSpace(propertyName))
+        var selectedProperties = propertyNames?
+            .Where(propertyName => !string.IsNullOrWhiteSpace(propertyName))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var validateAllProperties = selectedProperties is null || selectedProperties.Length == 0;
+
+        if (validateAllProperties)
         {
             dto.ClearErrors();
         }
         else
         {
-            dto.RemoveError(propertyName);
+            foreach (var propertyName in selectedProperties!)
+            {
+                dto.RemoveError(propertyName);
+            }
         }
 
         var result = await validator.ValidateAsync(dto, options =>
         {
-            if (!string.IsNullOrWhiteSpace(propertyName))
+            if (!validateAllProperties)
             {
-                options.IncludeProperties(propertyName);
+                options.IncludeProperties(selectedProperties!);
             }
         });
 
@@ -40,25 +48,5 @@ public static class ValidationExtensions
                         ? DataGridValidationSeverity.Error
                         : DataGridValidationSeverity.Warning));
         }
-
-        // var entityId = dto.GetEntityId();
-        // if (entityId is null)
-        // {
-        //     return;
-        // }
-
-        // var application = App.Current;
-        // if (application is PrismApplication prismApplication)
-        // {
-        //     var service = prismApplication.Container.Resolve<IssueService>();
-        //     await service.SyncIssuesAsync(dto, typeof(TDto).Name, entityId, result.Errors);
-        // }
-
     }
-
-    // public static void ValidateDto<TDto>(this IValidator<TDto> validator, TDto dto, string? propertyName = null)
-    //     where TDto : BaseDto
-    // {
-    //     validator.ValidateDtoAsync(dto,propertyName).Await();
-    // }
 }

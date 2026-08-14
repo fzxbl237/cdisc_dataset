@@ -1,11 +1,8 @@
 ﻿using AsyncNavigation;
 using System;
-using System.Collections.Frozen;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
-using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,8 +19,6 @@ using cdisc_dataset.Services;
 using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using DynamicData;
-using DynamicData.Binding;
 using FluentValidation;
 using Prism.Dialogs;
 using NavigationContext = AsyncNavigation.NavigationContext;
@@ -56,10 +51,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
     [ObservableProperty]
     private AvaloniaList<AutoCompleteOption> _dictionaryNameOptions = [];
 
-    private readonly SourceCache<DictionaryDto, int> _sourceCache = new(o => o.Id);
-
-    private readonly ReadOnlyObservableCollection<DictionaryDto> _dictionarys;
-    public ReadOnlyObservableCollection<DictionaryDto> Dictionarys => _dictionarys;
+    public AvaloniaList<DictionaryDto> Dictionarys { get; } = [];
 
     public DictionariesViewModel(
         IDictionaryService dictionaryService,
@@ -74,17 +66,6 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
         _currentProjectService = currentProjectService;
         _validator = validator;
 
-        var filter = this.WhenValueChanged(t => t.SearchText)
-            .Throttle(TimeSpan.FromMilliseconds(250))
-            .Select(BuildFilter);
-
-        _sourceCache.Connect()
-            .Filter(filter)
-            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
-            .SortAndBind(out _dictionarys, SortExpressionComparer<DictionaryDto>.Ascending(o => o.UniqueId ?? string.Empty))
-            .DisposeMany()
-            .Subscribe();
-
     }
 
     private void DictionaryDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -92,16 +73,32 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
         if (sender is not DictionaryDto dictionaryDto || string.IsNullOrWhiteSpace(e.PropertyName))
             return;
 
-        var marksDirty = e.PropertyName is nameof(DictionaryDto.UniqueId)
-            or nameof(DictionaryDto.Name)
-            or nameof(DictionaryDto.DataType)
-            or nameof(DictionaryDto.DictionaryName)
-            or nameof(DictionaryDto.Version);
-        var requiresValidation = marksDirty || e.PropertyName is nameof(DictionaryDto.HasUniqueIdDuplicate)
-            or nameof(DictionaryDto.HasNameDuplicate);
-
-        if (!requiresValidation)
+        if (e.PropertyName == nameof(DictionaryDto.HasChanged))
             return;
+
+        var duplicateFlagProperty = e.PropertyName switch
+        {
+            nameof(DictionaryDto.IsUniqueIdDuplicate) => nameof(DictionaryDto.UniqueId),
+            nameof(DictionaryDto.IsNameDuplicate) => nameof(DictionaryDto.Name),
+            nameof(DictionaryDto.IsDictionaryNameDuplicate) => nameof(DictionaryDto.DictionaryName),
+            _ => null
+        };
+
+        if (duplicateFlagProperty != null)
+        {
+            Observable.StartAsync(() => _validator.ValidateDtoAsync(dictionaryDto, duplicateFlagProperty));
+            return;
+        }
+
+        if (e.PropertyName is not (
+                nameof(DictionaryDto.UniqueId) or
+                nameof(DictionaryDto.Name) or
+                nameof(DictionaryDto.DataType) or
+                nameof(DictionaryDto.DictionaryName) or
+                nameof(DictionaryDto.Version)))
+        {
+            return;
+        }
 
         Observable.StartAsync(async () =>
         {
@@ -115,30 +112,18 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
                     MarkDuplicates();
                     await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.Name));
                     break;
-                case nameof(DictionaryDto.HasUniqueIdDuplicate):
-                    await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.UniqueId));
-                    break;
-                case nameof(DictionaryDto.HasNameDuplicate):
-                    await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.Name));
+                case nameof(DictionaryDto.DictionaryName):
+                    MarkDuplicates();
+                    await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.DictionaryName));
                     break;
                 case nameof(DictionaryDto.Version):
                     await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.Version));
                     break;
-                case nameof(DictionaryDto.DictionaryName):
-                    await _validator.ValidateDtoAsync(dictionaryDto, nameof(DictionaryDto.DictionaryName));
-                    break;
-                case nameof(DictionaryDto.DataType):
-                    break;
             }
-
-            _sourceCache.AddOrUpdate(dictionaryDto);
         });
 
-        if (marksDirty)
-        {
-            dictionaryDto.HasChanged = true;
-            HasChanges = true;
-        }
+        dictionaryDto.HasChanged = true;
+        HasChanges = true;
     }
 
     private void RegisterDictionaryDtoPropertyChanged(DictionaryDto dictionaryDto)
@@ -165,7 +150,6 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
         await _dictionaryService.InsertDictionaryAsync(dictionary);
         RegisterDictionaryDtoPropertyChanged(dictionary);
-        _sourceCache.AddOrUpdate(dictionary);
         _messageService.Success("??????");
         await LoadDictionaries();
     }
@@ -200,7 +184,8 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
         await _dictionaryService.DeleteDictionaryAsync(dictionary);
         UnregisterDictionaryDtoPropertyChanged(dictionary);
-        _sourceCache.Remove(dictionary);
+        Dictionarys.Remove(dictionary);
+        MarkDuplicates();
         _messageService.Success("Delete successfully");
     }
 
@@ -249,7 +234,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
     public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
-        foreach (var dictionaryDto in _sourceCache.Items)
+        foreach (var dictionaryDto in Dictionarys)
             UnregisterDictionaryDtoPropertyChanged(dictionaryDto);
 
         return Task.CompletedTask;
@@ -257,7 +242,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
     public async Task LoadDictionaries()
     {
-        foreach (var dictionaryDto in _sourceCache.Items)
+        foreach (var dictionaryDto in Dictionarys)
             UnregisterDictionaryDtoPropertyChanged(dictionaryDto);
 
         var list = await _dictionaryService.GetAllDictionaryDtosAsync();
@@ -267,11 +252,8 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
             RegisterDictionaryDtoPropertyChanged(dictionaryDto);
         }
 
-        _sourceCache.Edit(o =>
-        {
-            o.Clear();
-            o.AddOrUpdate(list);
-        });
+        Dictionarys.Clear();
+        Dictionarys.AddRange(list.OrderBy(dictionary => dictionary.UniqueId, StringComparer.OrdinalIgnoreCase));
         MarkDuplicates();
         HasChanges = false;
     }
@@ -345,23 +327,26 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
     private void MarkDuplicates()
     {
-        _sourceCache.Items.MarkDuplicates(
+        foreach (var dictionary in Dictionarys)
+        {
+            dictionary.IsUniqueIdDuplicate = false;
+            dictionary.IsNameDuplicate = false;
+            dictionary.IsDictionaryNameDuplicate = false;
+        }
+
+        Dictionarys.MarkDuplicates(
             o => o.UniqueId ?? string.Empty,
-            (dictionary, isDuplicate) => dictionary.HasUniqueIdDuplicate = isDuplicate,
+            (dictionary, isDuplicate) => dictionary.IsUniqueIdDuplicate = isDuplicate,
             key => !string.IsNullOrWhiteSpace(key));
 
-        _sourceCache.Items.MarkDuplicates(
+        Dictionarys.MarkDuplicates(
             o => o.Name ?? string.Empty,
-            (dictionary, isDuplicate) => dictionary.HasNameDuplicate = isDuplicate,
+            (dictionary, isDuplicate) => dictionary.IsNameDuplicate = isDuplicate,
+            key => !string.IsNullOrWhiteSpace(key));
+
+        Dictionarys.MarkDuplicates(
+            o => o.DictionaryName ?? string.Empty,
+            (dictionary, isDuplicate) => dictionary.IsDictionaryNameDuplicate = isDuplicate,
             key => !string.IsNullOrWhiteSpace(key));
     }
-
-    private static Func<DictionaryDto, bool> BuildFilter(string? searchText)
-        => SearchFilterExtensions.BuildSearchFilter<DictionaryDto>(
-            searchText,
-            x => x.UniqueId,
-            x => x.Name,
-            x => x.DataType,
-            x => x.DictionaryName,
-            x => x.Version);
 }

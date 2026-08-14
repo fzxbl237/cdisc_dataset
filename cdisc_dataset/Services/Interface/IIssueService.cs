@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using Avalonia.Controls;
+using cdisc_dataset.Controls.DataGrid;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Models.Enums;
 using FluentValidation.Results;

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Avalonia;
@@ -815,6 +816,8 @@ public class DataGrid : TemplatedControl
         int last = Math.Min(itemCount - 1, (int)Math.Ceiling((_verticalOffset + vpH) / RowHeight) + 2);
         var items = GetItemsList();
         var keep = new HashSet<int>();
+        int created = 0;
+        var buildSw = Stopwatch.StartNew();
         for (int i = first; i <= last; i++)
         {
             keep.Add(i);
@@ -831,13 +834,21 @@ public class DataGrid : TemplatedControl
             }
 
             var row = CreateRow(i, items);
+            created++;
             _realizedRows.Add(row);
             if (!_scrollPanel.Children.Contains(row)) _scrollPanel.Children.Add(row);
         }
+        buildSw.Stop();
         foreach (var row in _realizedRows.Where(r => !keep.Contains(r.Index)).ToList())
         { _realizedRows.Remove(row); _scrollPanel.Children.Remove(row); }
 
         _scrollPanel.InvalidateArrange();
+
+        if (!_perfViewportLogged && created > 0)
+        {
+            _perfViewportLogged = true;
+            Debug.WriteLine($"[PerfTrace] datagrid-first-viewport rows={_realizedRows.Count} created={created} cols={Columns.Count} build={buildSw.ElapsedMilliseconds}ms");
+        }
     }
 
     private DataGridRow CreateRow(int index, IList items)
@@ -1011,9 +1022,9 @@ public class DataGrid : TemplatedControl
         var args = new DataGridCellEditEndingEventArgs(cell, cell.Column, DataGridEditAction.Commit);
         CellEditEnding?.Invoke(this, args);
         if (args.Cancel) return;
+        _isEditing = false;
         var value = cell.CommitEdit();
         CommitCellValue(cell, value);
-        _isEditing = false;
 
     }
 
@@ -1032,6 +1043,12 @@ public class DataGrid : TemplatedControl
         var property = cell.DataItem.GetType().GetProperty(boundColumn.BindingPath);
         if (property?.CanWrite != true)
             return;
+
+        var currentValue = property.GetValue(cell.DataItem);
+        if (Equals(currentValue, value))
+        {
+            return;
+        }
 
         property.SetValue(cell.DataItem, value);
     }
@@ -1122,6 +1139,7 @@ public class DataGrid : TemplatedControl
 
     private INotifyCollectionChanged? _subscribedSource;
     private bool _searchRefreshQueued;
+    private bool _perfViewportLogged;
 
     private void SubscribeCollectionChanged()
     {

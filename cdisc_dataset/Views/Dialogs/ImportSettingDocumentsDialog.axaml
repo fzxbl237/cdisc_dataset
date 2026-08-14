@@ -1,0 +1,43 @@
+﻿<UserControl
+    d:DesignHeight="560"
+    d:DesignWidth="920"
+    mc:Ignorable="d"
+    x:Class="cdisc_dataset.Views.Dialogs.ImportSettingDocumentsDialog"
+    x:DataType="vm:ImportSettingDocumentsViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:atom="https://atomui.net"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:cdisc_dataset.ViewModels.Dialogs"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Margin="24" MinWidth="860" Spacing="16">
+        <atom:TextBlock
+            FontSize="20"
+            FontWeight="Bold"
+            Text="从设置导入 Document" />
+        <atom:TextBlock
+            Foreground="#667085"
+            Text="左侧为 setting 数据库中当前项目尚未包含的 Document；移至右侧后确认导入。" />
+        <atom:ListTransfer
+            IsFilterEnabled="True"
+            ListHeight="360"
+            ListWidth="400"
+            SourceTitle="可导入 Document"
+            TargetKeys="{Binding TargetKeys, Mode=TwoWay}"
+            TargetTitle="待导入 Document"
+            ItemsSource="{Binding Documents}" />
+        <StackPanel
+            HorizontalAlignment="Right"
+            Orientation="Horizontal"
+            Spacing="12">
+            <atom:Button
+                ButtonType="Default"
+                Command="{Binding CancelCommand}"
+                Content="取消" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding SaveCommand}"
+                Content="确认导入" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

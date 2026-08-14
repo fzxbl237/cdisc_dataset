@@ -1,4 +1,4 @@
-using cdisc_dataset.Models.Enums;
+﻿using cdisc_dataset.Models.Enums;
 using SqlSugar;
 
 namespace cdisc_dataset.Models;
@@ -19,6 +19,15 @@ public class Document
     
     [SugarColumn(IsNullable = false)]
     public bool HasErrors { get; set; } = false;
+
+    [SugarColumn(IsIgnore = true)]
+    public bool IsUniqueIdDuplicate { get; set; }
+
+    [SugarColumn(IsIgnore = true)]
+    public bool IsTitleDuplicate { get; set; }
+
+    [SugarColumn(IsIgnore = true)]
+    public bool IsHrefDuplicate { get; set; }
     
     public int ProjectId { get; set; }
 }

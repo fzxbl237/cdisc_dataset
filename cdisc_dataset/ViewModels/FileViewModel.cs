@@ -1140,7 +1140,7 @@ public partial class FileViewModel : ViewModelBase
         return new ParsedSdtmFile(
             name,
             dataSource.GetDetails().GetString(SourceDetails.Property.DatasetLabel),
-            dataSource.HasRecords(),
+            allRecords.Count > 0,
             variables);
     }
 

@@ -1,13 +1,12 @@
 ﻿using AsyncNavigation;
 using System;
-using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
-using System.Reactive.Concurrency;
 using System.Reactive.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using AtomUI.Desktop.Controls;
+using Avalonia.Collections;
 using cdisc_dataset.Extensions;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
@@ -17,10 +16,8 @@ using cdisc_dataset.Services.Interface;
 using cdisc_dataset.Validations;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using DynamicData;
-using Prism.Dialogs;
-using DynamicData.Binding;
 using FluentValidation;
+using Prism.Dialogs;
 using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
@@ -46,10 +43,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
     [ObservableProperty]
     private string? _searchText;
 
-    private readonly SourceCache<DocumentDto, int> _documentSourceCache = new(o => o.Id);
-
-    private readonly ReadOnlyObservableCollection<DocumentDto> _documents;
-    public ReadOnlyObservableCollection<DocumentDto> Documents => _documents;
+    public AvaloniaList<DocumentDto> Documents { get; } = [];
 
     public DocumentsViewModel(
         IMessageService messageService,
@@ -66,17 +60,6 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         _currentProjectService = currentProjectService;
         _validator = validator;
 
-        var filter = this.WhenValueChanged(t => t.SearchText)
-            .Throttle(TimeSpan.FromMilliseconds(250))
-            .Select(BuildFilter);
-
-        _documentSourceCache.Connect()
-            .Filter(filter)
-            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
-            .SortAndBind(out _documents, SortExpressionComparer<DocumentDto>.Ascending(o => o.UniqueId))
-            .DisposeMany()
-            .Subscribe();
-
     }
 
     private void DocumentDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -86,6 +69,28 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
         if (e.PropertyName == nameof(DocumentDto.HasChanged))
             return;
+
+        var isDuplicateFlagChange = e.PropertyName switch
+        {
+            nameof(DocumentDto.IsUniqueIdDuplicate) => nameof(DocumentDto.UniqueId),
+            nameof(DocumentDto.IsTitleDuplicate) => nameof(DocumentDto.Title),
+            nameof(DocumentDto.IsHrefDuplicate) => nameof(DocumentDto.Href),
+            _ => null
+        };
+
+        if (isDuplicateFlagChange != null)
+        {
+            Observable.StartAsync(() => _validator.ValidateDtoAsync(documentDto, isDuplicateFlagChange));
+            return;
+        }
+
+        if (e.PropertyName is not (
+            nameof(DocumentDto.UniqueId) or
+            nameof(DocumentDto.Title) or
+            nameof(DocumentDto.Href)))
+        {
+            return;
+        }
 
         Observable.StartAsync(async () =>
         {
@@ -100,19 +105,12 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
                     await _validator.ValidateDtoAsync(documentDto, nameof(DocumentDto.Title));
                     break;
                 case nameof(DocumentDto.Href):
+                    MarkDuplicates();
                     await _validator.ValidateDtoAsync(documentDto, nameof(DocumentDto.Href));
-                    break;
-                case nameof(DocumentDto.HasUniqueIdDuplicate):
-                    await _validator.ValidateDtoAsync(documentDto, nameof(DocumentDto.UniqueId));
-                    break;
-                case nameof(DocumentDto.HasTitleDuplicate):
-                    await _validator.ValidateDtoAsync(documentDto, nameof(DocumentDto.Title));
                     break;
                 default:
                     return;
             }
-
-            _documentSourceCache.AddOrUpdate(documentDto);
         });
 
         documentDto.HasChanged = true;
@@ -129,8 +127,55 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         documentDto.PropertyChanged -= DocumentDtoOnPropertyChanged;
     }
 
+    private void MarkDuplicates()
+    {
+        foreach (var document in Documents)
+        {
+            document.IsUniqueIdDuplicate = false;
+            document.IsTitleDuplicate = false;
+            document.IsHrefDuplicate = false;
+        }
+
+        Documents.MarkDuplicates(
+            document => document.UniqueId ?? string.Empty,
+            (document, isDuplicate) => document.IsUniqueIdDuplicate = isDuplicate,
+            key => !string.IsNullOrWhiteSpace(key));
+        Documents.MarkDuplicates(
+            document => document.Title ?? string.Empty,
+            (document, isDuplicate) => document.IsTitleDuplicate = isDuplicate,
+            key => !string.IsNullOrWhiteSpace(key));
+        Documents.MarkDuplicates(
+            document => document.Href ?? string.Empty,
+            (document, isDuplicate) => document.IsHrefDuplicate = isDuplicate,
+            key => !string.IsNullOrWhiteSpace(key));
+    }
+
     [RelayCommand]
-    private async Task AddDocument()
+    private async Task ImportFromSettingsAsync()
+    {
+        if (CurrentProject == null)
+            return;
+
+        var result = await _dialogHostService.ShowDialogAsync("ImportSettingDocumentsDialog", null);
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<List<int>>("TemplateDocumentIds", out var templateDocumentIds))
+        {
+            return;
+        }
+
+        var importedCount = await _documentService.ImportSettingDocumentsAsync(templateDocumentIds);
+        if (importedCount == 0)
+        {
+            _messageService.Info("No selected documents are available for import");
+            return;
+        }
+
+        await LoadDocuments(CurrentProject.Id, CdiscDataType);
+        _messageService.Success($"Imported {importedCount} document(s) from settings");
+    }
+
+    [RelayCommand]
+    private async Task AddDocumentAsync()
     {
         if (CurrentProject == null)
             return;
@@ -144,12 +189,47 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
             return;
 
         var document = result.Parameters.GetValue<DocumentDto>("Model");
+        await _documentService.InsertDocumentAsync(document);
         await _validator.ValidateDtoAsync(document);
         RegisterDocumentDtoPropertyChanged(document);
-        _documentSourceCache.AddOrUpdate(document);
+        Documents.Add(document);
         MarkDuplicates();
-        HasChanges = true;
+        //HasChanges = true;
         _messageService.Success("Document added");
+    }
+
+    [RelayCommand]
+    private async Task EditDocumentAsync(DocumentDto documentDto)
+    {
+        var editedDocument = new DocumentDto
+        {
+            Id = documentDto.Id,
+            ProjectId = documentDto.ProjectId,
+            CdiscDataType = documentDto.CdiscDataType,
+            UniqueId = documentDto.UniqueId,
+            Title = documentDto.Title,
+            Href = documentDto.Href,
+        };
+
+        var result = await _dialogHostService.ShowDialogAsync("DocumentDialog", new DialogParameters
+        {
+            { "Title", "Edit Document" },
+            { "Model", editedDocument }
+        });
+        if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Model"))
+            return;
+
+        var updatedDocument = result.Parameters.GetValue<DocumentDto>("Model");
+        await _documentService.UpdateDocumentAsync(updatedDocument);
+        await _validator.ValidateDtoAsync(updatedDocument);
+        UnregisterDocumentDtoPropertyChanged(documentDto);
+        RegisterDocumentDtoPropertyChanged(updatedDocument);
+        var index = Documents.IndexOf(documentDto);
+        if (index >= 0)
+            Documents[index] = updatedDocument;
+        MarkDuplicates();
+        //HasChanges = true;
+        _messageService.Success("Document updated");
     }
 
     [RelayCommand]
@@ -165,8 +245,9 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
         await _documentService.DeleteDocumentDtoAsync(documentDto);
         UnregisterDocumentDtoPropertyChanged(documentDto);
-        _documentSourceCache.Remove(documentDto);
+        Documents.Remove(documentDto);
         MarkDuplicates();
+        //HasChanges = true;
         _messageService.Success("Delete successfully");
     }
 
@@ -209,7 +290,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
-        foreach (var documentDto in _documentSourceCache.Items)
+        foreach (var documentDto in Documents)
             UnregisterDocumentDtoPropertyChanged(documentDto);
 
         return Task.CompletedTask;
@@ -222,7 +303,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     public async Task LoadDocuments(int id, CdiscDataType cdiscDataType)
     {
-        foreach (var documentDto in _documentSourceCache.Items)
+        foreach (var documentDto in Documents)
             UnregisterDocumentDtoPropertyChanged(documentDto);
 
         var dtoList = await _documentService.GetAllDocumentDtosAsync();
@@ -232,12 +313,8 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
             RegisterDocumentDtoPropertyChanged(document);
         }
 
-        _documentSourceCache.Edit(o =>
-        {
-            o.Clear();
-            o.AddOrUpdate(dtoList);
-        });
-
+        Documents.Clear();
+        Documents.AddRange(dtoList.OrderBy(document => document.UniqueId, StringComparer.OrdinalIgnoreCase));
         MarkDuplicates();
         HasChanges = false;
     }
@@ -256,28 +333,6 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
     //     }
     // }
 
-    private void MarkDuplicates()
-    {
-        _documentSourceCache.Items.MarkDuplicates(
-            o => o.UniqueId ?? string.Empty,
-            (document, isDuplicate) => document.HasUniqueIdDuplicate = isDuplicate,
-            key => !string.IsNullOrWhiteSpace(key));
-
-        _documentSourceCache.Items.MarkDuplicates(
-            o => o.Title ?? string.Empty,
-            (document, isDuplicate) => document.HasTitleDuplicate = isDuplicate,
-            key => !string.IsNullOrWhiteSpace(key));
-    }
-    
-
-    private static Func<DocumentDto, bool> BuildFilter(string? searchText)
-        => SearchFilterExtensions.BuildSearchFilter<DocumentDto>(
-            searchText,
-            x => x.UniqueId,
-            x => x.Title,
-            x => x.Href);
-    
-    
 }
 
 public record DocumentAutoCompleteOption : AutoCompleteOption

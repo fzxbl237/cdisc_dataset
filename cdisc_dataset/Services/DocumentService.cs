@@ -1,9 +1,10 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Models.Enums;
+using cdisc_dataset.Models.Settings;
 using cdisc_dataset.Services.Interface;
 using MapsterMapper;
 using SqlSugar;
@@ -83,6 +84,64 @@ public class DocumentService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
     public async Task<int> UpdateDocumentAsync(Document document)
     {
         return await sqlSugar.Updateable(document).ExecuteCommandAsync();
+    }
+
+    public async Task<int> UpdateDocumentAsync(DocumentDto document)
+    {
+        var doc = mapper.Map<Document>(document);
+        return await sqlSugar.Updateable(doc).ExecuteCommandAsync();
+    }
+
+    public async Task<List<TemplateDocument>> GetAvailableSettingDocumentsAsync()
+    {
+        var (projectId, dataType) = GetCurrentProjectContext();
+        if (projectId == 0)
+            return [];
+
+        var existingUniqueIds = await sqlSugar.Queryable<Document>()
+            .Where(document => document.ProjectId == projectId && document.CdiscDataType == dataType)
+            .Select(document => document.UniqueId)
+            .ToListAsync();
+
+        return await sqlSugar.AsTenant().QueryableWithAttr<TemplateDocument>()
+            .Where(document => document.CdiscDataType == dataType &&
+                               !string.IsNullOrWhiteSpace(document.UniqueId) &&
+                               !existingUniqueIds.Contains(document.UniqueId))
+            .ToListAsync();
+    }
+
+    public async Task<int> ImportSettingDocumentsAsync(IReadOnlyList<int> templateDocumentIds)
+    {
+        var (projectId, dataType) = GetCurrentProjectContext();
+        var templateIds = templateDocumentIds.Distinct().ToList();
+        if (projectId == 0 || templateIds.Count == 0)
+            return 0;
+
+        var existingUniqueIds = await sqlSugar.Queryable<Document>()
+            .Where(document => document.ProjectId == projectId && document.CdiscDataType == dataType)
+            .Select(document => document.UniqueId)
+            .ToListAsync();
+
+        var templates = await sqlSugar.AsTenant().QueryableWithAttr<TemplateDocument>()
+            .Where(document => templateIds.Contains(document.Id) &&
+                               document.CdiscDataType == dataType &&
+                               !string.IsNullOrWhiteSpace(document.UniqueId) &&
+                               !existingUniqueIds.Contains(document.UniqueId))
+            .ToListAsync();
+
+        if (templates.Count == 0)
+            return 0;
+
+        var documents = templates.Select(template => new Document
+        {
+            UniqueId = template.UniqueId,
+            Title = template.Title,
+            Href = template.Href,
+            ProjectId = projectId,
+            CdiscDataType = dataType
+        }).ToList();
+
+        return await sqlSugar.Insertable(documents).ExecuteCommandAsync();
     }
 
     public async Task<int> SaveDocumentsAsync(List<DocumentDto> documents)

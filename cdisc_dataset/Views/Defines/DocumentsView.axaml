@@ -57,6 +57,10 @@
                     <Setter Property="ContextMenu">
                         <atom:ContextMenu x:DataType="dto:DocumentDto">
                             <atom:MenuItem
+                                Command="{Binding #Root.((vm:DocumentsViewModel)DataContext).EditDocumentCommand}"
+                                CommandParameter="{Binding}"
+                                Header="Edit" />
+                            <atom:MenuItem
                                 Command="{Binding #Root.((vm:DocumentsViewModel)DataContext).DeleteCommand}"
                                 CommandParameter="{Binding}"
                                 Header="Delete"
@@ -108,6 +112,11 @@
                         <Setter Property="ContextMenu">
                             <atom:ContextMenu x:DataType="dto:DocumentDto">
                                 <atom:MenuItem
+                                    Command="{Binding #Root.((vm:DocumentsViewModel)DataContext).EditDocumentCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Edit"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=EditOutlined}" />
+                                <atom:MenuItem
                                     Command="{Binding #Root.((vm:DocumentsViewModel)DataContext).DeleteCommand}"
                                     CommandParameter="{Binding}"
                                     Header="Delete"
@@ -117,12 +126,20 @@
                     </Style>
                 </customGrid:DataGrid.Styles>
                 <customGrid:DataGrid.SearchBarRightContent>
-                    <atom:Button
-                        Color="Default"
-                        Command="{Binding AddDocumentCommand}"
-                        Content="新增"
-                        Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
-                        Variant="Solid" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <atom:Button
+                            Color="Default"
+                            Command="{Binding ImportFromSettingsCommand}"
+                            Content="从设置导入"
+                            Icon="{antd-icons:AntDesignIconProvider Kind=ImportOutlined}"
+                            Variant="Solid" />
+                        <atom:Button
+                            Color="Default"
+                            Command="{Binding AddDocumentCommand}"
+                            Content="新增"
+                            Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
+                            Variant="Solid" />
+                    </StackPanel>
                 </customGrid:DataGrid.SearchBarRightContent>
                 <customGrid:DataGrid.Columns>
                     <customGrid:DataGridTextColumn

@@ -1,4 +1,4 @@
-using cdisc_dataset.Models.Enums;
+﻿using cdisc_dataset.Models.Enums;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace cdisc_dataset.Models.Dto;
@@ -16,8 +16,11 @@ public partial class DocumentDto : BaseDto
     
 
     [ObservableProperty]
-    private bool _hasUniqueIdDuplicate;
+    private bool _isUniqueIdDuplicate;
 
     [ObservableProperty]
-    private bool _hasTitleDuplicate;
+    private bool _isTitleDuplicate;
+
+    [ObservableProperty]
+    private bool _isHrefDuplicate;
 }

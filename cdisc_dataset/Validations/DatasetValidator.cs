@@ -1,7 +1,13 @@
-﻿using System.Text;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using Avalonia.Metadata;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
+using cdisc_dataset.Models.Enums;
 using cdisc_dataset.Models.Settings;
 using FluentValidation;
 using FluentValidation.Results;
@@ -12,6 +18,8 @@ namespace cdisc_dataset.Validations;
 public class DatasetValidator:AbstractValidator<DatasetDto>
 {
     private readonly ISqlSugarClient _sqlSugar;
+    private readonly ConcurrentDictionary<CdiscDataType, Lazy<Task<IReadOnlyDictionary<string, Dataset>>>> _standardDatasetCache = new();
+    private readonly ConcurrentDictionary<CdiscDataType, Lazy<Task<HashSet<string>>>> _standardTemplateNameCache = new();
 
     public DatasetValidator(ISqlSugarClient sqlSugar)
     {
@@ -28,9 +36,7 @@ public class DatasetValidator:AbstractValidator<DatasetDto>
         {
             DatasetDto dto = context.InstanceToValidate;
 
-            var std = await sqlSugar.Queryable<Dataset>()
-                .Where(o => o.Name == dto.Name && o.ProjectId == 0 && o.CdiscDataType == dto.CdiscDataType)
-                .FirstAsync();
+            var std = await GetStandardDatasetAsync(dto);
             if (std != null)
             {
                 if (dto.Label != std.Label)
@@ -49,9 +55,7 @@ public class DatasetValidator:AbstractValidator<DatasetDto>
         {
             DatasetDto dto = context.InstanceToValidate;
 
-            var std = await sqlSugar.Queryable<Dataset>()
-                .Where(o => o.Name == dto.Name && o.ProjectId == 0 && o.CdiscDataType == dto.CdiscDataType)
-                .FirstAsync();
+            var std = await GetStandardDatasetAsync(dto);
             if (std != null)
             {
                 if (dto.SubClass != std.SubClass)
@@ -72,9 +76,7 @@ public class DatasetValidator:AbstractValidator<DatasetDto>
         {
             DatasetDto dto = context.InstanceToValidate;
 
-            var std = await sqlSugar.Queryable<Dataset>()
-                .Where(o => o.Name == dto.Name && o.ProjectId == 0 && o.CdiscDataType == dto.CdiscDataType)
-                .FirstAsync();
+            var std = await GetStandardDatasetAsync(dto);
             if (std != null)
             {
                 if (dto.Class != std.Class)
@@ -93,9 +95,7 @@ public class DatasetValidator:AbstractValidator<DatasetDto>
         {
             DatasetDto dto = context.InstanceToValidate;
 
-            var std = await sqlSugar.Queryable<Dataset>()
-                .Where(o => o.Name == dto.Name && o.ProjectId == 0 && o.CdiscDataType == dto.CdiscDataType)
-                .FirstAsync();
+            var std = await GetStandardDatasetAsync(dto);
             if (std != null)
             {
                 if (dto.Repeating != std.Repeating)
@@ -120,13 +120,9 @@ public class DatasetValidator:AbstractValidator<DatasetDto>
         
         RuleFor(x=>x.Name).MustAsync( async (x, s, token) =>
             {
-                var stdDomains = await sqlSugar.AsTenant().QueryableWithAttr<DatasetTemplate>()
-                    .Where(o=>o.CdiscDataType == x.CdiscDataType)
-                    .Select(o=>o.Name).ToListAsync();
+                var stdDomains = await GetStandardTemplateNamesAsync(x.CdiscDataType);
                 var domain = !string.IsNullOrWhiteSpace(s) && s.StartsWith("SUPP") ? "SUPPQUAL" : s;
-                if (stdDomains != null)
-                    return stdDomains.Contains(domain) == !string.IsNullOrWhiteSpace(x.Standard);
-                return true;
+                return stdDomains.Contains(domain ?? string.Empty) == !string.IsNullOrWhiteSpace(x.Standard);
             }).WithSeverity(Severity.Warning)
             .WithMessage( "Name must be standard when the Standard column is Provider, and non‑standard otherwise");
         
@@ -181,5 +177,53 @@ public class DatasetValidator:AbstractValidator<DatasetDto>
         RuleFor(x=>x.Repeating).NotEmpty()
             .WithSeverity(Severity.Error)
             .WithMessage("Repeating is required");
+    }
+
+    private async Task<Dataset?> GetStandardDatasetAsync(DatasetDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.Name))
+            return null;
+
+        var datasets = await GetStandardDatasetsAsync(dto.CdiscDataType);
+        return datasets.TryGetValue(dto.Name, out var std) ? std : null;
+    }
+
+    private Task<IReadOnlyDictionary<string, Dataset>> GetStandardDatasetsAsync(CdiscDataType dataType)
+    {
+        var lazy = _standardDatasetCache.GetOrAdd(dataType, dt =>
+            new Lazy<Task<IReadOnlyDictionary<string, Dataset>>>(() => LoadStandardDatasetsAsync(dt)));
+        return lazy.Value;
+    }
+
+    private async Task<IReadOnlyDictionary<string, Dataset>> LoadStandardDatasetsAsync(CdiscDataType dataType)
+    {
+        var list = await _sqlSugar.Queryable<Dataset>()
+            .Where(o => o.ProjectId == 0 && o.CdiscDataType == dataType)
+            .ToListAsync();
+
+        return list
+            .Where(o => !string.IsNullOrWhiteSpace(o.Name))
+            .GroupBy(o => o.Name!)
+            .ToDictionary(g => g.Key, g => g.First());
+    }
+
+    private Task<HashSet<string>> GetStandardTemplateNamesAsync(CdiscDataType dataType)
+    {
+        var lazy = _standardTemplateNameCache.GetOrAdd(dataType, dt =>
+            new Lazy<Task<HashSet<string>>>(() => LoadStandardTemplateNamesAsync(dt)));
+        return lazy.Value;
+    }
+
+    private async Task<HashSet<string>> LoadStandardTemplateNamesAsync(CdiscDataType dataType)
+    {
+        var names = await _sqlSugar.AsTenant().QueryableWithAttr<DatasetTemplate>()
+            .Where(o => o.CdiscDataType == dataType)
+            .Select(o => o.Name)
+            .ToListAsync();
+
+        return names
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n!)
+            .ToHashSet(StringComparer.Ordinal);
     }
 }

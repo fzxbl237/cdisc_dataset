@@ -10,6 +10,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
+using cdisc_dataset.Models.Enums;
 using cdisc_dataset.Navigation;
 using cdisc_dataset.Models.Settings;
 using cdisc_dataset.Services;
@@ -72,6 +73,7 @@ public class App : Application
     {
         sqlSugar.Ado.ExecuteCommand("UPDATE Project SET HasErrors = COALESCE(HasErrors, 0)");
         sqlSugar.Ado.ExecuteCommand("UPDATE Document SET HasErrors = COALESCE(HasErrors, 0)");
+        EnsureDocumentDuplicateColumns(sqlSugar);
         sqlSugar.Ado.ExecuteCommand("UPDATE Dataset SET HasErrors = COALESCE(HasErrors, 0)");
         sqlSugar.Ado.ExecuteCommand("UPDATE Variable SET HasErrors = COALESCE(HasErrors, 0)");
         sqlSugar.Ado.ExecuteCommand("UPDATE Variable SET CdiscDataType = COALESCE(CdiscDataType, 0)");
@@ -88,6 +90,42 @@ public class App : Application
         sqlSugar.Ado.ExecuteCommand("UPDATE Term SET DecodedValueConsistent = COALESCE(DecodedValueConsistent, 1)");
         sqlSugar.Ado.ExecuteCommand("UPDATE Issue SET Severity = Severity");
     }
+
+    private static void EnsureDocumentDuplicateColumns(ISqlSugarClient sqlSugar)
+    {
+        var maintenance = sqlSugar.DbMaintenance;
+        if (!maintenance.IsAnyColumn("Document", "IsUniqueIdDuplicate", false))
+            sqlSugar.Ado.ExecuteCommand("ALTER TABLE Document ADD COLUMN IsUniqueIdDuplicate INTEGER NOT NULL DEFAULT 0");
+        if (!maintenance.IsAnyColumn("Document", "IsTitleDuplicate", false))
+            sqlSugar.Ado.ExecuteCommand("ALTER TABLE Document ADD COLUMN IsTitleDuplicate INTEGER NOT NULL DEFAULT 0");
+        if (!maintenance.IsAnyColumn("Document", "IsHrefDuplicate", false))
+            sqlSugar.Ado.ExecuteCommand("ALTER TABLE Document ADD COLUMN IsHrefDuplicate INTEGER NOT NULL DEFAULT 0");
+    }
+
+    private static void SeedTemplateDocuments(ISqlSugarClient settingDb)
+    {
+        if (settingDb.Queryable<TemplateDocument>().Any())
+            return;
+
+        settingDb.Insertable(new List<TemplateDocument>
+        {
+            new()
+            {
+                UniqueId = "acrf",
+                Title = "Annotated CRF",
+                Href = "acrf.pdf",
+                CdiscDataType = CdiscDataType.Sdtm
+            },
+            new()
+            {
+                UniqueId = "cSDRG",
+                Title = "Study Data Reviewer's Guide",
+                Href = "csdrg.pdf",
+                CdiscDataType = CdiscDataType.Sdtm
+            }
+        }).ExecuteCommand();
+    }
+
     public override void OnFrameworkInitializationCompleted()
     {
         base.OnFrameworkInitializationCompleted();
@@ -117,6 +155,7 @@ public class App : Application
 
         RegisterDialog<ProjectDialog, EditProjectViewModel>(services, "ProjectDialog");
         RegisterDialog<ImportSettingDatasetsDialog, ImportSettingDatasetsViewModel>(services, "ImportSettingDatasetsDialog");
+        RegisterDialog<ImportSettingDocumentsDialog, ImportSettingDocumentsViewModel>(services, "ImportSettingDocumentsDialog");
         RegisterDialog<CommentDialog, CommentViewModel>(services, "CommentDialog");
         RegisterDialog<DocumentDialog, DocumentViewModel>(services, "DocumentDialog");
         RegisterDialog<DictionaryDialog, DictionaryViewModel>(services, "DictionaryDialog");
@@ -146,8 +185,11 @@ public class App : Application
             sqlSugarProject.CodeFirst.InitTables<Project, Document, Dataset, Variable>();
             sqlSugarProject.CodeFirst.InitTables<CodeList, Term, Comment, Method, ValueLevel>();
             sqlSugarProject.CodeFirst.InitTables<Dictionary, Issue, WhereClause, DictionaryVersion>();
-            sqlSugar.GetConnection("setting").CodeFirst.InitTables<VariableCodeList, CodeListTerm, 
-                CodeListReference,DatasetTemplate,VariableTemplate>();
+            var sqlSugarSetting = sqlSugar.GetConnection("setting");
+            sqlSugarSetting.CodeFirst.InitTables<VariableCodeList, CodeListTerm,
+                CodeListReference, DatasetTemplate, VariableTemplate>();
+            sqlSugarSetting.CodeFirst.InitTables<TemplateDocument>();
+            SeedTemplateDocuments(sqlSugarSetting);
             FixHasErrorsDefault(sqlSugar);
             return sqlSugar;
         });
@@ -165,6 +207,8 @@ public class App : Application
         services.AddSingleton<IValueLevelService, ValueLevelService>();
         services.AddSingleton<IIssueService, IssueService>();
         services.AddSingleton<IDictionaryService, DictionaryService>();
+        services.AddSingleton<IDefineExcelExportService, DefineExcelExportService>();
+        services.AddSingleton<IDefineXmlExportService, DefineXmlExportService>();
         services.AddSingleton<IMessageService, MessageService>();
         services.AddTransient<IValidator<ProjectDto>, ProjectValidator>();
         services.AddTransient<IValidator<DatasetDto>, DatasetValidator>();

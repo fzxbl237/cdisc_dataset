@@ -1,13 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Xml;
+using System.Xml.Xsl;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using AtomUI;
 using AtomUI.Desktop.Controls;
+using Avalonia.Controls;
+using Avalonia.Platform;
+using Avalonia.Platform.Storage;
 using AtomUI.Theme.Configuration;
 using AtomUI.Theme.Schema;
 using Avalonia.Collections;
@@ -20,6 +26,7 @@ using cdisc_dataset.Utils;
 using cdisc_dataset.Validations;
 using cdisc_dataset.ViewModels.Defines;
 using cdisc_dataset.ViewModels.Dialogs;
+using cdisc_dataset.Views;
 using cdisc_dataset.Views.Defines;
 using cdisc_dataset.Views.Dialogs;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -41,6 +48,9 @@ public partial class SdtmDefineViewModel : ViewModelBase, IDisposable
     private readonly ISqlSugarClient _sqlSugar;
     private readonly IRegionManager _regionManager;
     private readonly ICurrentProjectService _currentProjectService;
+    private readonly IDefineExcelExportService _defineExcelExportService;
+    private readonly IDefineXmlExportService _defineXmlExportService;
+    private readonly IMessageService _messageService;
     
     public ThemeConfig SegmentedConfig { get; }
 
@@ -87,11 +97,17 @@ public partial class SdtmDefineViewModel : ViewModelBase, IDisposable
 
     public SdtmDefineViewModel(ISqlSugarClient sqlSugar,
         IRegionManager regionManager,
-        ICurrentProjectService currentProjectService)
+        ICurrentProjectService currentProjectService,
+        IDefineExcelExportService defineExcelExportService,
+        IDefineXmlExportService defineXmlExportService,
+        IMessageService messageService)
     {
         _sqlSugar = sqlSugar;
         _regionManager = regionManager;
         _currentProjectService = currentProjectService;
+        _defineExcelExportService = defineExcelExportService;
+        _defineXmlExportService = defineXmlExportService;
+        _messageService = messageService;
         SegmentedConfig = BuildControlConfig(ControlAlgorithmMode.Global);
         // _sqlSugar.CodeFirst.InitTables<Comment>();
         // _sqlSugar.CodeFirst.InitTables<Variable>();
@@ -114,6 +130,131 @@ public partial class SdtmDefineViewModel : ViewModelBase, IDisposable
     
     
     
+
+    [RelayCommand]
+    private async Task ExportDefineExcelAsync()
+    {
+        if (_currentProjectService.CurrentProject == null)
+        {
+            _messageService.Error("Please select a project before exporting");
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(AtomUI.Desktop.Controls.Window.GetMainWindow());
+        if (topLevel == null)
+            return;
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export Define Excel",
+            SuggestedFileName = $"define-{DateTime.Now:yyyy-MM-ddTHH-mm-ss-fff}.xlsx",
+            DefaultExtension = "xlsx",
+            FileTypeChoices = [new FilePickerFileType("Excel File") { Patterns = ["*.xlsx"] }]
+        });
+        if (file == null)
+            return;
+
+        try
+        {
+            await using var outputStream = await file.OpenWriteAsync();
+            await _defineExcelExportService.ExportAsync(outputStream);
+            _messageService.Success("Define Excel exported successfully");
+        }
+        catch (Exception exception)
+        {
+            _messageService.Error($"Export Define Excel failed: {exception.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task PreviewDefineXmlAsync()
+    {
+        if (_currentProjectService.CurrentProject == null)
+        {
+            _messageService.Error("Please select a project before previewing");
+            return;
+        }
+
+        try
+        {
+            DefinePreviewDiagnostics.Info("Preview requested.");
+            var previewWindow = new DefinePreviewWindow();
+            previewWindow.Show();
+            DefinePreviewDiagnostics.Info("Preview window shown; generating content asynchronously.");
+
+            DefinePreviewDiagnostics.Info("Generating XML.");
+            var xml = await _defineXmlExportService.GenerateXmlAsync();
+            DefinePreviewDiagnostics.Info($"XML generated. Length={xml.Length}.");
+
+            DefinePreviewDiagnostics.Info("Loading embedded XSL.");
+            var xsl = LoadPreviewXsl();
+            DefinePreviewDiagnostics.Info($"Embedded XSL loaded. Length={xsl.Length}.");
+
+            DefinePreviewDiagnostics.Info("Transforming XML to HTML.");
+            var html = await Task.Run(() => TransformToHtml(xml, xsl));
+            DefinePreviewDiagnostics.Info($"HTML transformed. Length={html.Length}.");
+            previewWindow.SetHtml(html);
+        }
+        catch (Exception exception)
+        {
+            DefinePreviewDiagnostics.Error("Preview command failed.", exception);
+            _messageService.Error($"Preview Define XML failed: {exception.Message}. Log: {DefinePreviewDiagnostics.LogPath}");
+        }
+    }
+
+    private static string LoadPreviewXsl()
+    {
+        using var xslStream = AssetLoader.Open(new Uri("avares://cdisc_dataset/Assets/define2-1-0.xsl"));
+        using var reader = new StreamReader(xslStream);
+        return reader.ReadToEnd();
+    }
+
+    private static string TransformToHtml(string xml, string xsl)
+    {
+        var transformer = new XslCompiledTransform();
+        using var xslReader = XmlReader.Create(new StringReader(xsl));
+        using var xmlReader = XmlReader.Create(new StringReader(xml));
+        using var output = new StringWriter();
+        transformer.Load(xslReader);
+        transformer.Transform(xmlReader, null, output);
+        return output.ToString();
+    }
+
+    [RelayCommand]
+    private async Task ExportDefineXmlAsync()
+    {
+        if (_currentProjectService.CurrentProject == null)
+        {
+            _messageService.Error("Please select a project before exporting");
+            return;
+        }
+
+        var topLevel = TopLevel.GetTopLevel(AtomUI.Desktop.Controls.Window.GetMainWindow());
+        if (topLevel == null)
+            return;
+
+        var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export Define XML",
+            SuggestedFileName = $"define-{DateTime.Now:yyyy-MM-ddTHH-mm-ss-fff}.xml",
+            DefaultExtension = "xml",
+            FileTypeChoices = [new FilePickerFileType("XML File") { Patterns = ["*.xml"] }]
+        });
+        if (file == null)
+            return;
+
+        try
+        {
+            await using var outputStream = await file.OpenWriteAsync();
+            outputStream.SetLength(0);
+            await _defineXmlExportService.ExportAsync(outputStream);
+            _messageService.Success("Define XML exported successfully");
+        }
+        catch (Exception exception)
+        {
+            _messageService.Error($"Export Define XML failed: {exception.Message}");
+        }
+    }
 
     partial void OnSelectedSegmentedItemChanged(SegmentedItem? value)
     {

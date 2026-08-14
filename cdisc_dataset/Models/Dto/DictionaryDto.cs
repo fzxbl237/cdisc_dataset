@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using AtomUI.Desktop.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -29,9 +29,12 @@ public partial class DictionaryDto : BaseDto
     private bool _showComboBox;
 
     [ObservableProperty]
-    private bool _hasUniqueIdDuplicate;
+    private bool _isUniqueIdDuplicate;
 
     [ObservableProperty]
-    private bool _hasNameDuplicate;
+    private bool _isNameDuplicate;
+
+    [ObservableProperty]
+    private bool _isDictionaryNameDuplicate;
     
 }
