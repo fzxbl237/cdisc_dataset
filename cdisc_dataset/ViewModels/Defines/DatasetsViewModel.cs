@@ -47,6 +47,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     private FrozenDictionary<string, Comment>? _frozenCommentDictionary;
 
     [ObservableProperty] private string? _searchText;
+    [ObservableProperty] private bool _isErrorOnly;
     [ObservableProperty] private bool _hasChanges;
     [ObservableProperty] private bool _isInitialLoadCompleted;
     [ObservableProperty] private bool _showLoading = true;
@@ -63,7 +64,8 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         IDialogHostService dialogHostService,
         cdisc_dataset.Services.IDialogService dialogService,
         IMapper mapper,
-        IValidator<DatasetDto> validator)
+        IValidator<DatasetDto> validator,
+        ILookupStore lookupStore)
     {
         _messageService = messageService;
         _datasetService = datasetService;
@@ -75,10 +77,17 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         _validator = validator;
 
         _sourceCache.Connect()
+            .AutoRefresh(o => o.HasErrors)
+            .Filter(o => !IsErrorOnly || o.HasErrors)
             .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
             .SortAndBind(out _datasets, SortExpressionComparer<DatasetDto>.Ascending(o => o.Name ?? string.Empty))
             .DisposeMany()
             .Subscribe();
+
+        lookupStore.Comments
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildCommentLookups);
     }
 
     public async Task LoadInitialDataAsync()
@@ -102,6 +111,8 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             Debug.WriteLine($"[PerfTrace] datasets-initial-load total={totalSw.ElapsedMilliseconds}ms");
         }
     }
+
+    partial void OnIsErrorOnlyChanged(bool value) => _sourceCache.Refresh();
 
     private void DatasetDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -237,28 +248,22 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         Debug.WriteLine($"[PerfTrace] datasets-load count={list.Count} unregister={unregisterSw.ElapsedMilliseconds}ms db={dbSw.ElapsedMilliseconds}ms validate={validateSw.ElapsedMilliseconds}ms avg={avgMs}ms max={validateMaxMs}ms apply={applySw.ElapsedMilliseconds}ms total={totalSw.ElapsedMilliseconds}ms");
     }
 
-    public async Task LoadLookups()
+    private void RebuildCommentLookups(IReadOnlyCollection<Comment> comments)
     {
-        if (_currentProjectService.CurrentProject == null)
-        {
-            return;
-        }
+        var validComments = comments
+            .Where(o => !o.HasErrors && !string.IsNullOrWhiteSpace(o.UniqueId))
+            .ToList();
 
-        var comments = await _commentService.GetAllCommentsWithoutErorrAsync();
-
-        _frozenCommentDictionary = comments
-            .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
+        _frozenCommentDictionary = validComments
             .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
 
         CommentOptions.Clear();
-        CommentOptions.AddRange(comments
-            .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
-            .Select(o => new DatasetAutoCompleteOption
-            {
-                Header = $"{o.UniqueId} {o.Description}",
-                Content = o.UniqueId,
-                Comment = o
-            }));
+        CommentOptions.AddRange(validComments.Select(o => new DatasetAutoCompleteOption
+        {
+            Header = $"{o.UniqueId} {o.Description}",
+            Content = o.UniqueId,
+            Comment = o
+        }));
     }
 
     [RelayCommand]
@@ -378,7 +383,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         dataset.Comment = _mapper.Map<Comment>(entity);
         dataset.CommentId = entity.Id;
         await _datasetService.UpdateDatasetAsync(dataset);
-        await LoadLookups();
         _messageService.Success("Comment added successfully.");
     }
 
@@ -473,8 +477,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
                 Standards.AddRange([.. ConstantOptions.SdtmStandards]);
             }
         }
-        await LoadLookups();
-
         if (IsInitialLoadCompleted)
         {
             foreach (var datasetDto in Datasets)

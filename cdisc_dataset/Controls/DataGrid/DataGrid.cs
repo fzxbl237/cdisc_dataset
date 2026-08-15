@@ -1045,7 +1045,10 @@ public class DataGrid : TemplatedControl
             return;
 
         var currentValue = property.GetValue(cell.DataItem);
-        if (Equals(currentValue, value))
+        if (Equals(currentValue, value) ||
+            property.PropertyType == typeof(string) &&
+            string.IsNullOrEmpty(currentValue as string) &&
+            string.IsNullOrEmpty(value as string))
         {
             return;
         }

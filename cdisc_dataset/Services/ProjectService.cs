@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using cdisc_dataset.Extensions;
@@ -20,9 +20,9 @@ public class ProjectService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueServ
 
     public async Task<List<ProjectDto>> GetAllProjectDtosAsync()
     {
-        var list = await GetAllProjectsAsync();
-
-        var dtos = mapper.Map<List<ProjectDto>>(list);
+        var dtos = await sqlSugar.Queryable<Project>()
+            .Select<ProjectDto>()
+            .ToListAsync();
         await issueService.RestoreIssuesAsync(dtos.Cast<BaseDto>(), nameof(ProjectDto), dto => dto.Id);
 
         return dtos;

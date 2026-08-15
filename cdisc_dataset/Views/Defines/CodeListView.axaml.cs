@@ -1,4 +1,4 @@
-using AsyncNavigation.Abstractions;
+ï»¿using AsyncNavigation.Abstractions;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -19,14 +19,13 @@ public partial class CodeListView : UserControl, IActivatableView, IView
         {
             if (DataContext is CodeListViewModel vm)
             {
-                // Ê¹ÓÃ Post ÑÓ³Ùµ½ Dispatcher ¿ÕÏÐÊ±Ö´ÐÐ£¬ÈÃ TabStrip ¶¯»­ÏÈÍê³É
+                // Ê¹ï¿½ï¿½ Post ï¿½Ó³Ùµï¿½ Dispatcher ï¿½ï¿½ï¿½ï¿½Ê±Ö´ï¿½Ð£ï¿½ï¿½ï¿½ TabStrip ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
                 Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     await vm.ExecuteLoadingAsync(async () =>
                     {
-                        await Task.Delay(250); // ¶ÌÔÝÑÓ³ÙÈ·±£¶¯»­¿ªÊ¼
+                        await Task.Delay(250); // ï¿½ï¿½ï¿½ï¿½ï¿½Ó³ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼
                         await vm.LoadCodeLists();
-                        await vm.LoadComments();
                         await vm.LoadTerminologies();
                     });
 

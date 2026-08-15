@@ -17,7 +17,8 @@ public class DatasetService(
     ISqlSugarClient sqlSugar,
     IMapper mapper,
     IIssueService issueService,
-    ICurrentProjectService currentProjectService) : IDatasetService
+    ICurrentProjectService currentProjectService,
+    ILookupStore lookupStore) : IDatasetService
 {
 
     public async Task<List<DatasetDto>> GetAllDatasetsAsync()
@@ -31,7 +32,6 @@ public class DatasetService(
             .Select(o=> new DatasetDto(){
                 Comment = o.Comment
             },true).ToListAsync();
-        //var dtos = mapper.Map<List<DatasetDto>>(list);
         //await issueService.RestoreIssuesAsync(dtos.Cast<BaseDto>(), nameof(DatasetDto), dto => dto.Id);
         return list;
     }
@@ -195,11 +195,14 @@ public class DatasetService(
         var projectId = currentProjectService.CurrentProject?.Id ?? 0;
         var dataType = currentProjectService.CdiscDataType;
 
-        var list = await sqlSugar.Queryable<Dataset>()
+        return await sqlSugar.Queryable<Dataset>()
             .Includes(o=>o.Comment)
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && !x.HasErrors)
+            .Select(o => new DatasetDto
+            {
+                Comment = o.Comment
+            }, true)
             .ToListAsync();
-        return mapper.Map<List<DatasetDto>>(list);
     }
 
     public async Task<List<DatasetDto>> GetAllDatasetDtosWithoutErrorAsync()
@@ -207,32 +210,40 @@ public class DatasetService(
         var projectId = currentProjectService.CurrentProject?.Id ?? 0;
         var dataType = currentProjectService.CdiscDataType;
 
-        var list = await sqlSugar.Queryable<Dataset>()
+        return await sqlSugar.Queryable<Dataset>()
             .Includes(o => o.Comment)
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && !x.HasErrors)
+            .Select(o => new DatasetDto
+            {
+                Comment = o.Comment
+            }, true)
             .ToListAsync();
-        return mapper.Map<List<DatasetDto>>(list);
     }
 
     public async Task<DatasetDto> InsertDatasetAsync(DatasetDto datasetDto)
     {
         var dataset = mapper.Map<Dataset>(datasetDto);
         var entity = await sqlSugar.Insertable(dataset).ExecuteReturnEntityAsync();
+        await lookupStore.RefreshAsync(LookupKind.Dataset);
         return mapper.Map<DatasetDto>(entity);
     }
 
     public async Task<bool> InsertDatasetsAsync(List<Dataset> datasets)
     {
-        return await sqlSugar.InsertNav(datasets)
+        var result = await sqlSugar.InsertNav(datasets)
             .Include(o=>o.Variables)
             .ThenInclude(v=>v.CodeList)
             .ThenInclude(c=>c.Terms)
             .ExecuteCommandAsync();
+        await RefreshDatasetAndVariableLookupsAsync();
+        return result;
     }
 
     public async Task<int> UpdateDatasetAsync(DatasetDto datasetDto)
     {
-        return await sqlSugar.Updateable(mapper.Map<Dataset>(datasetDto)).ExecuteCommandAsync();
+        var result = await sqlSugar.Updateable(mapper.Map<Dataset>(datasetDto)).ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Dataset);
+        return result;
     }
 
     public async Task<int> SaveDatasetsAsync(IReadOnlyList<DatasetDto> datasetDtos)
@@ -244,14 +255,17 @@ public class DatasetService(
             await storage.AsInsertable.ExecuteCommandAsync();
             await storage.AsUpdateable.ExecuteCommandAsync();
         });
+        await lookupStore.RefreshAsync(LookupKind.Dataset);
         return 1;
     }
 
     public async Task<bool> DeleteDatasetAsync(DatasetDto datasetDto)
     {
-        return await sqlSugar.DeleteNav(mapper.Map<Dataset>(datasetDto))
+        var result = await sqlSugar.DeleteNav(mapper.Map<Dataset>(datasetDto))
             .Include(o => o.Variables)
             .ExecuteCommandAsync();
+        await RefreshDatasetAndVariableLookupsAsync();
+        return result;
     }
 
     public async Task<bool> DeleteDatasetsByProjectIdAsync(int projectId)
@@ -303,6 +317,7 @@ public class DatasetService(
                 .ExecuteCommandAsync();
 
             await sqlSugar.Ado.CommitTranAsync();
+            await lookupStore.RefreshAllAsync();
             return true;
         }
         catch
@@ -318,5 +333,13 @@ public class DatasetService(
         {
             await sqlSugar.InsertNav(dataset).Include(o => o.Variables).ExecuteReturnEntityAsync();
         }
+
+        await RefreshDatasetAndVariableLookupsAsync();
+    }
+
+    private async Task RefreshDatasetAndVariableLookupsAsync()
+    {
+        await lookupStore.RefreshAsync(LookupKind.Dataset);
+        await lookupStore.RefreshAsync(LookupKind.Variable);
     }
 }

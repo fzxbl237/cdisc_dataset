@@ -13,7 +13,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService,ICurrentProjectService currentProjectService) : ICodeListService
+public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService,ICurrentProjectService currentProjectService, ILookupStore lookupStore) : ICodeListService
 {
 
     private (int ProjectId, CdiscDataType DataType) GetCurrentProjectContext()
@@ -36,18 +36,22 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
                     Terms = o.Terms
                 }
             ,true).ToListAsync();
-        //var dtos = _mapper.Map<List<CodeListDto>>(list);
         await issueService.RestoreIssuesAsync(list.Cast<BaseDto>(), nameof(CodeListDto), dto => dto.Id);
         return list;
     }
     public async Task<List<CodeListDto>> GetAllCodeListDtosWithoutErorrAsync()
     {
         var (currentProjectId, currentDataType) = GetCurrentProjectContext();
-        var list = await sqlSugar.Queryable<CodeList>()
+        return await sqlSugar.Queryable<CodeList>()
             .Includes(o=>o.Comment)
             .Includes(o=>o.Terms)
-            .Where(x => x.ProjectId == currentProjectId && x.CdiscDataType == currentDataType && !x.HasErrors).ToListAsync();
-        return mapper.Map<List<CodeListDto>>(list);
+            .Where(x => x.ProjectId == currentProjectId && x.CdiscDataType == currentDataType && !x.HasErrors)
+            .Select(o => new CodeListDto
+            {
+                Comment = o.Comment,
+                Terms = o.Terms
+            }, true)
+            .ToListAsync();
     }
     public async Task<List<CodeList>> GetAllCodeListsWithoutErorrAsync()
     {
@@ -77,14 +81,18 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
 
     public async Task<bool> DeleteCodeListAsync(CodeListDto codeList)
     {
-        return await sqlSugar.DeleteNav(mapper.Map<CodeList>(codeList))
+        var result = await sqlSugar.DeleteNav(mapper.Map<CodeList>(codeList))
             .Include(o => o.Terms)
             .ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.CodeList);
+        return result;
     }
 
     public async Task<int> UpdateCodeListAsync(CodeListDto codeListDto)
     {
-        return await sqlSugar.Updateable(mapper.Map<CodeList>(codeListDto)).ExecuteCommandAsync();
+        var result = await sqlSugar.Updateable(mapper.Map<CodeList>(codeListDto)).ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.CodeList);
+        return result;
     }
 
     public async Task<CodeListDto> InsertCodeListAsync(CodeList codeList)
@@ -92,6 +100,7 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
         var entity = await sqlSugar.InsertNav(codeList)
             .Include(o => o.Terms)
             .ExecuteReturnEntityAsync();
+        await lookupStore.RefreshAsync(LookupKind.CodeList);
         return mapper.Map<CodeListDto>(entity);
     }
 
@@ -187,6 +196,8 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
             await sqlSugar.Ado.RollbackTranAsync();
             throw;
         }
+
+        await lookupStore.RefreshAsync(LookupKind.CodeList);
     }
 
     public async Task<List<string?>> GetTerminologiesAsync()
@@ -209,6 +220,7 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
 
         await issueService.SyncIssuesAsync(codeLists, nameof(CodeListDto), dto => dto.Id);
 
+        await lookupStore.RefreshAsync(LookupKind.CodeList);
         return result;
     }
 

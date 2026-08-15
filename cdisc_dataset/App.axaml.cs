@@ -157,6 +157,7 @@ public class App : Application
         RegisterDialog<ProjectDialog, EditProjectViewModel>(services, "ProjectDialog");
         RegisterDialog<ImportSettingDatasetsDialog, ImportSettingDatasetsViewModel>(services, "ImportSettingDatasetsDialog");
         RegisterDialog<ImportSettingDocumentsDialog, ImportSettingDocumentsViewModel>(services, "ImportSettingDocumentsDialog");
+        RegisterDialog<ImportSettingVariablesDialog, ImportSettingVariablesViewModel>(services, "ImportSettingVariablesDialog");
         RegisterDialog<CommentDialog, CommentViewModel>(services, "CommentDialog");
         RegisterDialog<DocumentDialog, DocumentViewModel>(services, "DocumentDialog");
         RegisterDialog<DictionaryDialog, DictionaryViewModel>(services, "DictionaryDialog");
@@ -165,8 +166,8 @@ public class App : Application
         RegisterDialog<VariableDialog, VariableViewModel>(services, "VariableDialog");
         RegisterDialog<DeleteCommentDialog, DeleteCommentViewModel>(services, "DeleteCommentDialog");
         RegisterDialog<EditKeyVariablesDialog, EditKeyVariablesViewModel>(services, "EditKeyVariables");
-        RegisterDialog<AddCodeListDialog, AddCodeListViewModel>(services, "AddCodeListDialog");
-        RegisterDialog<AddTermsDialog, AddTermsViewModel>(services, "AddTermsDialog");
+        RegisterDialog<CodeListDialog, CodeListDialogViewModel>(services, "CodeListDialog");
+        RegisterDialog<TermsDialog, TermsViewModel>(services, "TermsDialog");
         RegisterDialog<PairTermsDialog, PairTermsViewModel>(services, "PairTermsDialog");
         RegisterDialog<UnsavedChangesDialog, UnsavedChangesViewModel>(services, "UnsavedChangesDialog");
         RegisterDialog<ConfirmDialog, ConfirmViewModel>(services, "ConfirmDialog");
@@ -197,6 +198,7 @@ public class App : Application
         services.AddSingleton<ILiteDatabase>(_ => new LiteDatabase("Filename=cdisc_files.db;Connection=shared"));
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<ICurrentProjectService, CurrentProjectService>();
+        services.AddSingleton<ILookupStore, LookupStore>();
         services.AddSingleton<ICommentService, CommentService>();
         services.AddSingleton<IDatasetService, DatasetService>();
         services.AddSingleton<IVariableService, VariableService>();
@@ -230,6 +232,7 @@ public class App : Application
         services.AddTransient<FormDocumentValidator>();
 
         var serviceProvider = services.BuildServiceProvider();
+        _ = serviceProvider.GetRequiredService<ILookupStore>();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var window = new MainWindow { DataContext = serviceProvider.GetRequiredService<MainWindowViewModel>() };

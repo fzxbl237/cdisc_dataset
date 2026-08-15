@@ -38,6 +38,10 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
     [ObservableProperty]
     private string? _searchText;
 
+    [ObservableProperty]
+    private bool _isErrorOnly;
+
+    private readonly List<DocumentDto> _allDocuments = [];
     public AvaloniaList<DocumentDto> Documents { get; } = [];
 
     public DocumentsViewModel(
@@ -59,6 +63,16 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     }
 
+    partial void OnIsErrorOnlyChanged(bool value) => RefreshDocuments();
+
+    private void RefreshDocuments()
+    {
+        Documents.Clear();
+        Documents.AddRange(_allDocuments
+            .Where(document => !IsErrorOnly || document.HasErrors)
+            .OrderBy(document => document.UniqueId, StringComparer.OrdinalIgnoreCase));
+    }
+
     private void DocumentDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (sender is not DocumentDto documentDto || string.IsNullOrWhiteSpace(e.PropertyName))
@@ -66,6 +80,12 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
         if (e.PropertyName == nameof(DocumentDto.HasChanged))
             return;
+
+        if (e.PropertyName == nameof(DocumentDto.HasErrors))
+        {
+            RefreshDocuments();
+            return;
+        }
 
         var isDuplicateFlagChange = e.PropertyName switch
         {
@@ -126,22 +146,22 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     private void MarkDuplicates()
     {
-        foreach (var document in Documents)
+        foreach (var document in _allDocuments)
         {
             document.IsUniqueIdDuplicate = false;
             document.IsTitleDuplicate = false;
             document.IsHrefDuplicate = false;
         }
 
-        Documents.MarkDuplicates(
+        _allDocuments.MarkDuplicates(
             document => document.UniqueId ?? string.Empty,
             (document, isDuplicate) => document.IsUniqueIdDuplicate = isDuplicate,
             key => !string.IsNullOrWhiteSpace(key));
-        Documents.MarkDuplicates(
+        _allDocuments.MarkDuplicates(
             document => document.Title ?? string.Empty,
             (document, isDuplicate) => document.IsTitleDuplicate = isDuplicate,
             key => !string.IsNullOrWhiteSpace(key));
-        Documents.MarkDuplicates(
+        _allDocuments.MarkDuplicates(
             document => document.Href ?? string.Empty,
             (document, isDuplicate) => document.IsHrefDuplicate = isDuplicate,
             key => !string.IsNullOrWhiteSpace(key));
@@ -186,8 +206,9 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         await _documentService.InsertDocumentAsync(document);
         await _validator.ValidateDtoAsync(document);
         RegisterDocumentDtoPropertyChanged(document);
-        Documents.Add(document);
+        _allDocuments.Add(document);
         MarkDuplicates();
+        RefreshDocuments();
         //HasChanges = true;
         _messageService.Success("Document added successfully.");
     }
@@ -214,10 +235,11 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         await _validator.ValidateDtoAsync(updatedDocument);
         UnregisterDocumentDtoPropertyChanged(documentDto);
         RegisterDocumentDtoPropertyChanged(updatedDocument);
-        var index = Documents.IndexOf(documentDto);
+        var index = _allDocuments.IndexOf(documentDto);
         if (index >= 0)
-            Documents[index] = updatedDocument;
+            _allDocuments[index] = updatedDocument;
         MarkDuplicates();
+        RefreshDocuments();
         //HasChanges = true;
         _messageService.Success("Document updated successfully.");
     }
@@ -235,8 +257,9 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
         await _documentService.DeleteDocumentDtoAsync(documentDto);
         UnregisterDocumentDtoPropertyChanged(documentDto);
-        Documents.Remove(documentDto);
+        _allDocuments.Remove(documentDto);
         MarkDuplicates();
+        RefreshDocuments();
         //HasChanges = true;
         _messageService.Success("Document deleted successfully.");
     }
@@ -247,7 +270,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         if (_currentProjectService.CurrentProject == null)
             return;
 
-        await _documentService.SaveDocumentsAsync(Documents.ToList());
+        await _documentService.SaveDocumentsAsync(_allDocuments);
         HasChanges = false;
         _messageService.Success("Documents saved successfully.");
         await LoadDocuments();
@@ -278,7 +301,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
-        foreach (var documentDto in Documents)
+        foreach (var documentDto in _allDocuments)
             UnregisterDocumentDtoPropertyChanged(documentDto);
 
         return Task.CompletedTask;
@@ -291,7 +314,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
     public async Task LoadDocuments()
     {
-        foreach (var documentDto in Documents)
+        foreach (var documentDto in _allDocuments)
             UnregisterDocumentDtoPropertyChanged(documentDto);
 
         var dtoList = await _documentService.GetAllDocumentDtosAsync();
@@ -301,9 +324,10 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
             RegisterDocumentDtoPropertyChanged(document);
         }
 
-        Documents.Clear();
-        Documents.AddRange(dtoList.OrderBy(document => document.UniqueId, StringComparer.OrdinalIgnoreCase));
+        _allDocuments.Clear();
+        _allDocuments.AddRange(dtoList);
         MarkDuplicates();
+        RefreshDocuments();
         HasChanges = false;
     }
 

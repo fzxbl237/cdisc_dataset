@@ -3,8 +3,8 @@
     d:DesignHeight="450"
     d:DesignWidth="800"
     mc:Ignorable="d"
-    x:Class="cdisc_dataset.Views.Dialogs.AddTermsDialog"
-    x:DataType="vm:AddTermsViewModel"
+    x:Class="cdisc_dataset.Views.Dialogs.TermsDialog"
+    x:DataType="vm:TermsViewModel"
     xmlns="https://github.com/avaloniaui"
     xmlns:antd-icons="https://atomui.net/icons/antdesign"
     xmlns:atom="https://atomui.net"
@@ -155,11 +155,11 @@
                     <Setter Property="ContextMenu">
                         <atom:ContextMenu x:DataType="dto:TermDto">
                             <atom:MenuItem
-                                Command="{Binding #Root.((vm:AddCodeListViewModel)DataContext).InsertTermAboveCommand}"
+                                Command="{Binding #Root.((vm:TermsViewModel)DataContext).InsertTermAboveCommand}"
                                 CommandParameter="{Binding}"
                                 Header="Insert Above" />
                             <atom:MenuItem
-                                Command="{Binding #Root.((vm:AddCodeListViewModel)DataContext).InsertTermBelowCommand}"
+                                Command="{Binding #Root.((vm:TermsViewModel)DataContext).InsertTermBelowCommand}"
                                 CommandParameter="{Binding}"
                                 Header="Insert Below" />
                         </atom:ContextMenu>
@@ -227,7 +227,7 @@
                                 <atom:PopupConfirm Title="Sure to delete?">
                                     <Interaction.Behaviors>
                                         <EventTriggerBehavior EventName="Confirmed">
-                                            <InvokeCommandAction Command="{Binding $parent[DataGrid].((vm:AddCodeListViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
+                                            <InvokeCommandAction Command="{Binding $parent[DataGrid].((vm:TermsViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" />
                                         </EventTriggerBehavior>
                                     </Interaction.Behaviors>
                                     <atom:Button

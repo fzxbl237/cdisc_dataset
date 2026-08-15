@@ -25,9 +25,9 @@
                 <atom:Segmented ItemsSource="{Binding SegmentedItems}" SelectedItem="{Binding SelectedSegmentedItem}" />
             </atom:ThemeConfigProvider>
             <atom:SplitButton
-                Grid.Column="1"
                 Command="{Binding PreviewDefineXmlCommand}"
                 Content="预览"
+                Grid.Column="1"
                 Icon="{antd-icons:AntDesignIconProvider Kind=EyeOutlined}"
                 Margin="0,0,12,0">
                 <atom:SplitButton.Flyout>
@@ -47,10 +47,7 @@
             </atom:SplitButton>
         </Grid>
         <!-- <atom:Segmented ItemsSource="{Binding SegmentedItems}" SelectedItem="{Binding SelectedSegmentedItem}" /> -->
-        <ContentControl
-            Grid.Row="1"
-            Margin="12,12,12,12"
-            an:RegionManager.RegionName="SdtmDefineRegion" />
+        <ContentControl Grid.Row="1" an:RegionManager.RegionName="SdtmDefineRegion" />
     </Grid>
 
 </UserControl>

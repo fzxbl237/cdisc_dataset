@@ -60,6 +60,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     
 
     [ObservableProperty] private string? _searchText;
+    [ObservableProperty] private bool _isErrorOnly;
     
     [ObservableProperty] private bool _hasChanges;
     private readonly SourceCache<CodeListDto,int> _sourceCache = new(o=>o.Id);
@@ -75,7 +76,8 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         ICurrentProjectService currentProjectService,
         IVariableService variableService,
         IMapper mapper,
-        IValidator<CodeListDto> validator)
+        IValidator<CodeListDto> validator,
+        ILookupStore lookupStore)
     {
         _codeListService = codeListService;
         _commentService = commentService;
@@ -89,14 +91,19 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
 
         var filter = this.WhenValueChanged(t => t.SearchText)
             .Throttle(TimeSpan.FromMilliseconds(250))
-            .Select(BuildFilter);
+            .Select(_ => BuildFilter());
         _sourceCache.Connect()
+            .AutoRefresh(o => o.HasErrors)
             .Filter(filter)
             .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
             .SortAndBind(out _codeLists,SortExpressionComparer<CodeListDto>.Ascending(o => o.UniqueId??string.Empty))
             .DisposeMany()
             .Subscribe();
-        
+
+        lookupStore.Comments
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildCommentLookups);
     }
 
     private void UpdateNameDuplicate()
@@ -147,15 +154,18 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         });
     }
 
-    private static Func<CodeListDto, bool> BuildFilter(string? searchText)
+    partial void OnIsErrorOnlyChanged(bool value) => _sourceCache.Refresh();
+
+    private Func<CodeListDto, bool> BuildFilter()
     {
-        if (string.IsNullOrEmpty(searchText)) return trade => true;
-        return o => Contains(searchText, o.UniqueId)
+        var searchText = SearchText;
+        if (string.IsNullOrEmpty(searchText)) return o => !IsErrorOnly || o.HasErrors;
+        return o => (!IsErrorOnly || o.HasErrors) && (Contains(searchText, o.UniqueId)
                     || Contains(searchText, o.Name)
                     || Contains(searchText,o.Code)
                     || Contains(searchText,o.Type)
                     || Contains(searchText,o.Terminology)
-                    || Contains(searchText,o.CommentUniqueId);
+                    || Contains(searchText,o.CommentUniqueId));
     }
 
     private static bool Contains(string? searchText, string? value)
@@ -260,19 +270,17 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         // _sourceCache.AddOrUpdate(codeListDto);
     }
     
-    public async Task LoadComments()
+    private void RebuildCommentLookups(IReadOnlyCollection<Comment> comments)
     {
-        var list = await _commentService.GetAllCommentsAsync();
-        List<IAutoCompleteOption> res = [];
-        foreach (var comment in list)
-        {
-            var autoCompleteOption = new AutoCompleteOption(){Header = comment.Description,Content = comment.UniqueId};
-            res.add(autoCompleteOption);
-        }
         Comments.Clear();
-        Comments.AddRange(list);
+        Comments.AddRange(comments);
+
         CommentOptions.Clear();
-        CommentOptions.AddRange(res);
+        CommentOptions.AddRange(comments.Select(comment => new AutoCompleteOption
+        {
+            Header = comment.Description,
+            Content = comment.UniqueId
+        }));
     }
 
     public async Task LoadTerminologies()
@@ -397,7 +405,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task AddCodeList()
     {
-        var result = await _dialogHostService.ShowDialogAsync("AddCodeListDialog", new DialogParameters());
+        var result = await _dialogHostService.ShowDialogAsync("CodeListDialog", new DialogParameters());
         if (result.Parameters.TryGetValue<CodeList>("CodeList",out CodeList? codeList))
         {
             CodeListDto entity = await _codeListService.InsertCodeListAsync(codeList);
@@ -410,7 +418,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task AddCodeListFromVariable()
     {
-        var result = await _dialogHostService.ShowDialogAsync("AddCodeListDialog", new DialogParameters());
+        var result = await _dialogHostService.ShowDialogAsync("CodeListDialog", new DialogParameters());
         if (!result.Parameters.TryGetValue<CodeList>("CodeList", out var codeList) || codeList == null)
             return;
 

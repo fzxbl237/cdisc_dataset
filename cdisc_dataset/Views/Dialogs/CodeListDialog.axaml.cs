@@ -6,9 +6,9 @@ using DataGridPreparingCellForEditEventArgs = AtomUI.Desktop.Controls.DataGridPr
 
 namespace cdisc_dataset.Views.Dialogs;
 
-public partial class AddCodeListDialog : UserControl
+public partial class CodeListDialog : UserControl
 {
-    public AddCodeListDialog()
+    public CodeListDialog()
     {
         InitializeComponent();
     }

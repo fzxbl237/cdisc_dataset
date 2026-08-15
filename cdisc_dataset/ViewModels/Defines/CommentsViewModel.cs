@@ -2,8 +2,10 @@
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +21,8 @@ using cdisc_dataset.Services.Interface;
 using cdisc_dataset.Validations;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DynamicData;
+using DynamicData.Binding;
 using FluentValidation;
 using MapsterMapper;
 using Prism.Dialogs;
@@ -45,11 +49,16 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
     private string? _searchText;
 
     [ObservableProperty]
+    private bool _isErrorOnly;
+
+    [ObservableProperty]
     private AvaloniaList<IAutoCompleteOption> _documentOptions = [];
     
     private FrozenDictionary<string,Document>? _frozenDocumentDictionary;
 
-    public AvaloniaList<CommentDto> Comments { get; } = [];
+    private readonly SourceCache<CommentDto, int> _sourceCache = new(o => o.Id);
+    private readonly ReadOnlyObservableCollection<CommentDto> _comments;
+    public ReadOnlyObservableCollection<CommentDto> Comments => _comments;
 
     public CommentsViewModel(
         IMessageService messageService,
@@ -60,7 +69,8 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         cdisc_dataset.Services.IDialogService dialogService,
         ICurrentProjectService currentProjectService,
         IMapper mapper,
-        IValidator<CommentDto> validator)
+        IValidator<CommentDto> validator,
+        ILookupStore lookupStore)
     {
         _messageService = messageService;
         _commentService = commentService;
@@ -72,6 +82,34 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         _mapper = mapper;
         _validator = validator;
 
+        var filter = this.WhenValueChanged(t => t.SearchText)
+            .Throttle(TimeSpan.FromMilliseconds(250))
+            .Select(_ => BuildFilter());
+        _sourceCache.Connect()
+            .AutoRefresh(o => o.HasErrors)
+            .Filter(filter)
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .SortAndBind(out _comments, SortExpressionComparer<CommentDto>.Ascending(o => o.UniqueId ?? string.Empty))
+            .DisposeMany()
+            .Subscribe();
+
+        lookupStore.Documents
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildDocumentLookups);
+    }
+
+    partial void OnIsErrorOnlyChanged(bool value) => _sourceCache.Refresh();
+
+    private Func<CommentDto, bool> BuildFilter()
+    {
+        var searchFilter = SearchFilterExtensions.BuildSearchFilter<CommentDto>(
+            SearchText,
+            x => x.UniqueId,
+            x => x.Description,
+            x => x.DocumentUniqueId,
+            x => x.Pages);
+        return comment => (!IsErrorOnly || comment.HasErrors) && searchFilter(comment);
     }
 
     private void CommentDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -118,14 +156,13 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
                     break;
                 case nameof(CommentDto.DocumentUniqueId):
                     ApplyDocument(commentDto, commentDto.DocumentUniqueId);
-                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.Pages));
-                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.DocumentUniqueId));
+                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.Pages),nameof(CommentDto.DocumentUniqueId));
                     break;
                 case nameof(CommentDto.Pages):
-                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.Pages));
-                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.DocumentUniqueId));
+                    await _validator.ValidateDtoAsync(commentDto, nameof(CommentDto.Pages), nameof(CommentDto.DocumentUniqueId));
                     break;
             }
+            _sourceCache.AddOrUpdate(commentDto);
         });
 
         commentDto.HasChanged = true;
@@ -143,16 +180,17 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
-    private async Task AddDocument(CommentDto commentDto)
+    private async Task AddDocumentAsync(CommentDto commentDto)
     {
         var result = await _dialogService.ShowAddDocumentModelAsync(new DocumentDto());
         if (result.Result != ButtonResult.Yes ||
             !result.Parameters.TryGetValue<DocumentDto>("Model", out var documentDto))
             return;
 
-        await _documentService.InsertDocumentAsync(documentDto);
-        await LoadDocuments();
-        ApplyDocument(commentDto, documentDto.UniqueId);
+        var inserted = await _documentService.InsertDocumentAsync(documentDto);
+        commentDto.Document = _mapper.Map<Document>(inserted);
+        commentDto.DocumentId = inserted.Id;
+        commentDto.DocumentUniqueId = inserted.UniqueId;
     }
 
     [RelayCommand]
@@ -167,12 +205,14 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
             return;
 
         await _documentService.UpdateDocumentAsync(documentDto);
-        await LoadDocuments();
-        ApplyDocument(commentDto, documentDto.UniqueId);
+        commentDto.Document = _mapper.Map<Document>(documentDto);
+        commentDto.DocumentId = documentDto.Id;
+        commentDto.DocumentUniqueId = documentDto.UniqueId;
     }
 
     private void ApplyDocument(CommentDto commentDto, string? documentUniqueId)
     {
+        if (documentUniqueId == commentDto.DocumentUniqueId) return;
         if (string.IsNullOrWhiteSpace(documentUniqueId) || _frozenDocumentDictionary == null ||
             !_frozenDocumentDictionary.TryGetValue(documentUniqueId, out var document))
         {
@@ -187,7 +227,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
-    private async Task AddComment()
+    private async Task AddCommentAsync()
     {
         var dialogParameters = new DialogParameters
         {
@@ -201,10 +241,10 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 
         commentDto.ProjectId = _currentProjectService.CurrentProject.Id;
         commentDto.CdiscDataType = _currentProjectService.CdiscDataType;
-        await _commentService.InsertCommentAsync(commentDto);
-        await _validator.ValidateDtoAsync(commentDto);
-        RegisterCommentDtoPropertyChanged(commentDto);
-        Comments.Add(commentDto);
+        var insertedComment = await _commentService.InsertCommentAsync(commentDto);
+        await _validator.ValidateDtoAsync(insertedComment);
+        RegisterCommentDtoPropertyChanged(insertedComment);
+        _sourceCache.AddOrUpdate(insertedComment);
         MarkDuplicates();
         _messageService.Success("Comment added successfully.");
     }
@@ -215,12 +255,15 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         var dialogParameters = new DialogParameters
         {
             { "Title", "Modify Comment" },
-            { "Model", comment }
+            { "Model", _mapper.Map<CommentDto>(comment) }
         };
         var result = await _dialogHostService.ShowDialogAsync("CommentDialog",dialogParameters);
         if (!result.Parameters.TryGetValue<CommentDto>("Model", out var commentDto) || _currentProjectService.CurrentProject == null)
             return;
         await _commentService.UpdateCommentAsync(commentDto);
+        _sourceCache.AddOrUpdate(commentDto);
+        MarkDuplicates();
+        HasChanges = false;
         _messageService.Success("Comment updated successfully.");
     }
 
@@ -245,25 +288,26 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 
         await _commentService.DeleteCommentAsync(comment);
         UnregisterCommentDtoPropertyChanged(commentDto);
-        Comments.Remove(commentDto);
+        _sourceCache.Remove(commentDto);
         MarkDuplicates();
         _messageService.Success("Comment deleted successfully.");
     }
 
     private void MarkDuplicates()
     {
-        foreach (var comment in Comments)
+        var comments = _sourceCache.Items;
+        foreach (var comment in comments)
         {
             comment.IsUniqueIdDuplicate = false;
             comment.IsDescriptionDuplicate = false;
         }
 
-        Comments.MarkDuplicates(
+        comments.MarkDuplicates(
             o => o.UniqueId ?? string.Empty,
             (comment, isDuplicate) => comment.IsUniqueIdDuplicate = isDuplicate,
             key => !string.IsNullOrWhiteSpace(key));
 
-        Comments.MarkDuplicates(
+        comments.MarkDuplicates(
             o => o.Description ?? string.Empty,
             (comment, isDuplicate) => comment.IsDescriptionDuplicate = isDuplicate,
             key => !string.IsNullOrWhiteSpace(key));
@@ -274,7 +318,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
     {
         if (_currentProjectService.CurrentProject == null)
             return;
-        await _commentService.SaveCommentsAsync(Comments.ToList());
+        await _commentService.SaveCommentsAsync(_sourceCache.Items.ToList());
         HasChanges = false;
         _messageService.Success("Comments saved successfully.");
         await LoadComments();
@@ -301,12 +345,11 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
             return;
 
         await LoadComments();
-        await LoadDocuments();
     }
 
     public override async Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
-        foreach (var commentDto in Comments)
+        foreach (var commentDto in _sourceCache.Items)
             UnregisterCommentDtoPropertyChanged(commentDto);
 
         if (!HasChanges || _currentProjectService.CurrentProject == null)
@@ -339,7 +382,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 
     public async Task LoadComments()
     {
-        foreach (var commentDto in Comments)
+        foreach (var commentDto in _sourceCache.Items)
             UnregisterCommentDtoPropertyChanged(commentDto);
 
         var list = await _commentService.GetAllCommentDtosAsync();
@@ -349,32 +392,27 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
             RegisterCommentDtoPropertyChanged(commentDto);
         }
 
-        Comments.Clear();
-        Comments.AddRange(list.OrderBy(comment => comment.UniqueId, StringComparer.OrdinalIgnoreCase));
+        _sourceCache.Edit(cache =>
+        {
+            cache.Clear();
+            cache.AddOrUpdate(list);
+        });
         MarkDuplicates();
         HasChanges = false;
     }
     
-    public async Task LoadDocuments()
+    private void RebuildDocumentLookups(IReadOnlyCollection<Document> documents)
     {
-        var list = await _documentService.GetAllDocumentsWithoutErorrAsync();
-        List<IAutoCompleteOption> res = [];
-        foreach (var document in list)
-        {
-            var documentAutoCompleteOption = new DocumentAutoCompleteOption()
-            {
-                Header = $"{document.UniqueId} {document.Title}",
-                Content = document.UniqueId,
-                Document = document
-            };
-            res.Add(documentAutoCompleteOption);
-        }
         DocumentOptions.Clear();
-        DocumentOptions.AddRange(res);
-        _frozenDocumentDictionary=list.Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
-            .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
+        DocumentOptions.AddRange(documents.Select(document => new DocumentAutoCompleteOption
+        {
+            Header = $"{document.UniqueId} {document.Title}",
+            Content = document.UniqueId,
+            Document = document
+        }));
 
-        foreach (var commentDto in Comments)
-            ApplyDocument(commentDto, commentDto.DocumentUniqueId);
+        _frozenDocumentDictionary = documents
+            .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
+            .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
     }
 }

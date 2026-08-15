@@ -1,4 +1,4 @@
-using AsyncNavigation.Abstractions;
+﻿using AsyncNavigation.Abstractions;
 using System;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -27,7 +27,6 @@ public partial class VariablesView : UserControl, IActivatableView, IView
                     {
                         await Task.Delay(250);
                         await vm.LoadVariablesAsync();
-                        await vm.LoadLookups();
                     });
                 }, DispatcherPriority.Background);
             }

@@ -1,3 +1,4 @@
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,7 +12,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class DictionaryService(ISqlSugarClient sqlSugar, ICurrentProjectService currentProjectService,IIssueService issueService, IMapper mapper) : IDictionaryService
+public class DictionaryService(ISqlSugarClient sqlSugar, ICurrentProjectService currentProjectService,IIssueService issueService, IMapper mapper, ILookupStore lookupStore) : IDictionaryService
 {
     private CdiscDataType CurrentDataType => currentProjectService.CdiscDataType;
     private int CurrentProjectId => currentProjectService.CurrentProject?.Id ?? 0;
@@ -88,19 +89,25 @@ public class DictionaryService(ISqlSugarClient sqlSugar, ICurrentProjectService 
     public async Task<Dictionary> InsertDictionaryAsync(DictionaryDto dictionary)
     {
         var entity = mapper.Map<Dictionary>(dictionary);
-        return await sqlSugar.Insertable(entity).ExecuteReturnEntityAsync();
+        var result = await sqlSugar.Insertable(entity).ExecuteReturnEntityAsync();
+        await lookupStore.RefreshAsync(LookupKind.Dictionary);
+        return result;
     }
 
     public async Task<Dictionary> UpdateDictionaryAsync(DictionaryDto dictionary)
     {
         var entity = mapper.Map<Dictionary>(dictionary);
-        return await sqlSugar.Updateable(entity).ExecuteReturnEntityAsync();
+        var result = await sqlSugar.Updateable(entity).ExecuteReturnEntityAsync();
+        await lookupStore.RefreshAsync(LookupKind.Dictionary);
+        return result;
     }
 
     public async Task<int> DeleteDictionaryAsync(DictionaryDto dictionary)
     {
         var entity = mapper.Map<Dictionary>(dictionary);
-        return await sqlSugar.Deleteable(entity).ExecuteCommandAsync();
+        var result = await sqlSugar.Deleteable(entity).ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Dictionary);
+        return result;
     }
 
     public async Task<int> SaveDictionariesAsync(List<DictionaryDto> dictionaries)
@@ -110,6 +117,7 @@ public class DictionaryService(ISqlSugarClient sqlSugar, ICurrentProjectService 
         var inserted = await storage.AsInsertable.ExecuteCommandAsync();
         var updated = await storage.AsUpdateable.ExecuteCommandAsync();
         await issueService.SyncIssuesAsync(dictionaries, nameof(DictionaryDto), dto => dto.Id);
+        await lookupStore.RefreshAsync(LookupKind.Dictionary);
         return inserted + updated;
     }
 }

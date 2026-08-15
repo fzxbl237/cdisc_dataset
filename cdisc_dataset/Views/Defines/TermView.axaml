@@ -220,6 +220,11 @@
                 </customGrid:DataGrid.Styles>
                 <customGrid:DataGrid.SearchBarRightContent>
                     <StackPanel Orientation="Horizontal" Spacing="10">
+                        <atom:ToggleSwitch
+                            IsChecked="{Binding IsErrorOnly}"
+                            OffContent="All"
+                            OnContent="Has Error"
+                            VerticalAlignment="Center" />
                         <atom:Button Color="Default" Command="{Binding AddTermCommand}" Content="Add New" Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" Variant="Solid" />
                         <atom:Button Color="Default" Command="{Binding PairCommand}" Content="Pair" Icon="{antd-icons:AntDesignIconProvider Kind=ApiOutlined}" Variant="Solid" />
                     </StackPanel>

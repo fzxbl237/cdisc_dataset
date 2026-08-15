@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using cdisc_dataset.Extensions;
@@ -41,7 +41,6 @@ public class ValueLevelService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueS
             },true)
             .ToListAsync();
 
-        //var dtos = mapper.Map<List<ValueLevelDto>>(list);
         //await issueService.RestoreIssuesAsync(list.Cast<BaseDto>(), nameof(ValueLevelDto), dto => dto.Id);
 
         return list;
@@ -50,15 +49,19 @@ public class ValueLevelService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueS
     public async Task<List<ValueLevelDto>> GetAllValueLevelDtosWithoutErorrAsync()
     {
         var (projectId, dataType) = GetCurrentProjectContext();
-        var list = await sqlSugar.Queryable<ValueLevel>()
+        return await sqlSugar.Queryable<ValueLevel>()
             .Includes(o => o.CodeList)
             .Includes(o => o.WhereClauses)
             .Includes(o => o.Method)
             .Includes(o => o.Comment)
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && !x.HasErrors)
+            .Select(o => new ValueLevelDto
+            {
+                CodeList = o.CodeList,
+                Method = o.Method,
+                Comment = o.Comment
+            }, true)
             .ToListAsync();
-
-        return mapper.Map<List<ValueLevelDto>>(list);
     }
 
     public async Task<List<ValueLevel>> GetAllValueLevelsWithoutErorrAsync()

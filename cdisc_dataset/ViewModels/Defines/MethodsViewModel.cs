@@ -47,6 +47,9 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     private string? _searchText;
 
     [ObservableProperty]
+    private bool _isErrorOnly;
+
+    [ObservableProperty]
     private AvaloniaList<IAutoCompleteOption> _documentOptions = [];
     
     [ObservableProperty] private AvaloniaList<string> _types = ["Computation", "Imputation"];
@@ -65,7 +68,8 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         IDialogHostService dialogHostService,
         cdisc_dataset.Services.IDialogService dialogService,
         IMapper mapper,
-        IValidator<MethodDto> validator)
+        IValidator<MethodDto> validator,
+        ILookupStore lookupStore)
     {
         _messageService = messageService;
         _methodService = methodService;
@@ -78,15 +82,21 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
 
         var filter = this.WhenValueChanged(t => t.SearchText)
             .Throttle(TimeSpan.FromMilliseconds(250))
-            .Select(BuildFilter);
+            .Select(_ => BuildFilter());
 
         _sourceCache.Connect()
+            .AutoRefresh(o => o.HasErrors)
             .Filter(filter)
             .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
             .SortAndBind(out _methods, SortExpressionComparer<MethodDto>.Ascending(o => o.UniqueId ?? string.Empty)
                 .ThenByAscending(o=>o.Name?? string.Empty))
             .DisposeMany()
             .Subscribe();
+
+        lookupStore.Documents
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildDocumentLookups);
 
     }
 
@@ -118,12 +128,10 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
                     break;
                 case nameof(MethodDto.DocumentUniqueId):
                     ApplyDocument(methodDto, methodDto.DocumentUniqueId);
-                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Pages));
-                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.DocumentUniqueId));
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Pages),nameof(MethodDto.DocumentUniqueId));
                     break;
                 case nameof(MethodDto.Pages):
-                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Pages));
-                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.DocumentUniqueId));
+                    await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Pages),nameof(MethodDto.DocumentUniqueId));
                     break;
                 case nameof(MethodDto.HasNameDuplicate):
                     await _validator.ValidateDtoAsync(methodDto, nameof(MethodDto.Name));
@@ -152,9 +160,12 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         methodDto.PropertyChanged -= MethodDtoOnPropertyChanged;
     }
 
-    private static Func<MethodDto, bool> BuildFilter(string? searchText)
-        => SearchFilterExtensions.BuildSearchFilter<MethodDto>(
-            searchText,
+    partial void OnIsErrorOnlyChanged(bool value) => _sourceCache.Refresh();
+
+    private Func<MethodDto, bool> BuildFilter()
+    {
+        var searchFilter = SearchFilterExtensions.BuildSearchFilter<MethodDto>(
+            SearchText,
             x => x.UniqueId,
             x => x.Name,
             x => x.Type,
@@ -163,6 +174,8 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
             x => x.ExpressionCode,
             x => x.Pages,
             x => x.DocumentUniqueId);
+        return method => (!IsErrorOnly || method.HasErrors) && searchFilter(method);
+    }
     
     public async Task LoadMethods()
     {
@@ -185,27 +198,19 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         HasChanges = false;
     }
 
-    public async Task LoadDocuments()
+    private void RebuildDocumentLookups(IReadOnlyCollection<Document> documents)
     {
-        var list = await _documentService.GetAllDocumentsWithoutErorrAsync();
-        List<IAutoCompleteOption> res = [];
-        foreach (var document in list)
-        {
-            var documentAutoCompleteOption = new DocumentAutoCompleteOption()
-            {
-                Header = $"{document.UniqueId} {document.Title}",
-                Content = document.UniqueId,
-                Document = document
-            };
-            res.Add(documentAutoCompleteOption);
-        }
         DocumentOptions.Clear();
-        DocumentOptions.AddRange(res);
-        _frozenDocumentDictionary=list.Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
-            .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
+        DocumentOptions.AddRange(documents.Select(document => new DocumentAutoCompleteOption
+        {
+            Header = $"{document.UniqueId} {document.Title}",
+            Content = document.UniqueId,
+            Document = document
+        }));
 
-        foreach (var methodDto in Methods)
-            ApplyDocument(methodDto, methodDto.DocumentUniqueId);
+        _frozenDocumentDictionary = documents
+            .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
+            .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
     }
     
 
@@ -223,16 +228,17 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
-    private async Task AddDocument(MethodDto methodDto)
+    private async Task AddDocumentAsync(MethodDto methodDto)
     {
         var result = await _dialogService.ShowAddDocumentModelAsync(new DocumentDto());
         if (result.Result != ButtonResult.Yes ||
             !result.Parameters.TryGetValue<DocumentDto>("Model", out var documentDto))
             return;
 
-        await _documentService.InsertDocumentAsync(documentDto);
-        await LoadDocuments();
-        ApplyDocument(methodDto, documentDto.UniqueId);
+        var inserted = await _documentService.InsertDocumentAsync(documentDto);
+        methodDto.Document = _mapper.Map<Document>(inserted);
+        methodDto.DocumentId = inserted.Id;
+        methodDto.DocumentUniqueId = inserted.UniqueId;
     }
 
     [RelayCommand]
@@ -247,12 +253,14 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
             return;
 
         await _documentService.UpdateDocumentAsync(documentDto);
-        await LoadDocuments();
-        ApplyDocument(methodDto, documentDto.UniqueId);
+        methodDto.Document = _mapper.Map<Document>(documentDto);
+        methodDto.DocumentId = documentDto.Id;
+        methodDto.DocumentUniqueId = documentDto.UniqueId;
     }
 
     private void ApplyDocument(MethodDto methodDto, string? documentUniqueId)
     {
+        if (documentUniqueId == methodDto.DocumentUniqueId) return;
         if (string.IsNullOrWhiteSpace(documentUniqueId) || _frozenDocumentDictionary == null ||
             !_frozenDocumentDictionary.TryGetValue(documentUniqueId, out var document))
         {
@@ -267,7 +275,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
-    private async Task AddMethod()
+    private async Task AddMethodAsync()
     {
         if (_currentProjectService.CurrentProject == null)
             return;
@@ -287,8 +295,8 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         RegisterMethodDtoPropertyChanged(method);
         _sourceCache.AddOrUpdate(method);
         MarkDuplicates();
-        //await _methodService.InsertMethodAsync(method);
-        HasChanges = true;
+        await _methodService.InsertMethodAsync(method);
+        //HasChanges = true;
     }
 
     [RelayCommand]
@@ -297,15 +305,16 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         if (_currentProjectService.CurrentProject == null)
             return;
         
-        var result = await _dialogService.ShowEditMethodModelAsync(methodDto);
+        var result = await _dialogService.ShowEditMethodModelAsync(_mapper.Map<MethodDto>(methodDto));
         if (result.Result != ButtonResult.Yes ||
             !result.Parameters.TryGetValue<MethodDto>("Model", out var editedMethod))
             return;
 
         await _validator.ValidateDtoAsync(editedMethod);
         _sourceCache.AddOrUpdate(editedMethod);
+        await _methodService.UpdateMethodAsync(editedMethod);
         MarkDuplicates();
-        HasChanges = true;
+        //HasChanges = true;
     }
 
     [RelayCommand]
@@ -357,7 +366,6 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
             return;
 
         await LoadMethods();
-        await LoadDocuments();
     }
 
     public override void ConfirmNavigationRequest(NavigationContext navigationContext, Action<bool> continuationCallback)

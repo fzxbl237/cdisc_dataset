@@ -30,7 +30,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
-public partial class AddTermsViewModel: ObservableObject, IDialogHostAware
+public partial class TermsViewModel: ObservableObject, IDialogHostAware
 {
     private readonly ISqlSugarClient _sqlSugar;
     private readonly ICodeListService _codeListService;
@@ -67,7 +67,7 @@ public partial class AddTermsViewModel: ObservableObject, IDialogHostAware
     
     private readonly CompositeDisposable _disposables = new();
 
-    public AddTermsViewModel(ISqlSugarClient sqlSugar,
+    public TermsViewModel(ISqlSugarClient sqlSugar,
         ICodeListService codeListService,
         ICurrentProjectService currentProjectService,
         IValidator<TermDto> validator,

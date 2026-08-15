@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using cdisc_dataset.Models;
@@ -11,7 +12,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class DocumentService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentProjectService currentProjectService) : IDocumentService
+public class DocumentService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentProjectService currentProjectService, ILookupStore lookupStore) : IDocumentService
 {
     private (int ProjectId, CdiscDataType DataType) GetCurrentProjectContext()
     {
@@ -59,19 +60,25 @@ public class DocumentService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
         if (document == null)
             return 0;
 
-        return await sqlSugar.Deleteable(document).ExecuteCommandAsync();
+        var result = await sqlSugar.Deleteable(document).ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Document);
+        return result;
     }
 
     public async Task<int> DeleteDocumentDtoAsync(DocumentDto? document)
     {
         if (document == null)
             return 0;
-        return await sqlSugar.Deleteable(mapper.Map<Document>(document)).ExecuteCommandAsync();
+        var result = await sqlSugar.Deleteable(mapper.Map<Document>(document)).ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Document);
+        return result;
     }
 
     public async Task<Document> InsertDocumentAsync(Document document)
     {
-        return await sqlSugar.Insertable(document).ExecuteReturnEntityAsync();
+        var entity = await sqlSugar.Insertable(document).ExecuteReturnEntityAsync();
+        await lookupStore.RefreshAsync(LookupKind.Document);
+        return entity;
     }
 
     public async Task<DocumentDto> InsertDocumentAsync(DocumentDto documentDto)
@@ -83,13 +90,17 @@ public class DocumentService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
 
     public async Task<int> UpdateDocumentAsync(Document document)
     {
-        return await sqlSugar.Updateable(document).ExecuteCommandAsync();
+        var result = await sqlSugar.Updateable(document).ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Document);
+        return result;
     }
 
     public async Task<int> UpdateDocumentAsync(DocumentDto document)
     {
         var doc = mapper.Map<Document>(document);
-        return await sqlSugar.Updateable(doc).ExecuteCommandAsync();
+        var result = await sqlSugar.Updateable(doc).ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Document);
+        return result;
     }
 
     public async Task<List<TemplateDocument>> GetAvailableSettingDocumentsAsync()
@@ -141,7 +152,9 @@ public class DocumentService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
             CdiscDataType = dataType
         }).ToList();
 
-        return await sqlSugar.Insertable(documents).ExecuteCommandAsync();
+        var result = await sqlSugar.Insertable(documents).ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Document);
+        return result;
     }
 
     public async Task<int> SaveDocumentsAsync(List<DocumentDto> documents)
@@ -150,6 +163,7 @@ public class DocumentService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
         var storage = await sqlSugar.Storageable(list).ToStorageAsync();
         var inserted = await storage.AsInsertable.ExecuteCommandAsync();
         var updated = await storage.AsUpdateable.ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Document);
         return inserted + updated;
     }
 }

@@ -44,7 +44,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
-public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
+public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
 {
     private readonly ISqlSugarClient _sqlSugar;
     private readonly ICurrentProjectService _currentProjectService;
@@ -102,7 +102,7 @@ public partial class AddCodeListViewModel: ObservableObject, IDialogHostAware
     
     private readonly CompositeDisposable _disposables = new();
     
-    public AddCodeListViewModel(
+    public CodeListDialogViewModel(
         ISqlSugarClient sqlSugar,
         ICurrentProjectService currentProjectService,
         ICommentService commentService,

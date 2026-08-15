@@ -1,5 +1,7 @@
-﻿using System.Collections.Frozen;
+﻿using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using AtomUI.Controls;
@@ -77,7 +79,9 @@ public partial class MethodViewModel : ObservableObject, IDialogHostAware
         _projectId = _currentProjectService.CurrentProject?.Id ?? 0;
         _cdiscDataType = _currentProjectService.CdiscDataType;
 
+        Method.PropertyChanged -= MethodOnPropertyChanged;
         Method = parameters.ContainsKey("Model") ? parameters.GetValue<MethodDto>("Model") : new MethodDto();
+        Method.PropertyChanged += MethodOnPropertyChanged;
         IsInEditMode = Method.Id != 0;
         Method.ProjectId = _projectId;
         Method.CdiscDataType = _cdiscDataType;
@@ -85,7 +89,13 @@ public partial class MethodViewModel : ObservableObject, IDialogHostAware
         _formMethodValidator.MethodDto = Method;
         _formMethodValidator.Validator = _validator;
         Validators.Add(_formMethodValidator);
-        LoadDocuments().Await();
+        LoadDocuments().AwaitWithOpt();
+    }
+
+    private void MethodOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MethodDto.UniqueId))
+            Method.Name = $"Algorithm to derive {Method.UniqueId}";
     }
 
     partial void OnSelectedDocumentOptionChanged(MethodDocumentSelectOption? value)

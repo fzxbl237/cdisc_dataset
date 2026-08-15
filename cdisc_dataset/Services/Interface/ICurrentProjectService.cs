@@ -1,3 +1,4 @@
+﻿using System;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Enums;
 
@@ -7,4 +8,5 @@ public interface ICurrentProjectService
 {
     Project? CurrentProject { get; set; }
     CdiscDataType CdiscDataType { get; set; }
+    event Action? Changed;
 }

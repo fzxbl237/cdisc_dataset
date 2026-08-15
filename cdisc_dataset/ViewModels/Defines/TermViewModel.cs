@@ -59,6 +59,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     
 
     [ObservableProperty] private string? _searchText;
+    [ObservableProperty] private bool _isErrorOnly;
     
     [ObservableProperty] private bool _hasChanges;
     
@@ -81,7 +82,8 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         IDialogHostService dialogHostService,
         IMessageService messageService,
         ICurrentProjectService currentProjectService,
-        IValidator<TermDto> validator)
+        IValidator<TermDto> validator,
+        ILookupStore lookupStore)
     {
         _termService = termService;
         _sqlSugar = sqlSugar;
@@ -96,9 +98,10 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
 
         var filter = this.WhenValueChanged(t => t.SearchText)
             .Throttle(TimeSpan.FromMilliseconds(250))
-            .Select(BuildFilter);
+            .Select(_ => BuildFilter());
         
         _sourceCache.Connect()
+            .AutoRefresh(o => o.HasErrors)
             .Filter(filter)
             .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
             .SortAndBind(out _terms,SortExpressionComparer<TermDto>
@@ -123,6 +126,11 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
                     }
                 }
             });
+
+        lookupStore.CodeLists
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildCodeListLookups);
     }
 
     private void Attach(TermDto termDto)
@@ -263,14 +271,19 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     
     
 
-    private static Func<TermDto, bool> BuildFilter(string? searchText)
-        => SearchFilterExtensions.BuildSearchFilter<TermDto>(
-            searchText,
+    partial void OnIsErrorOnlyChanged(bool value) => _sourceCache.Refresh();
+
+    private Func<TermDto, bool> BuildFilter()
+    {
+        var searchFilter = SearchFilterExtensions.BuildSearchFilter<TermDto>(
+            SearchText,
             x => x.Order.ToString(CultureInfo.InvariantCulture),
             x => x.Name,
             x => x.Code,
             x => x.DecodedValue,
             x => x.CodeListUniqueId);
+        return term => (!IsErrorOnly || term.HasErrors) && searchFilter(term);
+    }
     
     
     public async Task LoadTermsAsync()
@@ -283,24 +296,19 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         });
     }
 
-    public async Task LoadCodeListsAsync()
+    private void RebuildCodeListLookups(IReadOnlyCollection<CodeList> codeLists)
     {
-        var list = await _codeListService.GetAllCodeListsWithoutErorrAsync();
-        List<IAutoCompleteOption> res = [];
-        foreach (var codeList in list)
-        {
-            var autoCompleteOption = new CodeListAutoCompleteOption()
-            {
-                Header = $"{codeList.UniqueId} {codeList.Name}",
-                Content = codeList.UniqueId,
-                CodeList = codeList
-            };
-            res.add(autoCompleteOption);
-        }
-        _codeListDictionary = list.Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
+        _codeListDictionary = codeLists
+            .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
             .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
+
         CodeListOptions.Clear();
-        CodeListOptions.AddRange(res);
+        CodeListOptions.AddRange(codeLists.Select(codeList => new CodeListAutoCompleteOption
+        {
+            Header = $"{codeList.UniqueId} {codeList.Name}",
+            Content = codeList.UniqueId,
+            CodeList = codeList
+        }));
     }
     
     // private async Task LoadComments(int id, CdiscDataType cdiscDataType)

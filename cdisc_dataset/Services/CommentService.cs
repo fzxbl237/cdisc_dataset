@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,7 +12,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService, ICurrentProjectService currentProjectService) : ICommentService
+public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService, ICurrentProjectService currentProjectService, ILookupStore lookupStore) : ICommentService
 {
     private (int ProjectId, CdiscDataType DataType) GetCurrentProjectContext()
     {
@@ -79,7 +79,9 @@ public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueServ
     public async Task<Comment> UpdateCommentAsync(CommentDto comment)
     {
         var entity = mapper.Map<Comment>(comment);
-        return await sqlSugar.Updateable(entity).ExecuteReturnEntityAsync();
+        var result = await sqlSugar.Updateable(entity).ExecuteReturnEntityAsync();
+        await lookupStore.RefreshAsync(LookupKind.Comment);
+        return result;
     }
 
     public async Task<int> SaveCommentsAsync(List<CommentDto> comments)
@@ -91,6 +93,7 @@ public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueServ
 
         await issueService.SyncIssuesAsync(comments, nameof(CommentDto), dto => dto.Id);
 
+        await lookupStore.RefreshAsync(LookupKind.Comment);
         return res1 + res2;
     }
 
@@ -148,12 +151,15 @@ public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueServ
             variable.CommentUniqueId = string.Empty;
         }
         await sqlSugar.Updateable(variables).ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Comment);
         return res;
     }
 
     public async Task<Comment> InsertCommentAsync(Comment comment)
     {
-        return await sqlSugar.InsertNav(comment).Include(o=>o.Document).ExecuteReturnEntityAsync();
+        var entity = await sqlSugar.InsertNav(comment).Include(o=>o.Document).ExecuteReturnEntityAsync();
+        await lookupStore.RefreshAsync(LookupKind.Comment);
+        return entity;
     }
 
     public async Task<CommentDto> InsertCommentAsync(CommentDto commentDto)
@@ -165,7 +171,9 @@ public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueServ
 
     public async Task<Comment> UpdateCommentAsync(Comment comment)
     {
-        return await sqlSugar.Updateable(comment).ExecuteReturnEntityAsync();
+        var result = await sqlSugar.Updateable(comment).ExecuteReturnEntityAsync();
+        await lookupStore.RefreshAsync(LookupKind.Comment);
+        return result;
     }
 
 

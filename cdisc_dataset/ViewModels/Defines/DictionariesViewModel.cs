@@ -41,11 +41,15 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
     private string? _searchText;
 
     [ObservableProperty]
+    private bool _isErrorOnly;
+
+    [ObservableProperty]
     private AvaloniaList<string> _dataTypeOptions = [.. ConstantOptions.DataTypes];
 
     [ObservableProperty]
     private AvaloniaList<AutoCompleteOption> _dictionaryNameOptions = [];
 
+    private readonly List<DictionaryDto> _allDictionaries = [];
     public AvaloniaList<DictionaryDto> Dictionarys { get; } = [];
 
     public DictionariesViewModel(
@@ -65,6 +69,16 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
     }
 
+    partial void OnIsErrorOnlyChanged(bool value) => RefreshDictionaries();
+
+    private void RefreshDictionaries()
+    {
+        Dictionarys.Clear();
+        Dictionarys.AddRange(_allDictionaries
+            .Where(dictionary => !IsErrorOnly || dictionary.HasErrors)
+            .OrderBy(dictionary => dictionary.UniqueId, StringComparer.OrdinalIgnoreCase));
+    }
+
     private void DictionaryDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (sender is not DictionaryDto dictionaryDto || string.IsNullOrWhiteSpace(e.PropertyName))
@@ -72,6 +86,12 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
         if (e.PropertyName == nameof(DictionaryDto.HasChanged))
             return;
+
+        if (e.PropertyName == nameof(DictionaryDto.HasErrors))
+        {
+            RefreshDictionaries();
+            return;
+        }
 
         var duplicateFlagProperty = e.PropertyName switch
         {
@@ -175,8 +195,9 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
         await _dictionaryService.DeleteDictionaryAsync(dictionary);
         UnregisterDictionaryDtoPropertyChanged(dictionary);
-        Dictionarys.Remove(dictionary);
+        _allDictionaries.Remove(dictionary);
         MarkDuplicates();
+        RefreshDictionaries();
         _messageService.Success("Dictionary deleted successfully.");
     }
 
@@ -186,7 +207,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
         if (_currentProjectService.CurrentProject == null)
             return;
 
-        await _dictionaryService.SaveDictionariesAsync(Dictionarys.ToList());
+        await _dictionaryService.SaveDictionariesAsync(_allDictionaries);
         HasChanges = false;
         _messageService.Success("Dictionaries saved successfully.");
         await LoadDictionaries();
@@ -223,7 +244,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
     public override Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
-        foreach (var dictionaryDto in Dictionarys)
+        foreach (var dictionaryDto in _allDictionaries)
             UnregisterDictionaryDtoPropertyChanged(dictionaryDto);
 
         return Task.CompletedTask;
@@ -231,7 +252,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
     public async Task LoadDictionaries()
     {
-        foreach (var dictionaryDto in Dictionarys)
+        foreach (var dictionaryDto in _allDictionaries)
             UnregisterDictionaryDtoPropertyChanged(dictionaryDto);
 
         var list = await _dictionaryService.GetAllDictionaryDtosAsync();
@@ -241,9 +262,10 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
             RegisterDictionaryDtoPropertyChanged(dictionaryDto);
         }
 
-        Dictionarys.Clear();
-        Dictionarys.AddRange(list.OrderBy(dictionary => dictionary.UniqueId, StringComparer.OrdinalIgnoreCase));
+        _allDictionaries.Clear();
+        _allDictionaries.AddRange(list);
         MarkDuplicates();
+        RefreshDictionaries();
         HasChanges = false;
     }
 
@@ -316,24 +338,24 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
 
     private void MarkDuplicates()
     {
-        foreach (var dictionary in Dictionarys)
+        foreach (var dictionary in _allDictionaries)
         {
             dictionary.IsUniqueIdDuplicate = false;
             dictionary.IsNameDuplicate = false;
             dictionary.IsDictionaryNameDuplicate = false;
         }
 
-        Dictionarys.MarkDuplicates(
+        _allDictionaries.MarkDuplicates(
             o => o.UniqueId ?? string.Empty,
             (dictionary, isDuplicate) => dictionary.IsUniqueIdDuplicate = isDuplicate,
             key => !string.IsNullOrWhiteSpace(key));
 
-        Dictionarys.MarkDuplicates(
+        _allDictionaries.MarkDuplicates(
             o => o.Name ?? string.Empty,
             (dictionary, isDuplicate) => dictionary.IsNameDuplicate = isDuplicate,
             key => !string.IsNullOrWhiteSpace(key));
 
-        Dictionarys.MarkDuplicates(
+        _allDictionaries.MarkDuplicates(
             o => o.DictionaryName ?? string.Empty,
             (dictionary, isDuplicate) => dictionary.IsDictionaryNameDuplicate = isDuplicate,
             key => !string.IsNullOrWhiteSpace(key));

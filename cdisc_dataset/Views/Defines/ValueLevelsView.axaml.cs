@@ -1,4 +1,4 @@
-using AsyncNavigation.Abstractions;
+﻿using AsyncNavigation.Abstractions;
 using Avalonia.Controls;
 using System.Threading.Tasks;
 using Avalonia.Markup.Xaml;
@@ -24,7 +24,6 @@ public partial class ValueLevelsView : UserControl, IActivatableView, IView
                     {
                         await Task.Delay(250);
                         await vm.LoadValueLevels();
-                        await vm.LoadLookups();
                     });
                 }, DispatcherPriority.Background);
             }

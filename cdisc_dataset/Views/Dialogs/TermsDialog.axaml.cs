@@ -4,9 +4,9 @@ using Avalonia.Markup.Xaml;
 
 namespace cdisc_dataset.Views.Dialogs;
 
-public partial class AddTermsDialog : UserControl
+public partial class TermsDialog : UserControl
 {
-    public AddTermsDialog()
+    public TermsDialog()
     {
         InitializeComponent();
     }

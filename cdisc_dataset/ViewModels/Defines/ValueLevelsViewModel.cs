@@ -37,8 +37,6 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     private readonly IValueLevelService _valueLevelService;
     private readonly IDatasetService _datasetService;
     private readonly IVariableService _variableService;
-    private readonly ICodeListService _codeListService;
-    private readonly IMethodService _methodService;
     private readonly IDocumentService _documentService;
     private readonly ICommentService _commentService;
     private readonly IDialogHostService _dialogHostService;
@@ -52,6 +50,9 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
     [ObservableProperty]
     private string? _searchText;
+
+    [ObservableProperty]
+    private bool _isErrorOnly;
 
     [ObservableProperty] private AvaloniaList<IAutoCompleteOption> _datasetOptions = [];
     [ObservableProperty] private AvaloniaList<IAutoCompleteOption> _variableOptions = [];
@@ -76,22 +77,19 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         IValueLevelService valueLevelService,
         IDatasetService datasetService,
         IVariableService variableService,
-        ICodeListService codeListService,
-        IMethodService methodService,
         IDocumentService documentService,
         ICommentService commentService,
         IDialogHostService dialogHostService,
         cdisc_dataset.Services.IDialogService dialogService,
         ICurrentProjectService currentProjectService,
         IMapper mapper,
-        IValidator<ValueLevelDto> validator)
+        IValidator<ValueLevelDto> validator,
+        ILookupStore lookupStore)
     {
         _messageService = messageService;
         _valueLevelService = valueLevelService;
         _datasetService = datasetService;
         _variableService = variableService;
-        _codeListService = codeListService;
-        _methodService = methodService;
         _documentService = documentService;
         _commentService = commentService;
         _dialogHostService = dialogHostService;
@@ -102,9 +100,10 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
         var filter = this.WhenValueChanged(t => t.SearchText)
             .Throttle(TimeSpan.FromMilliseconds(250))
-            .Select(BuildFilter);
+            .Select(_ => BuildFilter());
 
         _sourceCache.Connect()
+            .AutoRefresh(o => o.HasErrors)
             .Filter(filter)
             .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
             .SortAndBind(out _valueLevels, SortExpressionComparer<ValueLevelDto>.Ascending(o => o.Dataset ?? string.Empty)
@@ -112,6 +111,31 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
                 .ThenByAscending(o=>o.Order))
             .DisposeMany()
             .Subscribe();
+
+        lookupStore.Datasets
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildDatasetOptions);
+
+        lookupStore.Variables
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildVariableOptions);
+
+        lookupStore.CodeLists
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildCodeListOptions);
+
+        lookupStore.Methods
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildMethodOptions);
+
+        lookupStore.Comments
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildCommentOptions);
 
     }
 
@@ -398,7 +422,6 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         valueLevel.CommentUniqueId = entity.UniqueId;
         _sourceCache.AddOrUpdate(valueLevel);
         await _valueLevelService.UpdateValueLevelAsync(valueLevel);
-        await LoadLookups();
         _messageService.Success("Comment added successfully.");
     }
 
@@ -419,7 +442,6 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         valueLevel.CommentUniqueId = entity.UniqueId;
         _sourceCache.AddOrUpdate(valueLevel);
         await _valueLevelService.UpdateValueLevelAsync(valueLevel);
-        await LoadLookups();
         _messageService.Success("Comment updated successfully.");
     }
 
@@ -471,7 +493,6 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         if (_currentProjectService.CurrentProject == null)
             return;
         await LoadValueLevels();
-        await LoadLookups();
 
     }
 
@@ -508,9 +529,8 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         HasChanges = false;
     }
 
-    public async Task LoadLookups()
+    private void RebuildDatasetOptions(IReadOnlyCollection<Dataset> datasets)
     {
-        var datasets = await _datasetService.GetAllDatasetsWithoutErrorAsync();
         DatasetOptions.Clear();
         DatasetOptions.AddRange(datasets
             .Where(o => !string.IsNullOrWhiteSpace(o.Name))
@@ -520,8 +540,10 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
                 Content = o.Name,
                 Dataset = o
             }));
+    }
 
-        var variables = await _variableService.GetAllVariablesWithoutErorrAsync();
+    private void RebuildVariableOptions(IReadOnlyCollection<Variable> variables)
+    {
         VariableOptions.Clear();
         VariableOptions.AddRange(variables
             .Where(o => !string.IsNullOrWhiteSpace(o.VariableName))
@@ -531,42 +553,49 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
                 Content = o.VariableName,
                 Variable = o
             }));
+    }
 
-        VariableOptions.Clear();
-        VariableOptions.AddRange(VariableOptions);
-
-        var codeLists = await _codeListService.GetAllCodeListsWithoutErorrAsync();
-        var methods = await _methodService.GetAllMethodsWithoutErorrAsync();
-        var comments = await _commentService.GetAllCommentsWithoutErorrAsync();
-
+    private void RebuildCodeListOptions(IReadOnlyCollection<CodeList> codeLists)
+    {
         CodeListOptions.Clear();
         CodeListOptions.AddRange(codeLists.Select(o => new ValueLevelAutoCompleteOption
         {
-            Header =  $"{o.UniqueId} {o.Name}",
+            Header = $"{o.UniqueId} {o.Name}",
             Content = o.UniqueId,
             CodeList = o
         }));
+    }
 
+    private void RebuildMethodOptions(IReadOnlyCollection<Method> methods)
+    {
         MethodOptions.Clear();
         MethodOptions.AddRange(methods.Select(o => new ValueLevelAutoCompleteOption
         {
             Header = $"{o.UniqueId} {o.Name}",
-            Content = o.UniqueId ,
-            Method = o
-        }));
-
-        CommentOptions.Clear();
-        CommentOptions.AddRange(comments.Select(o => new ValueLevelAutoCompleteOption
-        {
-            Header =  $"{o.UniqueId} {o.Description}",
             Content = o.UniqueId,
-            Comment = o
+            Method = o
         }));
     }
 
-    private static Func<ValueLevelDto, bool> BuildFilter(string? searchText)
-        => SearchFilterExtensions.BuildSearchFilter<ValueLevelDto>(
-            searchText,
+    private void RebuildCommentOptions(IReadOnlyCollection<Comment> comments)
+    {
+        CommentOptions.Clear();
+        CommentOptions.AddRange(comments
+            .Where(o => !o.HasErrors)
+            .Select(o => new ValueLevelAutoCompleteOption
+            {
+                Header = $"{o.UniqueId} {o.Description}",
+                Content = o.UniqueId,
+                Comment = o
+            }));
+    }
+
+    partial void OnIsErrorOnlyChanged(bool value) => _sourceCache.Refresh();
+
+    private Func<ValueLevelDto, bool> BuildFilter()
+    {
+        var searchFilter = SearchFilterExtensions.BuildSearchFilter<ValueLevelDto>(
+            SearchText,
             x => x.Dataset,
             x => x.Variable,
             x => x.Label,
@@ -574,6 +603,8 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             x => x.WhereClause,
             x => x.Pages,
             x => x.MethodUniqueId);
+        return valueLevel => (!IsErrorOnly || valueLevel.HasErrors) && searchFilter(valueLevel);
+    }
 
    
 }

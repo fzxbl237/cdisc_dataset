@@ -127,6 +127,11 @@
                 </customGrid:DataGrid.Styles>
                 <customGrid:DataGrid.SearchBarRightContent>
                     <StackPanel Orientation="Horizontal" Spacing="8">
+                        <atom:ToggleSwitch
+                            IsChecked="{Binding IsErrorOnly}"
+                            OffContent="All"
+                            OnContent="Has Error"
+                            VerticalAlignment="Center" />
                         <atom:Button
                             Color="Default"
                             Command="{Binding ImportFromSettingsCommand}"

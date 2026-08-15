@@ -305,6 +305,11 @@
                 </customGrid:DataGrid.Styles>
                 <customGrid:DataGrid.SearchBarRightContent>
                     <StackPanel Orientation="Horizontal" Spacing="10">
+                        <atom:ToggleSwitch
+                            IsChecked="{Binding IsErrorOnly}"
+                            OffContent="All"
+                            OnContent="Has Error"
+                            VerticalAlignment="Center" />
                         <atom:Button Color="Default" Command="{Binding AddCodeListCommand}" Content="新增" Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" Variant="Solid" />
                         <atom:Button Color="Default" Command="{Binding AddCodeListFromVariableCommand}" Content="从变量创建" Icon="{antd-icons:AntDesignIconProvider Kind=DatabaseOutlined}" Variant="Solid" />
                         <atom:Button Color="Default" Command="{Binding MergeSelectedCodeListsCommand}" Content="合并" Icon="{antd-icons:AntDesignIconProvider Kind=MergeCellsOutlined}" Variant="Solid" />

@@ -38,10 +38,8 @@ namespace cdisc_dataset.ViewModels.Defines;
 public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IVariableService _variableService;
-    private readonly IMethodService _methodService;
     private readonly ICommentService _commentService;
     private readonly ICodeListService _codeListService;
-    private readonly IDictionaryService _dictionaryService;
     private readonly IMessageService _messageService;
     private readonly IDialogHostService _dialogHostService;
     private readonly cdisc_dataset.Services.IDialogService _dialogService;
@@ -59,6 +57,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     private readonly SourceCache<VariableDto, int> _sourceCache = new(o => o.Id);
 
     [ObservableProperty] private string? _searchText;
+    [ObservableProperty] private bool _isErrorOnly;
     [ObservableProperty] private bool _hasChanges;
     [ObservableProperty] private string? _datasetFilter;
     [ObservableProperty] private string? _variableFilter;
@@ -80,22 +79,19 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 
     public VariablesViewModel(
         IVariableService variableService,
-        IMethodService methodService,
         ICommentService commentService,
         ICodeListService codeListService,
-        IDictionaryService dictionaryService,
         IMessageService messageService,
         IDialogHostService dialogHostService,
         cdisc_dataset.Services.IDialogService dialogService,
         ICurrentProjectService currentProjectService,
         IMapper mapper,
-        IValidator<VariableDto> validator)
+        IValidator<VariableDto> validator,
+        ILookupStore lookupStore)
     {
         _variableService = variableService;
-        _methodService = methodService;
         _commentService = commentService;
         _codeListService = codeListService;
-        _dictionaryService = dictionaryService;
         _messageService = messageService;
         _dialogHostService = dialogHostService;
         _dialogService = dialogService;
@@ -105,13 +101,31 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 
         var filter = this.WhenValueChanged(t => t.SearchText)
             .Throttle(TimeSpan.FromMilliseconds(250))
-            .Select(BuildFilter);
+            .Select(_ => BuildFilter());
         _sourceCache.Connect()
+            .AutoRefresh(o => o.HasErrors)
             .Filter(filter)
             .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
             .SortAndBind(out _variables, SortExpressionComparer<VariableDto>.Ascending(o => o.DatasetName??string.Empty).ThenByAscending(o => o.Order))
             .Subscribe()
             .DisposeWith(_disposables);
+
+        lookupStore.Methods
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildMethodLookups);
+
+        lookupStore.Comments
+            .ToCollection()
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(RebuildCommentLookups);
+
+        Observable.CombineLatest(
+                lookupStore.CodeLists.ToCollection(),
+                lookupStore.Dictionaries.ToCollection(),
+                (codeLists, dictionaries) => (CodeLists: codeLists, Dictionaries: dictionaries))
+            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
+            .Subscribe(x => RebuildCodeListAndDictionaryLookups(x.CodeLists, x.Dictionaries));
         
         
         // _sourceCache
@@ -135,16 +149,19 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         
 
     }
-    private static Func<VariableDto, bool> BuildFilter(string? searchText)
+    partial void OnIsErrorOnlyChanged(bool value) => _sourceCache.Refresh();
+
+    private Func<VariableDto, bool> BuildFilter()
     {
-        if (string.IsNullOrEmpty(searchText)) return _ => true;
-        return o => Contains(searchText, o.DatasetName)
+        var searchText = SearchText;
+        if (string.IsNullOrEmpty(searchText)) return o => !IsErrorOnly || o.HasErrors;
+        return o => (!IsErrorOnly || o.HasErrors) && (Contains(searchText, o.DatasetName)
                     || Contains(searchText, o.VariableName)
                     || Contains(searchText, o.Label)
                     || Contains(searchText, o.DataType)
                     || Contains(searchText, o.Origin)
                     || Contains(searchText, o.Source)
-                    || Contains(searchText, o.Core);
+                    || Contains(searchText, o.Core));
     }
 
     private static bool Contains(string? searchText, string? value)
@@ -259,13 +276,12 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     }
 
 
-    public async Task LoadLookups()
+    private void RebuildMethodLookups(IReadOnlyCollection<Method> methods)
     {
-        var methods = await _methodService.GetAllMethodsWithoutErorrAsync();
         _frozenMethodDictionary = methods
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
             .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
-        
+
         MethodOptions.Clear();
         MethodOptions.AddRange(methods
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
@@ -275,32 +291,37 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
                 Content = o.UniqueId,
                 Method = o
             }));
+    }
 
-        var comments = await _commentService.GetAllCommentsWithoutErorrAsync();
-        
-        _frozenCommentDictionary = comments
-            .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
+    private void RebuildCommentLookups(IReadOnlyCollection<Comment> comments)
+    {
+        var validComments = comments
+            .Where(o => !o.HasErrors && !string.IsNullOrWhiteSpace(o.UniqueId))
+            .ToList();
+
+        _frozenCommentDictionary = validComments
             .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
-        
-        CommentOptions.Clear();
-        CommentOptions.AddRange(comments
-            .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
-            .Select(o => new VariableAutoCompleteOption
-            {
-                Header = $"{o.UniqueId} {o.Description}",
-                Content = o.UniqueId,
-                Comment = o
-            }));
 
-        var codeLists = await _codeListService.GetAllCodeListsWithoutErorrAsync();
-        var dictionaries = await _dictionaryService.GetAllDictionariesWithoutErorrAsync();
+        CommentOptions.Clear();
+        CommentOptions.AddRange(validComments.Select(o => new VariableAutoCompleteOption
+        {
+            Header = $"{o.UniqueId} {o.Description}",
+            Content = o.UniqueId,
+            Comment = o
+        }));
+    }
+
+    private void RebuildCodeListAndDictionaryLookups(
+        IReadOnlyCollection<CodeList> codeLists,
+        IReadOnlyCollection<Dictionary> dictionaries)
+    {
         _frozenCodeListDictionary = codeLists
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
             .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
-        _frozenDictionaryDictionary =  dictionaries
+        _frozenDictionaryDictionary = dictionaries
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
             .ToFrozenDictionary(o => o.UniqueId ?? string.Empty, o => o);
-        
+
         CodeListOptions.Clear();
         CodeListOptions.AddRange(dictionaries
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
@@ -308,19 +329,19 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             {
                 Header = $"{o.UniqueId} {o.Name}",
                 Content = o.UniqueId,
-                UniqueId =  o.UniqueId,
+                UniqueId = o.UniqueId,
                 Name = o.Name,
                 Color = "success",
                 Tag = "Dictionary"
             }));
-        
+
         CodeListOptions.AddRange(codeLists
             .Where(o => !string.IsNullOrWhiteSpace(o.UniqueId))
             .Select(o => new VariableAutoCompleteOption
             {
                 Header = $"{o.UniqueId} {o.Name}",
                 Content = o.UniqueId,
-                UniqueId =  o.UniqueId,
+                UniqueId = o.UniqueId,
                 Name = o.Name,
                 Color = "warning",
                 Tag = "CodeList"
@@ -352,20 +373,22 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     {
         if (_currentProjectService.CurrentProject == null) return;
 
-        var dialogParameters = new DialogParameters
-        {
-            { "DatasetName", DatasetFilter }
-        };
-        var result = await _dialogHostService.ShowDialogAsync("VariableDialog", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("ImportSettingVariablesDialog", null);
         if (result.Result != ButtonResult.Yes ||
-            !result.Parameters.TryGetValue<List<VariableDto>>("Variables", out var variables) ||
-            variables.Count == 0)
+            !result.Parameters.TryGetValue<List<int>>("TemplateVariableIds", out var templateVariableIds))
         {
             return;
         }
-        await _variableService.SaveVariablesAsync(variables);
+
+        var importedCount = await _variableService.ImportSettingVariablesAsync(templateVariableIds);
+        if (importedCount == 0)
+        {
+            _messageService.Info("No selected variables are available for import.");
+            return;
+        }
+
         await LoadVariablesAsync();
-        _messageService.Success("Variable added successfully.");
+        _messageService.Success($"{importedCount} variable(s) imported from settings successfully.");
     }
 
     [RelayCommand]
@@ -378,7 +401,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         {
             { "Variable", variable }
         };
-        var result = await _dialogHostService.ShowDialogAsync("AddCodeListDialog", dialogParameters);
+        var result = await _dialogHostService.ShowDialogAsync("CodeListDialog", dialogParameters);
         if (result.Result != ButtonResult.Yes ||
             !result.Parameters.TryGetValue<CodeList?>("CodeList", out var codeList) ||
             codeList == null)

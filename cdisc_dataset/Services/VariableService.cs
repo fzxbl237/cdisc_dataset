@@ -12,7 +12,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentProjectService currentProjectService) : IVariableService
+public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentProjectService currentProjectService, ILookupStore lookupStore) : IVariableService
 {
 
     private (int ProjectId, CdiscDataType DataType) GetCurrentProjectContext()
@@ -37,20 +37,26 @@ public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
                 Dictionary = o.Dictionary,
                 Comment = o.Comment
             },true).ToListAsync();
-        //var allVariableDtos = mapper.Map<List<VariableDto>>(list);
         return list;
     }
 
     public async Task<List<VariableDto>> GetAllVariableDtosWithoutErorrAsync()
     {
         var (currentProjectId, currentDataType) = GetCurrentProjectContext();
-        var list = await sqlSugar.Queryable<Variable>()
+        return await sqlSugar.Queryable<Variable>()
             .Includes(o=>o.Comment)
             .Includes(o=>o.Method)
             .Includes(o=>o.CodeList)
             .Includes(o=>o.Dictionary)
-            .Where(x => x.ProjectId == currentProjectId && x.CdiscDataType == currentDataType && !x.HasErrors).ToListAsync();
-        return mapper.Map<List<VariableDto>>(list);
+            .Where(x => x.ProjectId == currentProjectId && x.CdiscDataType == currentDataType && !x.HasErrors)
+            .Select(o => new VariableDto
+            {
+                CodeList = o.CodeList,
+                Method = o.Method,
+                Dictionary = o.Dictionary,
+                Comment = o.Comment
+            }, true)
+            .ToListAsync();
     }
 
     public async Task<List<Variable>> GetAllVariablesWithoutErorrAsync()
@@ -140,16 +146,112 @@ public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
         return list;
     }
 
+    public async Task<List<VariableTemplate>> GetAvailableSettingVariableTemplatesAsync()
+    {
+        var (projectId, dataType) = GetCurrentProjectContext();
+        if (projectId == 0)
+            return [];
+
+        var datasets = await sqlSugar.Queryable<Dataset>()
+            .Where(dataset => dataset.ProjectId == projectId && dataset.CdiscDataType == dataType)
+            .Select(dataset => new { dataset.Id, dataset.Name })
+            .ToListAsync();
+        var datasetIdsByName = datasets
+            .Where(dataset => !string.IsNullOrWhiteSpace(dataset.Name))
+            .ToDictionary(dataset => dataset.Name!, dataset => dataset.Id);
+        if (datasetIdsByName.Count == 0)
+            return [];
+
+        var existingKeys = (await sqlSugar.Queryable<Variable>()
+                .Where(variable => variable.ProjectId == projectId && variable.CdiscDataType == dataType)
+                .Select(variable => new { variable.DatasetName, variable.VariableName })
+                .ToListAsync())
+            .Where(variable => !string.IsNullOrWhiteSpace(variable.DatasetName) && !string.IsNullOrWhiteSpace(variable.VariableName))
+            .Select(variable => $"{variable.DatasetName}\u001f{variable.VariableName}")
+            .ToHashSet();
+
+        var templates = await sqlSugar.AsTenant().QueryableWithAttr<VariableTemplate>()
+            .Where(template => template.CdiscDataType == dataType &&
+                               template.DatasetName != null &&
+                               datasetIdsByName.Keys.Contains(template.DatasetName) &&
+                               template.VariableName != null)
+            .ToListAsync();
+
+        return templates
+            .Where(template => !existingKeys.Contains($"{template.DatasetName}\u001f{template.VariableName}"))
+            .OrderBy(template => template.DatasetName)
+            .ThenBy(template => template.Order)
+            .ThenBy(template => template.VariableName)
+            .ToList();
+    }
+
+    public async Task<int> ImportSettingVariablesAsync(IReadOnlyList<int> templateVariableIds)
+    {
+        var (projectId, dataType) = GetCurrentProjectContext();
+        var templateIds = templateVariableIds.Distinct().Where(id => id > 0).ToList();
+        if (projectId == 0 || templateIds.Count == 0)
+            return 0;
+
+        var datasets = await sqlSugar.Queryable<Dataset>()
+            .Where(dataset => dataset.ProjectId == projectId && dataset.CdiscDataType == dataType)
+            .Select(dataset => new { dataset.Id, dataset.Name })
+            .ToListAsync();
+        var datasetIdsByName = datasets
+            .Where(dataset => !string.IsNullOrWhiteSpace(dataset.Name))
+            .ToDictionary(dataset => dataset.Name!, dataset => dataset.Id);
+
+        var existingKeys = (await sqlSugar.Queryable<Variable>()
+                .Where(variable => variable.ProjectId == projectId && variable.CdiscDataType == dataType)
+                .Select(variable => new { variable.DatasetName, variable.VariableName })
+                .ToListAsync())
+            .Where(variable => !string.IsNullOrWhiteSpace(variable.DatasetName) && !string.IsNullOrWhiteSpace(variable.VariableName))
+            .Select(variable => $"{variable.DatasetName}\u001f{variable.VariableName}")
+            .ToHashSet();
+
+        var templates = await sqlSugar.AsTenant().QueryableWithAttr<VariableTemplate>()
+            .Where(template => templateIds.Contains(template.Id) && template.CdiscDataType == dataType)
+            .ToListAsync();
+        var variables = templates
+            .Where(template => !string.IsNullOrWhiteSpace(template.DatasetName) &&
+                               !string.IsNullOrWhiteSpace(template.VariableName) &&
+                               datasetIdsByName.ContainsKey(template.DatasetName) &&
+                               !existingKeys.Contains($"{template.DatasetName}\u001f{template.VariableName}"))
+            .Select(template => new Variable
+            {
+                Order = template.Order,
+                DatasetName = template.DatasetName,
+                DatasetId = datasetIdsByName[template.DatasetName!],
+                VariableName = template.VariableName,
+                Label = template.Label,
+                DataType = template.DataType,
+                Mandatory = template.Mandatory,
+                Role = template.Role,
+                Core = template.Core,
+                ProjectId = projectId,
+                CdiscDataType = dataType
+            })
+            .ToList();
+        if (variables.Count == 0)
+            return 0;
+
+        var result = await sqlSugar.Insertable(variables).ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Variable);
+        return result;
+    }
+
     public async Task<VariableDto> InsertVariableAsync(VariableDto variableDto)
     {
         var variable = mapper.Map<Variable>(variableDto);
         var entity = await sqlSugar.Insertable(variable).ExecuteReturnEntityAsync();
+        await lookupStore.RefreshAsync(LookupKind.Variable);
         return mapper.Map<VariableDto>(entity);
     }
 
     public async Task<int> UpdateVariableAsync(VariableDto variableDto)
     {
-        return await sqlSugar.Updateable(mapper.Map<Variable>(variableDto)).ExecuteCommandAsync();
+        var result = await sqlSugar.Updateable(mapper.Map<Variable>(variableDto)).ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Variable);
+        return result;
     }
 
     public async Task<int> SaveVariablesAsync(IReadOnlyList<VariableDto> variableDtos)
@@ -161,12 +263,15 @@ public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
             var inserted = await storage.AsInsertable.ExecuteCommandAsync();
             var updated = await storage.AsUpdateable.ExecuteCommandAsync();
         });
+        await lookupStore.RefreshAsync(LookupKind.Variable);
         return 1;
     }
 
     public async Task<int> DeleteVariableAsync(VariableDto variable)
     {
-        return await sqlSugar.Deleteable<Variable>(mapper.Map<Variable>(variable))
+        var result = await sqlSugar.Deleteable<Variable>(mapper.Map<Variable>(variable))
             .ExecuteCommandAsync();
+        await lookupStore.RefreshAsync(LookupKind.Variable);
+        return result;
     }
 }
