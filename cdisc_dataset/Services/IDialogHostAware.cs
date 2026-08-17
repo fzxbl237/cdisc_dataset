@@ -1,6 +1,7 @@
 ﻿using System.Windows.Input;
 using Prism.Commands;
 using Prism.Dialogs;
+using IDialogAware = AsyncNavigation.Abstractions.IDialogAware;
 
 namespace cdisc_dataset.Services;
 

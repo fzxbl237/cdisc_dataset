@@ -19,6 +19,7 @@ using AtomUI.Desktop.Controls;
 using Avalonia.Collections;
 using Avalonia.Threading;
 using cdisc_dataset.Controls.DataGrid;
+using cdisc_dataset.Extensions;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Models.Enums;
@@ -31,7 +32,6 @@ using DialogHostAvalonia;
 using Dm.util;
 using DynamicData;
 using DynamicData.Binding;
-using FluentValidation;
 using LiteDB;
 using MapsterMapper;
 using P21.Validator.Api.Options;
@@ -54,7 +54,6 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
     private readonly IMessageService _messageService;
     private readonly ILiteDatabase _liteDatabase;
     private readonly ILiteCollection<ProjectFile> _projectFiles;
-    private readonly IValidator<TermDto> _validator;
     private readonly IMapper _mapper;
     public string? DialogHostName { get; set; } = "Root";
     
@@ -92,7 +91,6 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
     private readonly SourceCache<TermDto,string> _sourceList= new (o=>o.Uuid);
     
     [ObservableProperty] private string? _searchText;
-    [ObservableProperty] private int _codeListStdId;
     
     [ObservableProperty] private string? _display;
     
@@ -112,7 +110,6 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
         ICodeListService codeListService,
         IMessageService messageService,
         ILiteDatabase liteDatabase,
-        IValidator<TermDto> validator,
         IMapper mapper)
     {
         _sqlSugar = sqlSugar;
@@ -123,7 +120,6 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
         _messageService = messageService;
         _liteDatabase = liteDatabase;
         _projectFiles = _liteDatabase.GetCollection<ProjectFile>("project_files");
-        _validator = validator;
         _mapper = mapper;
         TermOptionsAsyncLoader = new TermOptionsAsyncLoader(_sqlSugar);
         var filter = this.WhenValueChanged(t => t.SearchText)
@@ -179,29 +175,20 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
         switch (e.PropertyName)
         {
             case nameof(TermDto.Name):
-                var termStd = _sqlSugar.Queryable<TermStd>()
-                    .Where(o => o.CodeListId == CodeListStdId)
-                    .Where(o => o.Name == term.Name)
-                    .First();
-                if (termStd != null)
-                {
-                    term.Code = termStd.Code;
-                    term.DecodedValue = string.IsNullOrWhiteSpace(termStd.Synonyms)
-                        ? string.Empty
-                        : termStd.Synonyms.Split(";").FirstOrDefault();
-                }
-                else
-                {
-                    term.Code = string.Empty;
-                    term.DecodedValue = string.Empty;
-                }
+                var codeListRef = TermOptionsAsyncLoader.CodeListReference?.CodeListRef;
+                var codeListTerm = string.IsNullOrWhiteSpace(codeListRef)
+                    ? null
+                    : _sqlSugar.AsTenant().QueryableWithAttr<CodeListTerm>()
+                        .AsWithAttr()
+                        .Where(o => o.CodeListRef == codeListRef && o.CodeValue == term.Name)
+                        .First();
+                term.Code = codeListTerm?.Code ?? string.Empty;
+                term.DecodedValue = codeListTerm?.DecodedValue ?? string.Empty;
 
                 UpdateTermsDuplicate();
-                ValidateTermDtoAsync(term).Await();
                 _sourceList.AddOrUpdate(term);
                 break;
             case nameof(TermDto.IsNameDuplicate):
-                ValidateTermDtoAsync(term).Await();
                 _sourceList.AddOrUpdate(term);
                 break;
             case nameof(TermDto.Order):
@@ -261,14 +248,14 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
         else if (IsVariableSelectionVisible)
         {
             parameters.TryGetValue<VariableDto>("Variable", out var defaultVariable);
-            LoadVariablesAsync(defaultVariable).Await();
+            LoadVariablesAsync(defaultVariable).AwaitWithOpt();
         }
 
         Terminologies.Clear();
         var list = _sqlSugar.Queryable<CodeListStd>().Select(o => o.Terminology).Distinct().ToList();
         Terminologies.Add(" ");
         Terminologies.AddRange(list);
-        LoadComments().Await();
+        LoadComments().AwaitWithOpt();
 
         if (!IsInEditMode && Terminologies.Count >= 2)
         {
@@ -290,7 +277,7 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
             .Select(o => new VariableOption
             {
                 Header = $"{o.DatasetName}.{o.VariableName}",
-                Content = o,
+                Content = $"{o.DatasetName}.{o.VariableName} {o.Label}",
                 Variable = o
             }));
 
@@ -318,29 +305,24 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
         SelectedVariableDisplay = $"{variable.DatasetName}.{variable.VariableName}";
         Display = $"Create codelist for variable: {SelectedVariableDisplay}";
         CodeListDto.Type = variable.DataType ?? Types[0];
-        LoadTermsFromXptAsync().Await();
+        LoadTermsFromXptAsync().AwaitWithOpt();
     }
 
     partial void OnSelectedCodeListChanged(CodeListOption? value)
     {
         
-        CodeListDto.Code = value?.CodeListReference?.CodeListCode;
-        CodeListDto.Name =  value?.CodeListReference?.CodeListName;
-        CodeListDto.UniqueId =   value?.CodeListReference?.CodeListRef?.Split(".").LastOrDefault();
-        
-        if (value?.Content is not CodeListStd codeListStd) return;
-        CodeListDto.Name =  codeListStd.Name;
-        CodeListDto.Code =  codeListStd.Code;
-        CodeListDto.UniqueId = codeListStd.UniqueId;
-        TermOptionsAsyncLoader.CodeListStd = codeListStd;
-        CodeListStdId = codeListStd.Id;
+        var codeListReference = value?.CodeListReference;
+        CodeListDto.Code = codeListReference?.CodeListCode;
+        CodeListDto.Name = codeListReference?.CodeListName;
+        CodeListDto.UniqueId = codeListReference?.CodeListRef?.Split(".").LastOrDefault();
+        TermOptionsAsyncLoader.CodeListReference = codeListReference;
+
         _sourceList.Edit((changes) =>
         {
             foreach (var changesItem in changes.Items)
             {
                 changesItem.CodeListUniqueId = CodeListDto.UniqueId;
                 changesItem.CodeList = _mapper.Map<CodeList>(CodeListDto);
-                ValidateTermDtoAsync(changesItem).Await();
                 changes.AddOrUpdate(changesItem);
             }
         });
@@ -523,43 +505,28 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
         var display = $"{codeListReference.CodeListRef} {codeListReference.CodeListCode} {codeListReference.CodeListName}";
         return new CodeListOption
         {
-            Header = codeListReference.CodeListRef,
+            Header =  codeListReference.CodeListRef,
             Content = display,
             CodeListReference = codeListReference
         };
     }
 
-    private async Task ValidateTermDtoAsync(TermDto termDto)
-    {
-        termDto.ClearErrors();
-        var result = await _validator.ValidateAsync(termDto);
-        foreach (var validationFailure in result.Errors)
-        {
-            termDto.SetError(validationFailure.PropertyName,
-                new DataGridValidationResult(validationFailure.ErrorMessage,
-                    validationFailure.Severity==Severity.Error?DataGridValidationSeverity.Error
-                        :DataGridValidationSeverity.Warning));
-        }
-    }
-    
     [RelayCommand]
-    private async Task AddTermAsync()
+    private void AddTerm()
     {
         var index = _sourceList.Count+1;
         var termDto = new TermDto(){CodeListUniqueId = CodeListDto.UniqueId,CodeList = _mapper.Map<CodeList>(CodeListDto),Order = index};
-        await ValidateTermDtoAsync(termDto);
         _sourceList.AddOrUpdate(termDto);
         _sourceList.Refresh();
     }
     
     
     [RelayCommand]
-    private async Task InsertTermAboveAsync(TermDto? term)
+    private void InsertTermAbove(TermDto? term)
     {
         if (term == null) return;
         var termOrder = term.Order;
         var dto = new TermDto(){CodeListUniqueId = CodeListDto.UniqueId,CodeList = _mapper.Map<CodeList>(CodeListDto),Order = termOrder};
-        await ValidateTermDtoAsync(dto);
         _sourceList.Edit((updater) =>
         {
             var terms = updater.Items.Where(o=>o.Order>=termOrder).ToList();
@@ -571,12 +538,11 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
     }
     
     [RelayCommand]
-    private async Task InsertTermBelowAsync(TermDto? term)
+    private void InsertTermBelow(TermDto? term)
     {
         if (term == null) return;
         var termOrder = term.Order;
         var dto = new TermDto(){CodeListUniqueId = CodeListDto.UniqueId,CodeList = _mapper.Map<CodeList>(CodeListDto),Order = termOrder+1};
-        await ValidateTermDtoAsync(dto);
         _sourceList.Edit((updater) =>
         {
             var terms = updater.Items.Where(o=>o.Order>termOrder).ToList();
@@ -644,7 +610,6 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
                 if (termDto.DecodedValueConsistent!=consistent)
                 {
                     termDto.DecodedValueConsistent = consistent;
-                    ValidateTermDtoAsync(termDto).Await();
                     list.AddOrUpdate(termDto);
                 }
 
@@ -653,11 +618,26 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
     }
     
     [RelayCommand]
-    private void Save()
+    private async Task Save()
     {
+        var projectId = _currentProjectService.CurrentProject?.Id ?? 0;
+        if (!IsInEditMode && !string.IsNullOrWhiteSpace(CodeListDto.UniqueId))
+        {
+            var exists = await _sqlSugar.Queryable<CodeList>()
+                .Where(o => o.ProjectId == projectId
+                            && o.CdiscDataType == _currentProjectService.CdiscDataType
+                            && o.UniqueId == CodeListDto.UniqueId)
+                .AnyAsync();
+            if (exists)
+            {
+                _messageService.Error($"CodeList {CodeListDto.UniqueId} already exists in the current project.");
+                return;
+            }
+        }
+
         DetachPropertyChangedHandlers();
         var codeList = _mapper.Map<CodeList>(CodeListDto);
-        codeList.ProjectId = _currentProjectService.CurrentProject?.Id??0;
+        codeList.ProjectId = projectId;
         codeList.CdiscDataType = _currentProjectService.CdiscDataType;
         var terms = _mapper.Map<List<Term>>(_sourceList.Items);
         foreach (var term in terms)
@@ -697,50 +677,70 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
 
 public class TermOptionsAsyncLoader(ISqlSugarClient sqlSugar) : ICompleteOptionsAsyncLoader
 {
+    public CodeListReference? CodeListReference { get; set; }
     public CodeListStd? CodeListStd { get; set; }
-    
 
     public async Task<CompleteOptionsLoadResult> LoadAsync(string? context, CancellationToken token)
     {
-
-        List<IAutoCompleteOption> data   = [];
-        if (CodeListStd == null)
-            return new CompleteOptionsLoadResult()
-            {
-                Data = data
-            };
-        var list = await sqlSugar.Queryable<TermStd>()
-            .Where(o=>o.CodeListId == CodeListStd.Id)
-            .Where(o=> (SqlFunc.IsNullOrEmpty(context)
-                        || (SqlFunc.IsNullOrEmpty(o.Name) || SqlFunc.Contains(o.Name,context))
-                        || (SqlFunc.IsNullOrEmpty(o.Synonyms) || SqlFunc.Contains(o.Synonyms,context))
-                )).ToListAsync(token);
-        foreach (var termStd in list)
+        List<IAutoCompleteOption> data = [];
+        var codeListRef = CodeListReference?.CodeListRef;
+        if (!string.IsNullOrWhiteSpace(codeListRef))
         {
-            data.Add(new TermCompleteOption()
+            var list = await sqlSugar.AsTenant().QueryableWithAttr<CodeListTerm>()
+                .AsWithAttr()
+                .Where(o => o.CodeListRef == codeListRef)
+                .Where(o => SqlFunc.IsNullOrEmpty(context)
+                            || (SqlFunc.IsNullOrEmpty(o.CodeValue) || SqlFunc.Contains(o.CodeValue, context))
+                            || (SqlFunc.IsNullOrEmpty(o.DecodedValue) || SqlFunc.Contains(o.DecodedValue, context)))
+                .ToListAsync(token);
+            foreach (var codeListTerm in list)
             {
-                Header = $"{termStd.Name} {termStd.Synonyms}",
-                Content =  $"{termStd.Name} {termStd.Synonyms}",
+                data.Add(new TermCompleteOption
+                {
+                    Header = $"{codeListTerm.CodeValue} {codeListTerm.DecodedValue}",
+                    Content =  codeListTerm.CodeValue,
+                    Synonyms = codeListTerm.DecodedValue,
+                    SynonymsIsEmpty = string.IsNullOrWhiteSpace(codeListTerm.DecodedValue),
+                    CodeListTerm = codeListTerm
+                });
+            }
+
+            return new CompleteOptionsLoadResult { Data = data };
+        }
+
+        if (CodeListStd == null)
+            return new CompleteOptionsLoadResult { Data = data };
+
+        var standardTerms = await sqlSugar.Queryable<TermStd>()
+            .Where(o => o.CodeListId == CodeListStd.Id)
+            .Where(o => SqlFunc.IsNullOrEmpty(context)
+                        || (SqlFunc.IsNullOrEmpty(o.Name) || SqlFunc.Contains(o.Name, context))
+                        || (SqlFunc.IsNullOrEmpty(o.Synonyms) || SqlFunc.Contains(o.Synonyms, context)))
+            .ToListAsync(token);
+        foreach (var termStd in standardTerms)
+        {
+            data.Add(new TermCompleteOption
+            {
+                Header = termStd.Name,
+                Content = $"{termStd.Name} {termStd.Synonyms}",
                 Synonyms = termStd.Synonyms,
                 SynonymsIsEmpty = string.IsNullOrWhiteSpace(termStd.Synonyms),
                 TermStd = termStd
             });
         }
 
-        return new CompleteOptionsLoadResult()
-        {
-            Data = data
-        };
-        
+        return new CompleteOptionsLoadResult { Data = data };
     }
 }
 
 public record TermCompleteOption : AutoCompleteOption
 {
     public string? Synonyms { get; set; }
-    
+
+    public CodeListTerm? CodeListTerm { get; set; }
+
     public TermStd? TermStd { get; set; }
-    
+
     public bool SynonymsIsEmpty { get; set; }
 }
 
