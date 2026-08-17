@@ -34,6 +34,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IMessageService _messageService;
     private readonly ICommentService _commentService;
+    private readonly IVariableService _variableService;
     private readonly IDocumentService _documentService;
     private readonly IIssueService _issueService;
     private readonly IDialogHostService _dialogHostService;
@@ -41,6 +42,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IMapper _mapper;
     private readonly IValidator<CommentDto> _validator;
+    private readonly IReferenceDeletionService _referenceDeletionService;
 
     [ObservableProperty]
     private bool _hasChanges;
@@ -63,6 +65,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
     public CommentsViewModel(
         IMessageService messageService,
         ICommentService commentService,
+        IVariableService variableService,
         IDocumentService documentService,
         IIssueService issueService,
         IDialogHostService dialogHostService,
@@ -70,10 +73,12 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         ICurrentProjectService currentProjectService,
         IMapper mapper,
         IValidator<CommentDto> validator,
+        IReferenceDeletionService referenceDeletionService,
         ILookupStore lookupStore)
     {
         _messageService = messageService;
         _commentService = commentService;
+        _variableService = variableService;
         _documentService = documentService;
         _issueService = issueService;
         _dialogHostService = dialogHostService;
@@ -81,6 +86,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         _currentProjectService = currentProjectService;
         _mapper = mapper;
         _validator = validator;
+        _referenceDeletionService = referenceDeletionService;
 
         var filter = this.WhenValueChanged(t => t.SearchText)
             .Throttle(TimeSpan.FromMilliseconds(250))
@@ -191,6 +197,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         commentDto.Document = _mapper.Map<Document>(inserted);
         commentDto.DocumentId = inserted.Id;
         commentDto.DocumentUniqueId = inserted.UniqueId;
+        await _commentService.UpdateCommentAsync(commentDto);
     }
 
     [RelayCommand]
@@ -241,7 +248,14 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 
         commentDto.ProjectId = _currentProjectService.CurrentProject.Id;
         commentDto.CdiscDataType = _currentProjectService.CdiscDataType;
+        var variableIds = result.Parameters.TryGetValue<List<int>>("VariableIds", out var selectedVariableIds)
+            ? selectedVariableIds
+            : [];
         var insertedComment = await _commentService.InsertCommentAsync(commentDto);
+        await _variableService.AssignCommentToVariablesAsync(
+            insertedComment.Id,
+            insertedComment.UniqueId ?? string.Empty,
+            variableIds);
         await _validator.ValidateDtoAsync(insertedComment);
         RegisterCommentDtoPropertyChanged(insertedComment);
         _sourceCache.AddOrUpdate(insertedComment);
@@ -268,16 +282,31 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
+    private async Task AssignVariablesAsync(CommentDto commentDto)
+    {
+        if (commentDto.Id == 0 || string.IsNullOrWhiteSpace(commentDto.UniqueId))
+        {
+            _messageService.Error("Please save the comment before assigning variables.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("AssignCommentVariablesDialog", new DialogParameters());
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<List<int>>("VariableIds", out var variableIds))
+        {
+            return;
+        }
+
+        var assignedCount = await _variableService.AssignCommentToVariablesAsync(
+            commentDto.Id,
+            commentDto.UniqueId,
+            variableIds);
+        _messageService.Success($"Assigned comment to {assignedCount} variable(s).");
+    }
+
+    [RelayCommand]
     private async Task DeleteAsync(CommentDto commentDto)
     {
-        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
-        {
-            { "Title", "Delete Comment" },
-            { "Message", $"Are you sure you want to delete comment {commentDto.UniqueId}?" }
-        });
-        if (result.Result != ButtonResult.OK)
-            return;
-
         if (_currentProjectService.CurrentProject == null)
             return;
 
@@ -286,11 +315,50 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         if (comment == null)
             return;
 
-        await _commentService.DeleteCommentAsync(comment);
+        var clearReferences = await _referenceDeletionService.ConfirmReferenceDeletionAsync(
+            $"Delete comment {commentDto.UniqueId}?",
+            "Comment",
+            await _commentService.ConfirmCommentRefenceAsync(comment));
+        if (clearReferences == null)
+            return;
+
+        await _commentService.DeleteCommentAsync(comment, clearReferences.Value);
         UnregisterCommentDtoPropertyChanged(commentDto);
         _sourceCache.Remove(commentDto);
         MarkDuplicates();
         _messageService.Success("Comment deleted successfully.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteSelectedAsync()
+    {
+        var selectedComments = _sourceCache.Items.Where(o => o.IsSelected).ToList();
+        if (selectedComments.Count == 0)
+        {
+            _messageService.Info("Please select at least one comment to delete.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Selected Comments" },
+            { "Message", $"Are you sure you want to delete {selectedComments.Count} selected comment(s)? All references will be cleared." }
+        });
+        if (result.Result != ButtonResult.OK || _currentProjectService.CurrentProject == null)
+            return;
+
+        var selectedIds = selectedComments.Select(o => o.Id).ToHashSet();
+        var comments = (await _commentService.GetAllCommentsAsync())
+            .Where(o => selectedIds.Contains(o.Id))
+            .ToList();
+        foreach (var comment in comments)
+            await _commentService.DeleteCommentAsync(comment);
+
+        foreach (var commentDto in selectedComments)
+            UnregisterCommentDtoPropertyChanged(commentDto);
+        _sourceCache.Remove(selectedComments);
+        MarkDuplicates();
+        _messageService.Success($"{selectedComments.Count} comment(s) deleted successfully.");
     }
 
     private void MarkDuplicates()

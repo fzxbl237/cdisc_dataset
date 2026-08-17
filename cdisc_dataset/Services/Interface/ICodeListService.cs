@@ -16,9 +16,13 @@ public interface ICodeListService
     
     Task<CodeListStd> GetCodeListStdAsync(string version,string codeListCode);
     
-    Task<bool> DeleteCodeListAsync(CodeListDto codeListDto);
+    Task<Dictionary<string, string>> ConfirmCodeListReferenceAsync(CodeListDto codeListDto);
+
+    Task<bool> DeleteCodeListAsync(CodeListDto codeListDto, bool clearReferences = true);
     
     Task<int> UpdateCodeListAsync(CodeListDto codeListDto);
+
+    Task<int> UpdateCodeListWithTermsAsync(CodeListDto codeListDto);
     
     Task<CodeListDto> InsertCodeListAsync(CodeList codeList);
     

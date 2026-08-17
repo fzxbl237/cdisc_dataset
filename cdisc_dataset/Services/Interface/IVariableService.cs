@@ -23,6 +23,9 @@ public interface IVariableService
     Task<List<VariableTemplate>> GetAvailableSettingVariableTemplatesAsync();
     Task<int> ImportSettingVariablesAsync(IReadOnlyList<int> templateVariableIds);
     
+    Task<List<Variable>> LinkMethodToMatchingVariablesAsync(Method method, string matchMode, string matchText);
+    Task<int> AssignMethodToVariablesAsync(int methodId, string methodUniqueId, IReadOnlyList<int> variableIds);
+    Task<int> AssignCommentToVariablesAsync(int commentId, string commentUniqueId, IReadOnlyList<int> variableIds);
     Task<VariableDto> InsertVariableAsync(VariableDto variableDto);
     Task<int> UpdateVariableAsync(VariableDto variableDto);
     Task<int> SaveVariablesAsync(IReadOnlyList<VariableDto> variableDtos);

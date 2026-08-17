@@ -20,4 +20,6 @@ public interface IIssueService
     Task<List<IssueDto>> GetIssuesAsync(string entityType, int entityId, int projectId, CdiscDataType cdiscDataType);
 
     Task<List<IssueDto>> GetProjectIssuesAsync(int projectId, CdiscDataType cdiscDataType);
+
+    Task<int> DeleteIssuesAsync(int projectId, CdiscDataType cdiscDataType, IReadOnlyList<int> issueIds);
 }

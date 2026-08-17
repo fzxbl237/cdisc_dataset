@@ -101,4 +101,14 @@ public class IssueService(ISqlSugarClient sqlSugar, IMapper mapper) : IIssueServ
             .Select<IssueDto>()
             .ToListAsync();
     }
+
+    public async Task<int> DeleteIssuesAsync(int projectId, CdiscDataType cdiscDataType, IReadOnlyList<int> issueIds)
+    {
+        if (issueIds.Count == 0)
+            return 0;
+
+        return await sqlSugar.Deleteable<Issue>()
+            .Where(x => x.ProjectId == projectId && x.CdiscDataType == cdiscDataType && issueIds.Contains(x.Id))
+            .ExecuteCommandAsync();
+    }
 }

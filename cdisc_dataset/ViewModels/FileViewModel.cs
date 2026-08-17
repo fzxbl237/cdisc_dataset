@@ -141,11 +141,7 @@ public partial class FileViewModel : ViewModelBase
 
         foreach (var storageFile in storageFiles)
         {
-            var localPath = storageFile.TryGetLocalPath();
-            if (string.IsNullOrWhiteSpace(localPath) || !System.IO.File.Exists(localPath))
-                continue;
-
-            await using var stream = System.IO.File.OpenRead(localPath);
+            await using var stream = await storageFile.OpenReadAsync();
             var storageId = ObjectId.NewObjectId();
             _liteDatabase.FileStorage.Upload(storageId.ToString(), storageFile.Name, stream);
             var projectFile = new ProjectFile
@@ -162,7 +158,7 @@ public partial class FileViewModel : ViewModelBase
         }
 
         LoadFiles();
-        _messageService.Success("Files uploaded successfully");
+        _messageService.Success($"{storageFiles.Count} file(s) uploaded successfully");
     }
 
     [RelayCommand]
@@ -1011,6 +1007,16 @@ public partial class FileViewModel : ViewModelBase
                     }
                 }
 
+                var valuesForParameter = Enumerable.Range(0, recordCount)
+                    .Where(recordIndex => string.Equals(
+                        GetSdtmEntry(parameterCodeVariable, recordIndex),
+                        parameterCode,
+                        StringComparison.OrdinalIgnoreCase))
+                    .Select(recordIndex => GetSdtmEntry(parsedValueVariable, recordIndex))
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Select(value => value!);
+                var metadata = InferValueLevelMetadata(valuesForParameter);
+
                 var order = orderByVariable.GetValueOrDefault(parsedValueVariable.Name) + 1;
                 orderByVariable[parsedValueVariable.Name] = order;
                 valueLevels.Add(new ValueLevel
@@ -1022,10 +1028,10 @@ public partial class FileViewModel : ViewModelBase
                     VariableId = variable.Id,
                     WhereClause = $"TSPARMCD EQ {parameterCode}",
                     Label = label,
-                    Type = variable.DataType,
-                    Length = variable.DataType == "datetime" ? null : variable.Length,
-                    Digits = variable.SignificantDigits,
-                    Format = variable.Format,
+                    Type = metadata.Type,
+                    Length = metadata.Length,
+                    Digits = metadata.Digits,
+                    Format = metadata.Format,
                     Mandatory = "No",
                     CodeListId = codeList?.Id ?? 0,
                     CodeListUniqueId = codeList?.UniqueId,

@@ -12,8 +12,15 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentProjectService currentProjectService, ILookupStore lookupStore) : IVariableService
+public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentProjectService currentProjectService) : IVariableService
 {
+    private static readonly HashSet<string> ImportableCoreValues = new(StringComparer.Ordinal)
+    {
+        "Expected",
+        "Required",
+        "Permissible",
+        "Model Permissible"
+    };
 
     private (int ProjectId, CdiscDataType DataType) GetCurrentProjectContext()
     {
@@ -178,7 +185,8 @@ public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
             .ToListAsync();
 
         return templates
-            .Where(template => !existingKeys.Contains($"{template.DatasetName}\u001f{template.VariableName}"))
+            .Where(template => ImportableCoreValues.Contains(template.Core ?? string.Empty) &&
+                               !existingKeys.Contains($"{template.DatasetName}\u001f{template.VariableName}"))
             .OrderBy(template => template.DatasetName)
             .ThenBy(template => template.Order)
             .ThenBy(template => template.VariableName)
@@ -212,7 +220,8 @@ public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
             .Where(template => templateIds.Contains(template.Id) && template.CdiscDataType == dataType)
             .ToListAsync();
         var variables = templates
-            .Where(template => !string.IsNullOrWhiteSpace(template.DatasetName) &&
+            .Where(template => ImportableCoreValues.Contains(template.Core ?? string.Empty) &&
+                               !string.IsNullOrWhiteSpace(template.DatasetName) &&
                                !string.IsNullOrWhiteSpace(template.VariableName) &&
                                datasetIdsByName.ContainsKey(template.DatasetName) &&
                                !existingKeys.Contains($"{template.DatasetName}\u001f{template.VariableName}"))
@@ -234,24 +243,100 @@ public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
         if (variables.Count == 0)
             return 0;
 
-        var result = await sqlSugar.Insertable(variables).ExecuteCommandAsync();
-        await lookupStore.RefreshAsync(LookupKind.Variable);
-        return result;
+        return await sqlSugar.Insertable(variables).ExecuteCommandAsync();
+    }
+
+    public async Task<List<Variable>> LinkMethodToMatchingVariablesAsync(Method method, string matchMode, string matchText)
+    {
+        if (method.Id == 0 || string.IsNullOrWhiteSpace(method.UniqueId) || string.IsNullOrWhiteSpace(matchText))
+            return [];
+
+        var (projectId, dataType) = GetCurrentProjectContext();
+        var variables = await sqlSugar.Queryable<Variable>()
+            .Where(variable => variable.ProjectId == projectId &&
+                               variable.CdiscDataType == dataType &&
+                               variable.MethodId == 0 &&
+                               !string.IsNullOrWhiteSpace(variable.VariableName))
+            .ToListAsync();
+
+        var comparison = StringComparison.OrdinalIgnoreCase;
+        var matchedVariables = variables.Where(variable => matchMode switch
+        {
+            "Start With" => variable.VariableName!.StartsWith(matchText, comparison),
+            "End With" => variable.VariableName!.EndsWith(matchText, comparison),
+            "Equal" => string.Equals(variable.VariableName, matchText, comparison),
+            _ => variable.VariableName!.Contains(matchText, comparison)
+        }).ToList();
+
+        foreach (var variable in matchedVariables)
+        {
+            variable.MethodId = method.Id;
+            variable.MethodUniqueId = method.UniqueId;
+            variable.Method = method;
+        }
+
+        if (matchedVariables.Count > 0)
+        {
+            await sqlSugar.Utilities.PageEachAsync(matchedVariables, 200, async page =>
+            {
+                await sqlSugar.Updateable(page).ExecuteCommandAsync();
+            });
+        }
+
+        return matchedVariables;
+    }
+
+    public async Task<int> AssignMethodToVariablesAsync(int methodId, string methodUniqueId, IReadOnlyList<int> variableIds)
+    {
+        var (projectId, dataType) = GetCurrentProjectContext();
+        var ids = variableIds.Distinct().Where(id => id > 0).ToList();
+        if (methodId == 0 || string.IsNullOrWhiteSpace(methodUniqueId) || projectId == 0 || ids.Count == 0)
+            return 0;
+
+        return await sqlSugar.Updateable<Variable>()
+            .SetColumns(variable => new Variable
+            {
+                MethodId = methodId,
+                MethodUniqueId = methodUniqueId
+            })
+            .Where(variable => ids.Contains(variable.Id) &&
+                               variable.ProjectId == projectId &&
+                               variable.CdiscDataType == dataType &&
+                               variable.MethodId == 0)
+            .ExecuteCommandAsync();
+    }
+
+    public async Task<int> AssignCommentToVariablesAsync(int commentId, string commentUniqueId, IReadOnlyList<int> variableIds)
+    {
+        var (projectId, dataType) = GetCurrentProjectContext();
+        var ids = variableIds.Distinct().Where(id => id > 0).ToList();
+        if (commentId == 0 || string.IsNullOrWhiteSpace(commentUniqueId) || projectId == 0 || ids.Count == 0)
+            return 0;
+
+        return await sqlSugar.Updateable<Variable>()
+            .SetColumns(variable => new Variable
+            {
+                CommentId = commentId,
+                CommentUniqueId = commentUniqueId
+            })
+            .Where(variable => ids.Contains(variable.Id) &&
+                               variable.ProjectId == projectId &&
+                               variable.CdiscDataType == dataType &&
+                               variable.CommentId == 0)
+            .ExecuteCommandAsync();
     }
 
     public async Task<VariableDto> InsertVariableAsync(VariableDto variableDto)
     {
         var variable = mapper.Map<Variable>(variableDto);
         var entity = await sqlSugar.Insertable(variable).ExecuteReturnEntityAsync();
-        await lookupStore.RefreshAsync(LookupKind.Variable);
         return mapper.Map<VariableDto>(entity);
     }
 
     public async Task<int> UpdateVariableAsync(VariableDto variableDto)
     {
-        var result = await sqlSugar.Updateable(mapper.Map<Variable>(variableDto)).ExecuteCommandAsync();
-        await lookupStore.RefreshAsync(LookupKind.Variable);
-        return result;
+        var variable = mapper.Map<Variable>(variableDto);
+        return await sqlSugar.Updateable(variable).ExecuteCommandAsync();
     }
 
     public async Task<int> SaveVariablesAsync(IReadOnlyList<VariableDto> variableDtos)
@@ -263,15 +348,12 @@ public class VariableService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
             var inserted = await storage.AsInsertable.ExecuteCommandAsync();
             var updated = await storage.AsUpdateable.ExecuteCommandAsync();
         });
-        await lookupStore.RefreshAsync(LookupKind.Variable);
         return 1;
     }
 
     public async Task<int> DeleteVariableAsync(VariableDto variable)
     {
-        var result = await sqlSugar.Deleteable<Variable>(mapper.Map<Variable>(variable))
+        return await sqlSugar.Deleteable<Variable>(mapper.Map<Variable>(variable))
             .ExecuteCommandAsync();
-        await lookupStore.RefreshAsync(LookupKind.Variable);
-        return result;
     }
 }

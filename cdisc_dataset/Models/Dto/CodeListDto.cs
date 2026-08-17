@@ -27,7 +27,7 @@ public partial class CodeListDto:BaseDto
     
     [ObservableProperty] private List<Term>? _terms;
     
-    [ObservableProperty] private bool _isDuplicate;
+    [ObservableProperty] private bool _isUniqueIdDuplicate;
     
     [ObservableProperty] private bool _isNameDuplicate;
     

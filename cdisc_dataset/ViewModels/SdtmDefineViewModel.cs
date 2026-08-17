@@ -177,28 +177,17 @@ public partial class SdtmDefineViewModel : ViewModelBase, IDisposable
 
         try
         {
-            DefinePreviewDiagnostics.Info("Preview requested.");
             var previewWindow = new DefinePreviewWindow();
             previewWindow.Show();
-            DefinePreviewDiagnostics.Info("Preview window shown; generating content asynchronously.");
 
-            DefinePreviewDiagnostics.Info("Generating XML.");
             var xml = await _defineXmlExportService.GenerateXmlAsync();
-            DefinePreviewDiagnostics.Info($"XML generated. Length={xml.Length}.");
-
-            DefinePreviewDiagnostics.Info("Loading embedded XSL.");
             var xsl = LoadPreviewXsl();
-            DefinePreviewDiagnostics.Info($"Embedded XSL loaded. Length={xsl.Length}.");
-
-            DefinePreviewDiagnostics.Info("Transforming XML to HTML.");
             var html = await Task.Run(() => TransformToHtml(xml, xsl));
-            DefinePreviewDiagnostics.Info($"HTML transformed. Length={html.Length}.");
             previewWindow.SetHtml(html);
         }
         catch (Exception exception)
         {
-            DefinePreviewDiagnostics.Error("Preview command failed.", exception);
-            _messageService.Error($"Preview Define XML failed: {exception.Message}. Log: {DefinePreviewDiagnostics.LogPath}");
+            _messageService.Error($"Preview Define XML failed: {exception.Message}");
         }
     }
 

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using cdisc_dataset.Models;
@@ -38,6 +38,20 @@ public class VariableValidator : AbstractValidator<VariableDto>
             .When(x => !string.IsNullOrWhiteSpace(x.Origin) && x.Origin.Equals("Derived", System.StringComparison.OrdinalIgnoreCase))
             .WithSeverity(Severity.Error)
             .WithMessage("The Method is required when Origin is Derived");
+
+        RuleFor(x => x.Predecessor)
+            .NotEmpty()
+            .When(x => !string.IsNullOrWhiteSpace(x.Origin) && x.Origin.Equals("Predecessor", System.StringComparison.OrdinalIgnoreCase))
+            .WithSeverity(Severity.Error)
+            .WithMessage("The Predecessor is required when Origin is Predecessor");
+
+        RuleFor(x => x.Pages)
+            .NotEmpty()
+            .When(x => string.Equals(x.Origin?.Trim(), "Collected", System.StringComparison.OrdinalIgnoreCase) &&
+                       (string.Equals(x.Source?.Trim(), "Investigator", System.StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(x.Source?.Trim(), "Subject", System.StringComparison.OrdinalIgnoreCase)))
+            .WithSeverity(Severity.Error)
+            .WithMessage("Pages is required when Origin Type is 'Collected' and Source is 'Investigator' or 'Subject'.");
 
         RuleFor(x => x.Origin)
             .Equal("Protocol")
@@ -153,6 +167,12 @@ public class VariableValidator : AbstractValidator<VariableDto>
             })
             .WithSeverity(Severity.Error)
             .WithMessage("Pages must be a space-separated collection of unique ascending numbers");
+
+        RuleFor(x => x.Format)
+            .Must(format => string.IsNullOrWhiteSpace(format) ||
+                            !Regex.IsMatch(format.Trim(), @"^(\$\d+|best)", RegexOptions.IgnoreCase))
+            .WithSeverity(Severity.Warning)
+            .WithMessage("This format is generally redundant.");
 
         RuleFor(x => x.Length)
             .InclusiveBetween(1, 200)

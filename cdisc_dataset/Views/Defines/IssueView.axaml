@@ -24,20 +24,35 @@
             BorderBrush="#D0D0D0"
             BorderThickness="1"
             ColumnHeaderHeight="34"
-            IsReadOnly="True"
+            IsReadOnly="False"
             ItemsSource="{Binding Issues}"
             LeftFrozenColumnCount="2"
             Margin="8,4"
             RowHeight="32">
             <customGrid:DataGrid.SearchBarRightContent>
-                <atom:Button
-                    Color="Default"
-                    Command="{Binding LoadDataCommand}"
-                    Content="刷新"
-                    Icon="{antd-icons:AntDesignIconProvider Kind=ReloadOutlined}"
-                    Variant="Solid" />
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <atom:Button
+                        Color="Primary"
+                        Command="{Binding ValidateDefineXmlCommand}"
+                        Content="验证 Define XML"
+                        Icon="{antd-icons:AntDesignIconProvider Kind=SafetyCertificateOutlined}"
+                        Variant="Solid" />
+                    <atom:Button
+                        Color="Default"
+                        Command="{Binding DeleteSelectedCommand}"
+                        Content="批量删除"
+                        Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}"
+                        Variant="Solid" />
+                    <atom:Button
+                        Color="Default"
+                        Command="{Binding LoadDataCommand}"
+                        Content="刷新"
+                        Icon="{antd-icons:AntDesignIconProvider Kind=ReloadOutlined}"
+                        Variant="Solid" />
+                </StackPanel>
             </customGrid:DataGrid.SearchBarRightContent>
             <customGrid:DataGrid.Columns>
+                <customGrid:DataGridCheckBoxColumn Binding="{Binding IsSelected}" Header="" IsReadOnly="False" Width="40" />
                 <customGrid:DataGridTagColumn Binding="{Binding Severity}" ColorConverter="{x:Static converters:IssueSeverityTagColorConverter.Instance}" Header="Severity" Width="110" />
                 <customGrid:DataGridTextColumn Binding="{Binding EntityType}" Header="Entity" IsReadOnly="True" Width="150" />
                 <customGrid:DataGridTextColumn Binding="{Binding EntityId}" Header="Entity Id" IsReadOnly="True" Width="100" />

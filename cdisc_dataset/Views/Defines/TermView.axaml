@@ -225,6 +225,7 @@
                             OffContent="All"
                             OnContent="Has Error"
                             VerticalAlignment="Center" />
+                        <atom:Button Color="Default" Command="{Binding DeleteSelectedCommand}" Content="批量删除" Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" Variant="Solid" />
                         <atom:Button Color="Default" Command="{Binding AddTermCommand}" Content="Add New" Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" Variant="Solid" />
                         <atom:Button Color="Default" Command="{Binding PairCommand}" Content="Pair" Icon="{antd-icons:AntDesignIconProvider Kind=ApiOutlined}" Variant="Solid" />
                     </StackPanel>

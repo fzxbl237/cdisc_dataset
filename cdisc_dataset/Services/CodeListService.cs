@@ -79,8 +79,37 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
     }
 
 
-    public async Task<bool> DeleteCodeListAsync(CodeListDto codeList)
+    public async Task<Dictionary<string, string>> ConfirmCodeListReferenceAsync(CodeListDto codeList)
     {
+        var references = new Dictionary<string, string>();
+        var variables = await sqlSugar.Queryable<Variable>()
+            .Where(x => x.ProjectId == codeList.ProjectId && x.CdiscDataType == codeList.CdiscDataType && x.CodeListId == codeList.Id)
+            .Select(x => $"{x.DatasetName}.{x.VariableName}")
+            .ToListAsync();
+        var valueLevels = await sqlSugar.Queryable<ValueLevel>()
+            .Where(x => x.ProjectId == codeList.ProjectId && x.CdiscDataType == codeList.CdiscDataType && x.CodeListId == codeList.Id)
+            .Select(x => $"{x.Dataset}.{x.Variable}")
+            .ToListAsync();
+
+        if (variables.Count > 0) references.Add("Variables", string.Join(", ", variables));
+        if (valueLevels.Count > 0) references.Add("ValueLevels", string.Join(", ", valueLevels));
+        return references;
+    }
+
+    public async Task<bool> DeleteCodeListAsync(CodeListDto codeList, bool clearReferences = true)
+    {
+        if (clearReferences)
+        {
+            await sqlSugar.Updateable<Variable>()
+                .SetColumns(x => new Variable { CodeListId = 0, CodeListUniqueId = string.Empty })
+                .Where(x => x.ProjectId == codeList.ProjectId && x.CdiscDataType == codeList.CdiscDataType && x.CodeListId == codeList.Id)
+                .ExecuteCommandAsync();
+            await sqlSugar.Updateable<ValueLevel>()
+                .SetColumns(x => new ValueLevel { CodeListId = 0 })
+                .Where(x => x.ProjectId == codeList.ProjectId && x.CdiscDataType == codeList.CdiscDataType && x.CodeListId == codeList.Id)
+                .ExecuteCommandAsync();
+        }
+
         var result = await sqlSugar.DeleteNav(mapper.Map<CodeList>(codeList))
             .Include(o => o.Terms)
             .ExecuteCommandAsync();
@@ -93,6 +122,41 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
         var result = await sqlSugar.Updateable(mapper.Map<CodeList>(codeListDto)).ExecuteCommandAsync();
         await lookupStore.RefreshAsync(LookupKind.CodeList);
         return result;
+    }
+
+    public async Task<int> UpdateCodeListWithTermsAsync(CodeListDto codeListDto)
+    {
+        var codeList = mapper.Map<CodeList>(codeListDto);
+        var terms = codeList.Terms ?? [];
+        foreach (var term in terms)
+        {
+            term.Id = 0;
+            term.CodeListId = codeList.Id;
+            term.CodeListUniqueId = codeList.UniqueId;
+            term.ProjectId = codeList.ProjectId;
+            term.CdiscDataType = codeList.CdiscDataType;
+        }
+
+        await sqlSugar.Ado.BeginTranAsync();
+        try
+        {
+            var result = await sqlSugar.Updateable(codeList).ExecuteCommandAsync();
+            await sqlSugar.Deleteable<Term>()
+                .Where(o => o.ProjectId == codeList.ProjectId
+                            && o.CdiscDataType == codeList.CdiscDataType
+                            && o.CodeListId == codeList.Id)
+                .ExecuteCommandAsync();
+            if (terms.Count > 0)
+                await sqlSugar.Insertable(terms).ExecuteCommandAsync();
+            await sqlSugar.Ado.CommitTranAsync();
+            await lookupStore.RefreshAsync(LookupKind.CodeList);
+            return result;
+        }
+        catch
+        {
+            await sqlSugar.Ado.RollbackTranAsync();
+            throw;
+        }
     }
 
     public async Task<CodeListDto> InsertCodeListAsync(CodeList codeList)

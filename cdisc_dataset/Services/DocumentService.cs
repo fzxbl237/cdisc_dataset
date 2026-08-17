@@ -55,23 +55,59 @@ public class DocumentService(ISqlSugarClient sqlSugar, IMapper mapper, ICurrentP
             .ToListAsync();
     }
 
-    public async Task<int> DeleteDocumentAsync(Document? document)
+    public async Task<Dictionary<string, string>> ConfirmDocumentReferenceAsync(DocumentDto document)
+    {
+        var references = new Dictionary<string, string>();
+        var comments = await sqlSugar.Queryable<Comment>()
+            .Where(x => x.ProjectId == document.ProjectId && x.CdiscDataType == document.CdiscDataType && x.DocumentId == document.Id)
+            .Select(x => x.UniqueId)
+            .ToListAsync();
+        var methods = await sqlSugar.Queryable<Method>()
+            .Where(x => x.ProjectId == document.ProjectId && x.CdiscDataType == document.CdiscDataType && x.DocumentId == document.Id)
+            .Select(x => x.UniqueId)
+            .ToListAsync();
+
+        if (comments.Count > 0) references.Add("Comments", string.Join(", ", comments));
+        if (methods.Count > 0) references.Add("Methods", string.Join(", ", methods));
+        return references;
+    }
+
+    public async Task<int> DeleteDocumentAsync(Document? document, bool clearReferences = true)
     {
         if (document == null)
             return 0;
+
+        if (clearReferences)
+            await ClearDocumentReferencesAsync(document.Id, document.ProjectId, document.CdiscDataType);
 
         var result = await sqlSugar.Deleteable(document).ExecuteCommandAsync();
         await lookupStore.RefreshAsync(LookupKind.Document);
         return result;
     }
 
-    public async Task<int> DeleteDocumentDtoAsync(DocumentDto? document)
+    public async Task<int> DeleteDocumentDtoAsync(DocumentDto? document, bool clearReferences = true)
     {
         if (document == null)
             return 0;
+
+        if (clearReferences)
+            await ClearDocumentReferencesAsync(document.Id, document.ProjectId, document.CdiscDataType);
+
         var result = await sqlSugar.Deleteable(mapper.Map<Document>(document)).ExecuteCommandAsync();
         await lookupStore.RefreshAsync(LookupKind.Document);
         return result;
+    }
+
+    private async Task ClearDocumentReferencesAsync(int documentId, int projectId, CdiscDataType dataType)
+    {
+        await sqlSugar.Updateable<Comment>()
+            .SetColumns(x => new Comment { DocumentId = 0, DocumentUniqueId = string.Empty, Pages = string.Empty })
+            .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && x.DocumentId == documentId)
+            .ExecuteCommandAsync();
+        await sqlSugar.Updateable<Method>()
+            .SetColumns(x => new Method { DocumentId = 0, DocumentUniqueId = string.Empty, Pages = string.Empty })
+            .Where(x => x.ProjectId == projectId && x.CdiscDataType == dataType && x.DocumentId == documentId)
+            .ExecuteCommandAsync();
     }
 
     public async Task<Document> InsertDocumentAsync(Document document)

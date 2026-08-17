@@ -33,6 +33,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
     private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IValidator<DictionaryDto> _validator;
+    private readonly IReferenceDeletionService _referenceDeletionService;
 
     [ObservableProperty]
     private bool _hasChanges;
@@ -58,7 +59,8 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
         IDialogHostService dialogHostService,
         cdisc_dataset.Services.IDialogService dialogService,
         ICurrentProjectService currentProjectService,
-        IValidator<DictionaryDto> validator)
+        IValidator<DictionaryDto> validator,
+        IReferenceDeletionService referenceDeletionService)
     {
         _dictionaryService = dictionaryService;
         _messageService = messageService;
@@ -66,6 +68,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
         _dialogService = dialogService;
         _currentProjectService = currentProjectService;
         _validator = validator;
+        _referenceDeletionService = referenceDeletionService;
 
     }
 
@@ -185,20 +188,49 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
     [RelayCommand]
     private async Task DeleteAsync(DictionaryDto dictionary)
     {
-        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
-        {
-            { "Title", "Delete Dictionary" },
-            { "Message", $"Are you sure you want to delete dictionary {dictionary.UniqueId}?" }
-        });
-        if (result.Result != ButtonResult.OK)
+        var clearReferences = await _referenceDeletionService.ConfirmReferenceDeletionAsync(
+            $"Delete dictionary {dictionary.UniqueId}?",
+            "Dictionary",
+            await _dictionaryService.ConfirmDictionaryReferenceAsync(dictionary));
+        if (clearReferences == null)
             return;
 
-        await _dictionaryService.DeleteDictionaryAsync(dictionary);
+        await _dictionaryService.DeleteDictionaryAsync(dictionary, clearReferences.Value);
         UnregisterDictionaryDtoPropertyChanged(dictionary);
         _allDictionaries.Remove(dictionary);
         MarkDuplicates();
         RefreshDictionaries();
         _messageService.Success("Dictionary deleted successfully.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteSelectedAsync()
+    {
+        var selectedDictionaries = _allDictionaries.Where(o => o.IsSelected).ToList();
+        if (selectedDictionaries.Count == 0)
+        {
+            _messageService.Info("Please select at least one dictionary to delete.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Selected Dictionaries" },
+            { "Message", $"Are you sure you want to delete {selectedDictionaries.Count} selected dictionary item(s)?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
+        foreach (var dictionary in selectedDictionaries)
+        {
+            await _dictionaryService.DeleteDictionaryAsync(dictionary);
+            UnregisterDictionaryDtoPropertyChanged(dictionary);
+            _allDictionaries.Remove(dictionary);
+        }
+
+        MarkDuplicates();
+        RefreshDictionaries();
+        _messageService.Success($"{selectedDictionaries.Count} dictionary item(s) deleted successfully.");
     }
 
     [RelayCommand]

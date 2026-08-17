@@ -102,8 +102,33 @@ public class DictionaryService(ISqlSugarClient sqlSugar, ICurrentProjectService 
         return result;
     }
 
-    public async Task<int> DeleteDictionaryAsync(DictionaryDto dictionary)
+    public async Task<Dictionary<string, string>> ConfirmDictionaryReferenceAsync(DictionaryDto dictionary)
     {
+        var references = new Dictionary<string, string>();
+        var variables = await sqlSugar.Queryable<Variable>()
+            .Where(x => x.ProjectId == dictionary.ProjectId && x.CdiscDataType == dictionary.CdiscDataType && x.DictionaryId == dictionary.Id)
+            .Select(x => $"{x.DatasetName}.{x.VariableName}")
+            .ToListAsync();
+
+        if (variables.Count > 0) references.Add("Variables", string.Join(", ", variables));
+        return references;
+    }
+
+    public async Task<int> DeleteDictionaryAsync(DictionaryDto dictionary, bool clearReferences = true)
+    {
+        if (clearReferences)
+        {
+            await sqlSugar.Updateable<Variable>()
+                .SetColumns(x => new Variable
+                {
+                    DictionaryId = 0,
+                    DictionaryUniqueId = string.Empty,
+                    CodeListUniqueId = string.Empty
+                })
+                .Where(x => x.ProjectId == dictionary.ProjectId && x.CdiscDataType == dictionary.CdiscDataType && x.DictionaryId == dictionary.Id)
+                .ExecuteCommandAsync();
+        }
+
         var entity = mapper.Map<Dictionary>(dictionary);
         var result = await sqlSugar.Deleteable(entity).ExecuteCommandAsync();
         await lookupStore.RefreshAsync(LookupKind.Dictionary);

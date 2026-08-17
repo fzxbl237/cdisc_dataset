@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
@@ -17,6 +17,7 @@ public interface IDictionaryService
     Task<Dictionary?> GetDictionaryByIdAsync(int id);
     Task<Dictionary> InsertDictionaryAsync(DictionaryDto dictionary);
     Task<Dictionary> UpdateDictionaryAsync(DictionaryDto dictionary);
-    Task<int> DeleteDictionaryAsync(DictionaryDto dictionary);
+    Task<Dictionary<string, string>> ConfirmDictionaryReferenceAsync(DictionaryDto dictionary);
+    Task<int> DeleteDictionaryAsync(DictionaryDto dictionary, bool clearReferences = true);
     Task<int> SaveDictionariesAsync(List<DictionaryDto> dictionaries);
 }

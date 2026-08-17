@@ -235,7 +235,7 @@ public class DatasetService(
             .ThenInclude(v=>v.CodeList)
             .ThenInclude(c=>c.Terms)
             .ExecuteCommandAsync();
-        await RefreshDatasetAndVariableLookupsAsync();
+        await lookupStore.RefreshAsync(LookupKind.Dataset);
         return result;
     }
 
@@ -264,7 +264,7 @@ public class DatasetService(
         var result = await sqlSugar.DeleteNav(mapper.Map<Dataset>(datasetDto))
             .Include(o => o.Variables)
             .ExecuteCommandAsync();
-        await RefreshDatasetAndVariableLookupsAsync();
+        await lookupStore.RefreshAsync(LookupKind.Dataset);
         return result;
     }
 
@@ -334,12 +334,6 @@ public class DatasetService(
             await sqlSugar.InsertNav(dataset).Include(o => o.Variables).ExecuteReturnEntityAsync();
         }
 
-        await RefreshDatasetAndVariableLookupsAsync();
-    }
-
-    private async Task RefreshDatasetAndVariableLookupsAsync()
-    {
         await lookupStore.RefreshAsync(LookupKind.Dataset);
-        await lookupStore.RefreshAsync(LookupKind.Variable);
     }
 }

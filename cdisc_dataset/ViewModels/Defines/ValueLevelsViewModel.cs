@@ -39,6 +39,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     private readonly IVariableService _variableService;
     private readonly IDocumentService _documentService;
     private readonly ICommentService _commentService;
+    private readonly IReferenceDeletionService _referenceDeletionService;
     private readonly IDialogHostService _dialogHostService;
     private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly ICurrentProjectService _currentProjectService;
@@ -79,6 +80,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         IVariableService variableService,
         IDocumentService documentService,
         ICommentService commentService,
+        IReferenceDeletionService referenceDeletionService,
         IDialogHostService dialogHostService,
         cdisc_dataset.Services.IDialogService dialogService,
         ICurrentProjectService currentProjectService,
@@ -92,6 +94,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         _variableService = variableService;
         _documentService = documentService;
         _commentService = commentService;
+        _referenceDeletionService = referenceDeletionService;
         _dialogHostService = dialogHostService;
         _dialogService = dialogService;
         _currentProjectService = currentProjectService;
@@ -116,11 +119,6 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             .ToCollection()
             .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
             .Subscribe(RebuildDatasetOptions);
-
-        lookupStore.Variables
-            .ToCollection()
-            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
-            .Subscribe(RebuildVariableOptions);
 
         lookupStore.CodeLists
             .ToCollection()
@@ -209,6 +207,9 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
                 case nameof(ValueLevelDto.Pages):
                 case nameof(ValueLevelDto.Source):
                     await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Pages));
+                    break;
+                case nameof(ValueLevelDto.Format):
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Format));
                     break;
                 case nameof(ValueLevelDto.MethodUniqueId):
                 {
@@ -322,6 +323,35 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         _sourceCache.Remove(valueLevelDto);
         HasChanges = true;
         _messageService.Success("Value level deleted successfully.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteSelectedAsync()
+    {
+        var selectedValueLevels = _sourceCache.Items.Where(o => o.IsSelected).ToList();
+        if (selectedValueLevels.Count == 0)
+        {
+            _messageService.Info("Please select at least one value level to delete.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Selected Value Levels" },
+            { "Message", $"Are you sure you want to delete {selectedValueLevels.Count} selected value level(s)?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
+        foreach (var valueLevel in selectedValueLevels)
+        {
+            await _valueLevelService.DeleteValueLevelAsync(valueLevel);
+            UnregisterValueLevelDtoPropertyChanged(valueLevel);
+        }
+
+        _sourceCache.Remove(selectedValueLevels);
+        HasChanges = true;
+        _messageService.Success($"{selectedValueLevels.Count} value level(s) deleted successfully.");
     }
 
     private int GetNextOrder()
@@ -446,6 +476,44 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
+    private async Task DeleteCommentAsync(ValueLevelDto valueLevel)
+    {
+        if (valueLevel.Comment == null || !await _referenceDeletionService.ConfirmAndDeleteCommentAsync(valueLevel.Comment))
+            return;
+
+        var affectedValueLevels = _sourceCache.Items
+            .Where(item => item.CommentId == valueLevel.Comment.Id)
+            .ToList();
+        foreach (var affectedValueLevel in affectedValueLevels)
+        {
+            affectedValueLevel.Comment = null;
+            affectedValueLevel.CommentId = 0;
+            affectedValueLevel.CommentUniqueId = string.Empty;
+        }
+        _sourceCache.Edit(cache => cache.AddOrUpdate(affectedValueLevels));
+        _messageService.Success("Comment deleted successfully.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteMethodAsync(ValueLevelDto valueLevel)
+    {
+        if (valueLevel.Method == null || !await _referenceDeletionService.ConfirmAndDeleteMethodAsync(valueLevel.Method))
+            return;
+
+        var affectedValueLevels = _sourceCache.Items
+            .Where(item => item.MethodId == valueLevel.Method.Id)
+            .ToList();
+        foreach (var affectedValueLevel in affectedValueLevels)
+        {
+            affectedValueLevel.Method = null;
+            affectedValueLevel.MethodId = 0;
+            affectedValueLevel.MethodUniqueId = string.Empty;
+        }
+        _sourceCache.Edit(cache => cache.AddOrUpdate(affectedValueLevels));
+        _messageService.Success("Method deleted successfully.");
+    }
+
+    [RelayCommand]
     private async Task Save()
     {
         foreach (var valueLevel in ValueLevels)
@@ -515,6 +583,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             UnregisterValueLevelDtoPropertyChanged(valueLevelDto);
 
         var dtoList = await _valueLevelService.GetAllValueLevelDtosAsync();
+        RebuildVariableOptions(await _variableService.GetAllVariablesWithoutErorrAsync());
         foreach (var dto in dtoList)
         {
             await _validator.ValidateDtoAsync(dto);

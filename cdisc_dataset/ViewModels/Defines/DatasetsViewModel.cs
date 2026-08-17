@@ -3,7 +3,6 @@ using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -34,6 +33,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     private readonly IMessageService _messageService;
     private readonly IDatasetService _datasetService;
     private readonly ICommentService _commentService;
+    private readonly IReferenceDeletionService _referenceDeletionService;
     private readonly IDialogHostService _dialogHostService;
     private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly ICurrentProjectService _currentProjectService;
@@ -60,6 +60,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         IMessageService messageService,
         IDatasetService datasetService,
         ICommentService commentService,
+        IReferenceDeletionService referenceDeletionService,
         ICurrentProjectService currentProjectService,
         IDialogHostService dialogHostService,
         cdisc_dataset.Services.IDialogService dialogService,
@@ -70,6 +71,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         _messageService = messageService;
         _datasetService = datasetService;
         _commentService = commentService;
+        _referenceDeletionService = referenceDeletionService;
         _currentProjectService = currentProjectService;
         _dialogHostService = dialogHostService;
         _dialogService = dialogService;
@@ -90,14 +92,12 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             .Subscribe(RebuildCommentLookups);
     }
 
-    public async Task LoadInitialDataAsync()
-    {
+    public async Task LoadInitialDataAsync() {
         if (IsInitialLoadCompleted)
         {
             return;
         }
 
-        var totalSw = Stopwatch.StartNew();
         ShowLoading = true;
         try
         {
@@ -107,8 +107,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         finally
         {
             ShowLoading = false;
-            totalSw.Stop();
-            Debug.WriteLine($"[PerfTrace] datasets-initial-load total={totalSw.ElapsedMilliseconds}ms");
         }
     }
 
@@ -209,31 +207,16 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
     public async Task LoadDatasetsAsync()
     {
-        var totalSw = Stopwatch.StartNew();
-
-        var unregisterSw = Stopwatch.StartNew();
         foreach (var datasetDto in Datasets)
             UnregisterDatasetDtoPropertyChanged(datasetDto);
-        unregisterSw.Stop();
 
-        var dbSw = Stopwatch.StartNew();
         var list = await _datasetService.GetAllDatasetsAsync();
-        dbSw.Stop();
-
-        var validateSw = Stopwatch.StartNew();
-        long validateMaxMs = 0;
         foreach (var datasetDto in list)
         {
-            var oneSw = Stopwatch.StartNew();
             await _validator.ValidateDtoAsync(datasetDto);
-            oneSw.Stop();
-            if (oneSw.ElapsedMilliseconds > validateMaxMs)
-                validateMaxMs = oneSw.ElapsedMilliseconds;
             RegisterDatasetDtoPropertyChanged(datasetDto);
         }
-        validateSw.Stop();
 
-        var applySw = Stopwatch.StartNew();
         _sourceCache.Edit(cache =>
         {
             cache.Clear();
@@ -241,11 +224,6 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         });
         MarkDuplicates();
         HasChanges = false;
-        applySw.Stop();
-
-        totalSw.Stop();
-        var avgMs = list.Count == 0 ? 0 : validateSw.ElapsedMilliseconds / list.Count;
-        Debug.WriteLine($"[PerfTrace] datasets-load count={list.Count} unregister={unregisterSw.ElapsedMilliseconds}ms db={dbSw.ElapsedMilliseconds}ms validate={validateSw.ElapsedMilliseconds}ms avg={avgMs}ms max={validateMaxMs}ms apply={applySw.ElapsedMilliseconds}ms total={totalSw.ElapsedMilliseconds}ms");
     }
 
     private void RebuildCommentLookups(IReadOnlyCollection<Comment> comments)
@@ -333,6 +311,36 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
+    private async Task DeleteSelectedAsync()
+    {
+        var selectedDatasets = _sourceCache.Items.Where(o => o.IsSelected).ToList();
+        if (selectedDatasets.Count == 0)
+        {
+            _messageService.Info("Please select at least one dataset to delete.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Selected Datasets" },
+            { "Message", $"Are you sure you want to delete {selectedDatasets.Count} selected dataset(s)?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
+        foreach (var dataset in selectedDatasets)
+        {
+            UnregisterDatasetDtoPropertyChanged(dataset);
+            await _datasetService.DeleteDatasetAsync(dataset);
+        }
+
+        _sourceCache.Remove(selectedDatasets);
+        MarkDuplicates();
+        HasChanges = true;
+        _messageService.Success($"{selectedDatasets.Count} dataset(s) deleted successfully.");
+    }
+
+    [RelayCommand]
     private async Task Save()
     {
         if (!HasChanges) return;
@@ -403,6 +411,25 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         dataset.CommentUniqueId = entity.UniqueId;
         await _datasetService.UpdateDatasetAsync(dataset);
         _messageService.Success("Comment updated successfully.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteCommentAsync(DatasetDto dataset)
+    {
+        if (dataset.Comment == null || !await _referenceDeletionService.ConfirmAndDeleteCommentAsync(dataset.Comment))
+            return;
+
+        var affectedDatasets = _sourceCache.Items
+            .Where(item => item.CommentId == dataset.Comment.Id)
+            .ToList();
+        foreach (var affectedDataset in affectedDatasets)
+        {
+            affectedDataset.Comment = null;
+            affectedDataset.CommentId = 0;
+            affectedDataset.CommentUniqueId = string.Empty;
+        }
+        _sourceCache.Edit(cache => cache.AddOrUpdate(affectedDatasets));
+        _messageService.Success("Comment deleted successfully.");
     }
 
     [RelayCommand]

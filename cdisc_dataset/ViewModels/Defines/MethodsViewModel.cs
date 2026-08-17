@@ -33,12 +33,14 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IMessageService _messageService;
     private readonly IMethodService _methodService;
+    private readonly IVariableService _variableService;
     private readonly IDocumentService _documentService;
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IDialogHostService _dialogHostService;
     private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly IMapper _mapper;
     private readonly IValidator<MethodDto> _validator;
+    private readonly IReferenceDeletionService _referenceDeletionService;
 
     [ObservableProperty]
     private bool _hasChanges;
@@ -63,22 +65,26 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     public MethodsViewModel(
         IMessageService messageService,
         IMethodService methodService,
+        IVariableService variableService,
         IDocumentService documentService,
         ICurrentProjectService currentProjectService,
         IDialogHostService dialogHostService,
         cdisc_dataset.Services.IDialogService dialogService,
         IMapper mapper,
         IValidator<MethodDto> validator,
+        IReferenceDeletionService referenceDeletionService,
         ILookupStore lookupStore)
     {
         _messageService = messageService;
         _methodService = methodService;
+        _variableService = variableService;
         _documentService = documentService;
         _currentProjectService = currentProjectService;
         _dialogHostService = dialogHostService;
         _dialogService = dialogService;
         _mapper = mapper;
         _validator = validator;
+        _referenceDeletionService = referenceDeletionService;
 
         var filter = this.WhenValueChanged(t => t.SearchText)
             .Throttle(TimeSpan.FromMilliseconds(250))
@@ -290,12 +296,15 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         if (result.Result != ButtonResult.Yes ||
             !result.Parameters.TryGetValue<MethodDto>("Model", out var method))
             return;
+        var linkMatchingVariables = result.Parameters.TryGetValue<bool>("LinkMatchingVariables", out var link) && link;
+        var variableMatchMode = result.Parameters.TryGetValue<string>("VariableMatchMode", out var mode) ? mode : null;
+        var variableMatchText = result.Parameters.TryGetValue<string>("VariableMatchText", out var text) ? text : null;
+        var methodDto = await _methodService.InsertMethodAsync(method, linkMatchingVariables, variableMatchMode, variableMatchText);
 
-        await _validator.ValidateDtoAsync(method);
-        RegisterMethodDtoPropertyChanged(method);
-        _sourceCache.AddOrUpdate(method);
+        await _validator.ValidateDtoAsync(methodDto);
+        RegisterMethodDtoPropertyChanged(methodDto);
+        _sourceCache.AddOrUpdate(methodDto);
         MarkDuplicates();
-        await _methodService.InsertMethodAsync(method);
         //HasChanges = true;
     }
 
@@ -318,22 +327,73 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
+    private async Task AssignVariablesAsync(MethodDto methodDto)
+    {
+        if (methodDto.Id == 0 || string.IsNullOrWhiteSpace(methodDto.UniqueId))
+        {
+            _messageService.Error("Please save the method before assigning variables.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("AssignVariablesDialog", new DialogParameters());
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<List<int>>("VariableIds", out var variableIds))
+        {
+            return;
+        }
+
+        var assignedCount = await _variableService.AssignMethodToVariablesAsync(
+            methodDto.Id,
+            methodDto.UniqueId,
+            variableIds);
+        _messageService.Success($"Assigned method to {assignedCount} variable(s).");
+    }
+
+    [RelayCommand]
     private async Task DeleteAsync(MethodDto methodDto)
     {
+        var clearReferences = await _referenceDeletionService.ConfirmReferenceDeletionAsync(
+            $"Delete method {methodDto.Name}?",
+            "Method",
+            await _methodService.ConfirmMethodReferenceAsync(methodDto));
+        if (clearReferences == null)
+            return;
+
+        await _methodService.DeleteMethodAsync(methodDto, clearReferences.Value);
+        UnregisterMethodDtoPropertyChanged(methodDto);
+        _sourceCache.Remove(methodDto);
+        MarkDuplicates();
+        //HasChanges = true;
+        _messageService.Success("Method deleted successfully.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteSelectedAsync()
+    {
+        var selectedMethods = _sourceCache.Items.Where(o => o.IsSelected).ToList();
+        if (selectedMethods.Count == 0)
+        {
+            _messageService.Info("Please select at least one method to delete.");
+            return;
+        }
+
         var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
         {
-            { "Title", "Delete Method" },
-            { "Message", $"Are you sure you want to delete method {methodDto.Name}?" }
+            { "Title", "Delete Selected Methods" },
+            { "Message", $"Are you sure you want to delete {selectedMethods.Count} selected method(s)? All references will be cleared." }
         });
         if (result.Result != ButtonResult.OK)
             return;
 
-        await _methodService.DeleteMethodAsync(methodDto);
-        UnregisterMethodDtoPropertyChanged(methodDto);
-        _sourceCache.Remove(methodDto);
+        foreach (var method in selectedMethods)
+        {
+            await _methodService.DeleteMethodAsync(method);
+            UnregisterMethodDtoPropertyChanged(method);
+        }
+
+        _sourceCache.Remove(selectedMethods);
         MarkDuplicates();
-        HasChanges = true;
-        _messageService.Success("Method deleted successfully.");
+        _messageService.Success($"{selectedMethods.Count} method(s) deleted successfully.");
     }
 
     [RelayCommand]

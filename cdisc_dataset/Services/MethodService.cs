@@ -12,7 +12,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.Services;
 
-public class MethodService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService, ICurrentProjectService currentProjectService, ILookupStore lookupStore) : IMethodService
+public class MethodService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService issueService, ICurrentProjectService currentProjectService, ILookupStore lookupStore, IVariableService variableService) : IMethodService
 {
     private (int ProjectId, CdiscDataType DataType) GetCurrentProjectContext()
     {
@@ -61,31 +61,71 @@ public class MethodService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueServi
         return list;
     }
 
-    public async Task<int> DeleteMethodAsync(MethodDto methodDto)
+    public async Task<Dictionary<string, string>> ConfirmMethodReferenceAsync(MethodDto methodDto)
     {
+        var references = new Dictionary<string, string>();
+        var variables = await sqlSugar.Queryable<Variable>()
+            .Where(x => x.ProjectId == methodDto.ProjectId && x.CdiscDataType == methodDto.CdiscDataType && x.MethodId == methodDto.Id)
+            .Select(x => $"{x.DatasetName}.{x.VariableName}")
+            .ToListAsync();
+        var valueLevels = await sqlSugar.Queryable<ValueLevel>()
+            .Where(x => x.ProjectId == methodDto.ProjectId && x.CdiscDataType == methodDto.CdiscDataType && x.MethodId == methodDto.Id)
+            .Select(x => $"{x.Dataset}.{x.Variable}")
+            .ToListAsync();
+
+        if (variables.Count > 0) references.Add("Variables", string.Join(", ", variables));
+        if (valueLevels.Count > 0) references.Add("ValueLevels", string.Join(", ", valueLevels));
+        return references;
+    }
+
+    public async Task<int> DeleteMethodAsync(MethodDto methodDto, bool clearReferences = true)
+    {
+        if (clearReferences)
+        {
+            await sqlSugar.Updateable<Variable>()
+                .SetColumns(x => new Variable { MethodId = 0, MethodUniqueId = string.Empty })
+                .Where(x => x.ProjectId == methodDto.ProjectId && x.CdiscDataType == methodDto.CdiscDataType && x.MethodId == methodDto.Id)
+                .ExecuteCommandAsync();
+            await sqlSugar.Updateable<ValueLevel>()
+                .SetColumns(x => new ValueLevel { MethodId = 0, MethodUniqueId = string.Empty })
+                .Where(x => x.ProjectId == methodDto.ProjectId && x.CdiscDataType == methodDto.CdiscDataType && x.MethodId == methodDto.Id)
+                .ExecuteCommandAsync();
+        }
         var result = await sqlSugar.Deleteable(mapper.Map<Method>(methodDto)).ExecuteCommandAsync();
-        await lookupStore.RefreshAsync(LookupKind.Method);
+        lookupStore.RemoveMethod(methodDto.Id);
         return result;
     }
 
     public async Task<int> UpdateMethodAsync(MethodDto methodDto)
     {
-        var result = await sqlSugar.Updateable(mapper.Map<Method>(methodDto)).ExecuteCommandAsync();
-        await lookupStore.RefreshAsync(LookupKind.Method);
+        var method = mapper.Map<Method>(methodDto);
+        var result = await sqlSugar.Updateable(method).ExecuteCommandAsync();
+        lookupStore.UpsertMethod(method);
         return result;
     }
 
     public async Task<MethodDto> InsertMethodAsync(Method method)
     {
         var entity = await sqlSugar.Insertable(method).ExecuteReturnEntityAsync();
-        await lookupStore.RefreshAsync(LookupKind.Method);
+        lookupStore.UpsertMethod(entity);
         return mapper.Map<MethodDto>(entity);
     }
 
-    public async Task<MethodDto> InsertMethodAsync(MethodDto methodDto)
+    public async Task<MethodDto> InsertMethodAsync(MethodDto methodDto, bool linkMatchingVariables, string? variableMatchMode, string? variableMatchText)
     {
         var method = mapper.Map<Method>(methodDto);
-        return await InsertMethodAsync(method);
+        var insertedMethod = await InsertMethodAsync(method);
+        if (linkMatchingVariables &&
+            !string.IsNullOrWhiteSpace(variableMatchMode) &&
+            !string.IsNullOrWhiteSpace(variableMatchText))
+        {
+            await variableService.LinkMethodToMatchingVariablesAsync(
+                mapper.Map<Method>(insertedMethod),
+                variableMatchMode,
+                variableMatchText);
+        }
+
+        return insertedMethod;
     }
 
     public async Task<int> SaveMethodsAsync(List<MethodDto> methods)

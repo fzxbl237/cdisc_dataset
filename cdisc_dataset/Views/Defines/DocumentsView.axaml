@@ -134,6 +134,12 @@
                             VerticalAlignment="Center" />
                         <atom:Button
                             Color="Default"
+                            Command="{Binding DeleteSelectedCommand}"
+                            Content="批量删除"
+                            Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}"
+                            Variant="Solid" />
+                        <atom:Button
+                            Color="Default"
                             Command="{Binding ImportFromSettingsCommand}"
                             Content="从设置导入"
                             Icon="{antd-icons:AntDesignIconProvider Kind=ImportOutlined}"
@@ -147,6 +153,7 @@
                     </StackPanel>
                 </customGrid:DataGrid.SearchBarRightContent>
                 <customGrid:DataGrid.Columns>
+                    <customGrid:DataGridCheckBoxColumn Binding="{Binding IsSelected}" Header="" IsReadOnly="False" Width="40" />
                     <customGrid:DataGridTextColumn
                         Binding="{Binding UniqueId}"
                         Header="Id"

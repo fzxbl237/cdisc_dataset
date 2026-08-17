@@ -33,6 +33,7 @@ using AsyncNavigation.Avalonia;
 using AtomUI.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using SqlSugar;
+using Validator.Define;
 using DbType = System.Data.DbType;
 using VariableCodeList = cdisc_dataset.Models.Settings.VariableCodeList;
 using Window = AtomUI.Desktop.Controls.Window;
@@ -67,6 +68,38 @@ public class App : Application
             view.DataContext = serviceProvider.GetRequiredService<TViewModel>();
             return view;
         });
+    }
+
+    private static string ResolveFilesDatabasePath()
+    {
+        var baseDirectoryPath = System.IO.Path.Combine(AppContext.BaseDirectory, "cdisc_files.db");
+        if (HasProjectFiles(baseDirectoryPath))
+            return baseDirectoryPath;
+
+        var workingDirectoryPath = System.IO.Path.Combine(Environment.CurrentDirectory, "cdisc_files.db");
+        if (!string.Equals(baseDirectoryPath, workingDirectoryPath, StringComparison.OrdinalIgnoreCase) &&
+            HasProjectFiles(workingDirectoryPath))
+        {
+            return workingDirectoryPath;
+        }
+
+        return baseDirectoryPath;
+    }
+
+    private static bool HasProjectFiles(string databasePath)
+    {
+        if (!System.IO.File.Exists(databasePath))
+            return false;
+
+        try
+        {
+            using var database = new LiteDatabase($"Filename={databasePath};Connection=shared");
+            return database.GetCollection<ProjectFile>("project_files").Count() > 0;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static void FixHasErrorsDefault(ISqlSugarClient sqlSugar)
@@ -162,9 +195,11 @@ public class App : Application
         RegisterDialog<DocumentDialog, DocumentViewModel>(services, "DocumentDialog");
         RegisterDialog<DictionaryDialog, DictionaryViewModel>(services, "DictionaryDialog");
         RegisterDialog<MethodDialog, MethodViewModel>(services, "MethodDialog");
+        RegisterDialog<AssignVariablesDialog, AssignVariablesViewModel>(services, "AssignVariablesDialog");
+        RegisterDialog<AssignCommentVariablesDialog, AssignCommentVariablesViewModel>(services, "AssignCommentVariablesDialog");
         RegisterDialog<WhereClauseEditorDialog, WhereClauseEditorViewModel>(services, "WhereClauseEditorDialog");
         RegisterDialog<VariableDialog, VariableViewModel>(services, "VariableDialog");
-        RegisterDialog<DeleteCommentDialog, DeleteCommentViewModel>(services, "DeleteCommentDialog");
+        RegisterDialog<DeleteConfirmedDialog, DeleteConfirmedViewModel>(services, "DeleteConfirmedDialog");
         RegisterDialog<EditKeyVariablesDialog, EditKeyVariablesViewModel>(services, "EditKeyVariables");
         RegisterDialog<CodeListDialog, CodeListDialogViewModel>(services, "CodeListDialog");
         RegisterDialog<TermsDialog, TermsViewModel>(services, "TermsDialog");
@@ -195,7 +230,8 @@ public class App : Application
             FixHasErrorsDefault(sqlSugar);
             return sqlSugar;
         });
-        services.AddSingleton<ILiteDatabase>(_ => new LiteDatabase("Filename=cdisc_files.db;Connection=shared"));
+        var filesDatabasePath = ResolveFilesDatabasePath();
+        services.AddSingleton<ILiteDatabase>(_ => new LiteDatabase($"Filename={filesDatabasePath};Connection=shared"));
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<ICurrentProjectService, CurrentProjectService>();
         services.AddSingleton<ILookupStore, LookupStore>();
@@ -206,12 +242,15 @@ public class App : Application
         services.AddSingleton<ITermService, TermService>();
         services.AddSingleton<IDocumentService, DocumentService>();
         services.AddSingleton<IMethodService, MethodService>();
+        services.AddSingleton<IReferenceDeletionService, ReferenceDeletionService>();
         services.AddSingleton<IProjectService, ProjectService>();
         services.AddSingleton<IValueLevelService, ValueLevelService>();
         services.AddSingleton<IIssueService, IssueService>();
         services.AddSingleton<IDictionaryService, DictionaryService>();
         services.AddSingleton<IDefineExcelExportService, DefineExcelExportService>();
         services.AddSingleton<IDefineXmlExportService, DefineXmlExportService>();
+        services.AddSingleton<IDefineValidator, DefineValidator>();
+        services.AddSingleton<IDefineXmlValidationService, DefineXmlValidationService>();
         services.AddSingleton<IMessageService, MessageService>();
         services.AddTransient<IValidator<ProjectDto>, ProjectValidator>();
         services.AddTransient<IValidator<DatasetDto>, DatasetValidator>();

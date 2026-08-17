@@ -76,7 +76,6 @@ public sealed class DefineXmlExportService(
             .Where(x => x.ProjectId == projectId && x.CdiscDataType == type)
             .OrderBy(x => x.UniqueId).ToListAsync();
 
-        DefinePreviewDiagnostics.Info($"Define XML source: CurrentDirectory={Environment.CurrentDirectory}; ProjectId={projectId}; CdiscDataType={type}; Comments={comments.Count}; CommentRecords=[{string.Join(", ", comments.Select(x => $"{x.Id}:{x.UniqueId}"))}].");
 
         var whereByValueLevel = whereClauses.GroupBy(x => x.ValueLevelId)
             .ToDictionary(x => x.Key, x => x.ToList());
@@ -119,8 +118,8 @@ public sealed class DefineXmlExportService(
         w.WriteAttributeString("FileType", "Snapshot");
         w.WriteAttributeString("FileOID", fileOid);
         w.WriteAttributeString("CreationDateTime", DateTimeOffset.Now.ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture));
-        w.WriteAttributeString("SourceSystem", "Pinnacle 21 Community");
-        w.WriteAttributeString("SourceSystemVersion", "4.1.0");
+        w.WriteAttributeString("SourceSystem", "cdisc_dataset");
+        w.WriteAttributeString("SourceSystemVersion", Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown");
         w.WriteAttributeString("def", "Context", Def, "Submission");
 
         w.WriteStartElement("Study", Odm); w.WriteAttributeString("OID", fileOid);
@@ -135,9 +134,12 @@ public sealed class DefineXmlExportService(
         WriteValueLists(w, valueLevels, variables, whereByValueLevel);
         WriteWhereClauses(w, valueLevels, variables, whereByValueLevel);
         WriteItemGroups(w, datasets, variables, standard, version, lang);
-        WriteItems(w, datasets, variables, valueLevels, whereByValueLevel, dictionaries, lang);
+        WriteItems(w, datasets, variables, valueLevels, whereByValueLevel, dictionaries,
+            FindAnnotatedCrf(documents)?.UniqueId, lang);
         WriteCodeLists(w, type, codeLists, terms, dictionaries, lang);
-        WriteMethods(w, methods, lang); WriteComments(w, comments, lang); WriteLeaves(w, documents);
+        WriteMethods(w, methods, documents, lang);
+        WriteComments(w, comments, documents, lang);
+        WriteLeaves(w, documents);
         w.WriteEndElement(); w.WriteEndElement(); w.WriteEndElement(); w.WriteEndDocument();
     }
 
@@ -148,23 +150,42 @@ public sealed class DefineXmlExportService(
         if (!string.IsNullOrWhiteSpace(ct))
         {
             var ctVersion = TerminologyVersion(ct);
-            w.WriteStartElement("def", "Standard", Def); Attr(w, "OID", $"STD.{(type == CdiscDataType.Sdtm ? "SDTM" : "ADaM")} {ctVersion}");
+            w.WriteStartElement("def", "Standard", Def); Attr(w, "OID", ControlledTerminologyStandardOid(type, ctVersion));
             Attr(w, "Name", "CDISC/NCI"); Attr(w, "Type", "CT"); Attr(w, "Version", ctVersion); Attr(w, "PublishingSet", type == CdiscDataType.Sdtm ? "SDTM" : "ADaM"); Attr(w, "Status", "FINAL"); w.WriteEndElement();
         }
-        w.WriteStartElement("def", "Standard", Def); Attr(w, "OID", $"STD.{standard} {version}"); Attr(w, "Name", standard); Attr(w, "Type", "IG"); Attr(w, "Version", version); Attr(w, "Status", "FINAL"); w.WriteEndElement();
+        w.WriteStartElement("def", "Standard", Def); Attr(w, "OID", ImplementationGuideStandardOid(standard, version)); Attr(w, "Name", standard); Attr(w, "Type", "IG"); Attr(w, "Version", version); Attr(w, "Status", "FINAL"); w.WriteEndElement();
         w.WriteEndElement();
     }
 
     private static void WriteDocuments(XmlWriter w, IReadOnlyList<Document> documents)
     {
-        var acrf = documents.FirstOrDefault(x => string.Equals(x.UniqueId, "acrf", StringComparison.OrdinalIgnoreCase) || x.Title?.Contains("Annotated CRF", StringComparison.OrdinalIgnoreCase) == true);
+        var acrf = FindAnnotatedCrf(documents);
         if (acrf != null) { w.WriteStartElement("def", "AnnotatedCRF", Def); DocumentRef(w, acrf.UniqueId); w.WriteEndElement(); }
         var rest = documents.Where(x => x != acrf).ToList();
         if (rest.Count == 0) return;
         w.WriteStartElement("def", "SupplementalDoc", Def); foreach (var d in rest) DocumentRef(w, d.UniqueId); w.WriteEndElement();
     }
 
-    private static void DocumentRef(XmlWriter w, string? id) { w.WriteStartElement("def", "DocumentRef", Def); Attr(w, "leafID", Leaf(id)); w.WriteEndElement(); }
+    private static Document? FindAnnotatedCrf(IEnumerable<Document> documents) =>
+        documents.FirstOrDefault(x => string.Equals(x.UniqueId, "acrf", StringComparison.OrdinalIgnoreCase) ||
+                                      x.Title?.Contains("Annotated CRF", StringComparison.OrdinalIgnoreCase) == true);
+
+    private static void DocumentRef(XmlWriter w, string? id, string? pages = null)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return;
+
+        w.WriteStartElement("def", "DocumentRef", Def);
+        Attr(w, "leafID", Leaf(id));
+        if (!string.IsNullOrWhiteSpace(pages))
+        {
+            w.WriteStartElement("def", "PDFPageRef", Def);
+            Attr(w, "Type", "PhysicalRef");
+            Attr(w, "PageRefs", pages.Trim());
+            w.WriteEndElement();
+        }
+        w.WriteEndElement();
+    }
 
     private static void WriteValueLists(XmlWriter w, IReadOnlyList<ValueLevel> levels, IReadOnlyList<Variable> variables, IReadOnlyDictionary<int, List<WhereClause>> whereById)
     {
@@ -209,7 +230,7 @@ public sealed class DefineXmlExportService(
                 Attr(w, "def", "HasNoData", Def, "Yes");
             else if (HasArchiveLocation(name, dataset.HasNoData))
                 Attr(w, "def", "ArchiveLocationID", Def, $"LF.{name}");
-            Attr(w, "def", "StandardOID", Def, $"STD.{standard} {version}"); Optional(w, "def", "CommentOID", Def, Comment(dataset.CommentUniqueId)); Description(w, dataset.Label, lang);
+            Attr(w, "def", "StandardOID", Def, ImplementationGuideStandardOid(standard, version)); Optional(w, "def", "CommentOID", Def, Comment(dataset.CommentUniqueId)); Description(w, dataset.Label, lang);
             foreach (var variable in variables.Where(x => string.Equals(x.DatasetName, dataset.Name, StringComparison.OrdinalIgnoreCase)).OrderBy(x => x.Order))
             {
                 var variableName = Part(variable.VariableName, "VARIABLE");
@@ -238,7 +259,7 @@ public sealed class DefineXmlExportService(
         }
     }
 
-    private static void WriteItems(XmlWriter w, IReadOnlyList<Dataset> datasets, IReadOnlyList<Variable> variables, IReadOnlyList<ValueLevel> levels, IReadOnlyDictionary<int, List<WhereClause>> whereByValueLevel, IReadOnlyList<Models.Dictionary> dictionaries, string lang)
+    private static void WriteItems(XmlWriter w, IReadOnlyList<Dataset> datasets, IReadOnlyList<Variable> variables, IReadOnlyList<ValueLevel> levels, IReadOnlyDictionary<int, List<WhereClause>> whereByValueLevel, IReadOnlyList<Models.Dictionary> dictionaries, string? annotatedCrfId, string lang)
     {
         var datasetOrder = datasets
             .OrderBy(x => DatasetClassOrder(x.Class))
@@ -251,7 +272,7 @@ public sealed class DefineXmlExportService(
         {
             var dataset = Part(v.DatasetName, "DATASET"); var name = Part(v.VariableName, "VARIABLE");
             var hasValueList = levels.Any(x => HasConditions(x, whereByValueLevel) && string.Equals(x.Dataset, v.DatasetName, StringComparison.OrdinalIgnoreCase) && string.Equals(x.Variable, v.VariableName, StringComparison.OrdinalIgnoreCase));
-            Item(w, $"IT.{dataset}.{name}", name, name, v.DataType, v.Length, v.SignificantDigits, v.Format, v.Label, v.CodeListUniqueId, v.DictionaryUniqueId, v.Origin, v.Source, v.Pages, v.MethodUniqueId, v.CommentUniqueId, hasValueList ? $"VL.{dataset}.{name}" : null, dictionaries, lang);
+            Item(w, $"IT.{dataset}.{name}", name, name, v.DataType, v.Length, v.SignificantDigits, v.Format, v.Label, v.CodeListUniqueId, v.DictionaryUniqueId, v.Origin, v.Source, v.Pages, v.Predecessor, v.MethodUniqueId, v.CommentUniqueId, hasValueList ? $"VL.{dataset}.{name}" : null, dictionaries, annotatedCrfId, lang);
         }
         foreach (var v in levels.Where(x => HasConditions(x, whereByValueLevel)))
         {
@@ -259,22 +280,38 @@ public sealed class DefineXmlExportService(
             var itemOid = ValueItem(v, variables, whereByValueLevel);
             var name = itemOid[("IT." + dataset + ".").Length..];
             var sasFieldName = Part(v.Variable, "VARIABLE");
-            Item(w, itemOid, name, sasFieldName, v.Type, v.Length, v.Digits, v.Format, v.Label, v.CodeListUniqueId, null, v.Origin, v.Source, v.Pages, v.MethodUniqueId, v.CommentUniqueId, null, dictionaries, lang);
+            Item(w, itemOid, name, sasFieldName, v.Type, v.Length, v.Digits, v.Format, v.Label, v.CodeListUniqueId, null, v.Origin, v.Source, v.Pages, v.Predecessor, v.MethodUniqueId, v.CommentUniqueId, null, dictionaries, annotatedCrfId, lang);
         }
     }
 
-    private static void Item(XmlWriter w, string oid, string name, string sasFieldName, string? dataType, int? length, int? digits, string? format, string? label, string? codeList, string? dictionaryId, string? origin, string? source, string? pages, string? method, string? comment, string? valueList, IReadOnlyList<Models.Dictionary> dictionaries, string lang)
+    private static void Item(XmlWriter w, string oid, string name, string sasFieldName, string? dataType, int? length, int? digits, string? format, string? label, string? codeList, string? dictionaryId, string? origin, string? source, string? pages, string? predecessor, string? method, string? comment, string? valueList, IReadOnlyList<Models.Dictionary> dictionaries, string? annotatedCrfId, string lang)
     {
         w.WriteStartElement("ItemDef", Odm); Attr(w, "OID", oid); Attr(w, "Name", name); Attr(w, "DataType", DataType(dataType)); Optional(w, null, "Length", null, length?.ToString(CultureInfo.InvariantCulture)); Optional(w, null, "SignificantDigits", null, digits?.ToString(CultureInfo.InvariantCulture)); Attr(w, "SASFieldName", sasFieldName); Optional(w, "def", "DisplayFormat", Def, format); Optional(w, "def", "CommentOID", Def, Comment(comment)); Description(w, label, lang);
-        if (!string.IsNullOrWhiteSpace(codeList)) { w.WriteStartElement("CodeListRef", Odm); Attr(w, "CodeListOID", $"CL.{Part(codeList, "CODELIST")}"); w.WriteEndElement(); }
-        else if (!string.IsNullOrWhiteSpace(dictionaryId)) { var d = dictionaries.FirstOrDefault(x => x.UniqueId == dictionaryId); if (d != null) { w.WriteStartElement("def", "ExternalCodeList", Def); Optional(w, null, "Dictionary", null, d.DictionaryName ?? d.Name); Optional(w, null, "Version", null, d.Version); w.WriteEndElement(); } }
-        if (!string.IsNullOrWhiteSpace(origin) || !string.IsNullOrWhiteSpace(source))
+        if (!string.IsNullOrWhiteSpace(codeList))
+        {
+            w.WriteStartElement("CodeListRef", Odm);
+            Attr(w, "CodeListOID", $"CL.{Part(codeList, "CODELIST")}");
+            w.WriteEndElement();
+        }
+        else if (!string.IsNullOrWhiteSpace(dictionaryId) && dictionaries.Any(x => string.Equals(x.UniqueId, dictionaryId, StringComparison.OrdinalIgnoreCase)))
+        {
+            w.WriteStartElement("CodeListRef", Odm);
+            Attr(w, "CodeListOID", $"CL.{Part(dictionaryId, "DICTIONARY")}");
+            w.WriteEndElement();
+        }
+        if (!string.IsNullOrWhiteSpace(origin) || !string.IsNullOrWhiteSpace(source) || !string.IsNullOrWhiteSpace(predecessor))
         {
             w.WriteStartElement("def", "Origin", Def);
             Attr(w, "Type", string.IsNullOrWhiteSpace(origin) ? "Other" : origin);
             Optional(w, null, "Source", null, source);
-            if (string.Equals(origin, "Collected", StringComparison.OrdinalIgnoreCase) && string.Equals(source, "Investigator", StringComparison.OrdinalIgnoreCase))
-                DocumentRef(w, "acrf");
+            if (string.Equals(origin, "Predecessor", StringComparison.OrdinalIgnoreCase))
+                Description(w, predecessor, lang);
+            if (string.Equals(origin, "Collected", StringComparison.OrdinalIgnoreCase) &&
+                (string.Equals(source, "Investigator", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(source, "Subject", StringComparison.OrdinalIgnoreCase)))
+            {
+                DocumentRef(w, annotatedCrfId, pages);
+            }
             w.WriteEndElement();
         }
         if (!string.IsNullOrWhiteSpace(valueList)) { w.WriteStartElement("def", "ValueListRef", Def); Attr(w, "ValueListOID", valueList); w.WriteEndElement(); }
@@ -302,7 +339,8 @@ public sealed class DefineXmlExportService(
             w.WriteStartElement("CodeList", Odm); Attr(w, "OID", $"CL.{Part(list.UniqueId, "CODELIST")}"); Attr(w, "Name", list.Name ?? Part(list.UniqueId, "CODELIST")); Attr(w, "DataType", DataType(list.Type)); Optional(w, "def", "CommentOID", Def, Comment(list.CommentUniqueId));
             var terminologyVersion = lists.Select(x => x.Terminology).FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
             if (!string.IsNullOrWhiteSpace(terminologyVersion))
-                Attr(w, "def", "StandardOID", Def, $"STD.{(type == CdiscDataType.Sdtm ? "SDTM" : "ADaM")} {TerminologyVersion(terminologyVersion)}");
+                Attr(w, "def", "StandardOID", Def,
+                    ControlledTerminologyStandardOid(type, TerminologyVersion(terminologyVersion)));
             var listTerms = terms.Where(x => x.CodeListId == list.Id).OrderBy(x => x.Order).ToList();
             var isEnumeratedList = listTerms.All(x => string.IsNullOrWhiteSpace(x.Code) && string.IsNullOrWhiteSpace(x.DecodedValue));
             if (listTerms.Count == 0)
@@ -330,14 +368,39 @@ public sealed class DefineXmlExportService(
         }
     }
 
-    private static void WriteMethods(XmlWriter w, IReadOnlyList<Method> methods, string lang)
+    private static void WriteMethods(XmlWriter w, IReadOnlyList<Method> methods, IReadOnlyList<Document> documents, string lang)
     {
-        foreach (var m in methods) { w.WriteStartElement("MethodDef", Odm); Attr(w, "OID", $"MT.{Part(m.UniqueId, "METHOD")}"); Attr(w, "Name", m.Name ?? Part(m.UniqueId, "METHOD")); Attr(w, "Type", m.Type ?? "Computation"); Description(w, m.Description, lang); if (!string.IsNullOrWhiteSpace(m.ExpressionCode)) Element(w, "FormalExpression", m.ExpressionCode); w.WriteEndElement(); }
+        foreach (var method in methods)
+        {
+            w.WriteStartElement("MethodDef", Odm);
+            Attr(w, "OID", $"MT.{Part(method.UniqueId, "METHOD")}");
+            Attr(w, "Name", method.Name ?? Part(method.UniqueId, "METHOD"));
+            Attr(w, "Type", method.Type ?? "Computation");
+            Description(w, method.Description, lang);
+            if (!string.IsNullOrWhiteSpace(method.ExpressionCode))
+            {
+                w.WriteStartElement("FormalExpression", Odm);
+                Optional(w, null, "Context", null, method.ExpressionContext);
+                w.WriteString(method.ExpressionCode);
+                w.WriteEndElement();
+            }
+            if (DocumentExists(documents, method.DocumentUniqueId))
+                DocumentRef(w, method.DocumentUniqueId, method.Pages);
+            w.WriteEndElement();
+        }
     }
 
-    private static void WriteComments(XmlWriter w, IReadOnlyList<Comment> comments, string lang)
+    private static void WriteComments(XmlWriter w, IReadOnlyList<Comment> comments, IReadOnlyList<Document> documents, string lang)
     {
-        foreach (var c in comments) { w.WriteStartElement("def", "CommentDef", Def); Attr(w, "OID", $"COM.{Part(c.UniqueId, "COMMENT")}"); Description(w, c.Description, lang); w.WriteEndElement(); }
+        foreach (var comment in comments)
+        {
+            w.WriteStartElement("def", "CommentDef", Def);
+            Attr(w, "OID", $"COM.{Part(comment.UniqueId, "COMMENT")}");
+            Description(w, comment.Description, lang);
+            if (DocumentExists(documents, comment.DocumentUniqueId))
+                DocumentRef(w, comment.DocumentUniqueId, comment.Pages);
+            w.WriteEndElement();
+        }
     }
 
     private static void WriteLeaves(XmlWriter w, IReadOnlyList<Document> documents)
@@ -366,6 +429,19 @@ public sealed class DefineXmlExportService(
         var index = keys.FindIndex(x => string.Equals(x, variableName, StringComparison.OrdinalIgnoreCase));
         return index >= 0 ? (index + 1).ToString(CultureInfo.InvariantCulture) : string.Empty;
     }
+
+    private static bool DocumentExists(IEnumerable<Document> documents, string? uniqueId) =>
+        !string.IsNullOrWhiteSpace(uniqueId) &&
+        documents.Any(x => string.Equals(x.UniqueId, uniqueId, StringComparison.OrdinalIgnoreCase));
+
+    private static string ImplementationGuideStandardOid(string standard, string version) =>
+        $"STD.{OidPart(standard, "STANDARD")}.{OidPart(version, "VERSION")}";
+
+    private static string ControlledTerminologyStandardOid(CdiscDataType type, string version) =>
+        $"STD.{(type == CdiscDataType.Sdtm ? "SDTM" : "ADaM")}.CT.{OidPart(version, "VERSION")}";
+
+    private static string OidPart(string? value, string fallback) =>
+        Regex.Replace(Part(value, fallback), @"\s+", ".");
 
     private static string Part(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
     private static int DatasetClassOrder(string? value) => value?.Trim().ToUpperInvariant() switch

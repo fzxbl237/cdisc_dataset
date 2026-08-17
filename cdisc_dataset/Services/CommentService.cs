@@ -112,45 +112,66 @@ public class CommentService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueServ
                         && x.CdiscDataType == comment.CdiscDataType
                         && x.CommentId == comment.Id)
             .Select(o => $"{o.DatasetName}.{o.VariableName}").ToListAsync();
-        if (variables.Count > 0)
-        {
-            dictionary.Add("Variables", string.Join(", ", variables));
-        }
+        var codeLists = await sqlSugar.Queryable<CodeList>()
+            .Where(x => x.ProjectId == comment.ProjectId && x.CdiscDataType == comment.CdiscDataType && x.CommentId == comment.Id)
+            .Select(x => x.UniqueId).ToListAsync();
+        var terms = await sqlSugar.Queryable<Term>()
+            .Where(x => x.ProjectId == comment.ProjectId && x.CdiscDataType == comment.CdiscDataType && x.CommentId == comment.Id)
+            .Select(x => x.Name).ToListAsync();
+        var valueLevels = await sqlSugar.Queryable<ValueLevel>()
+            .Where(x => x.ProjectId == comment.ProjectId && x.CdiscDataType == comment.CdiscDataType && x.CommentId == comment.Id)
+            .Select(x => $"{x.Dataset}.{x.Variable}").ToListAsync();
 
-        if (datasets.Count > 0)
-        {
-            dictionary.Add("Datasets", string.Join(", ", datasets));
-        }
+        if (datasets.Count > 0) dictionary.Add("Datasets", string.Join(", ", datasets));
+        if (variables.Count > 0) dictionary.Add("Variables", string.Join(", ", variables));
+        if (codeLists.Count > 0) dictionary.Add("CodeLists", string.Join(", ", codeLists));
+        if (terms.Count > 0) dictionary.Add("Terms", string.Join(", ", terms));
+        if (valueLevels.Count > 0) dictionary.Add("ValueLevels", string.Join(", ", valueLevels));
         return dictionary;
     }
 
-    public async Task<int> DeleteCommentAsync(Comment? comment)
+    public async Task<int> DeleteCommentAsync(Comment? comment, bool clearReferences = true)
     {
         var res = 0;
         if (comment == null) return res;
         res = await sqlSugar.Deleteable<Comment>(comment).ExecuteCommandAsync();
-        var datasets = await sqlSugar.Queryable<Dataset>()
-            .Where(x => x.ProjectId == comment.ProjectId 
-                        && x.CdiscDataType == comment.CdiscDataType
-                        && x.CommentId == comment.Id)
-            .ToListAsync();
-        foreach (var dataset in datasets)
+        if (clearReferences)
         {
-            dataset.CommentId = 0;
-            dataset.CommentUniqueId = string.Empty;
+            var datasets = await sqlSugar.Queryable<Dataset>()
+                .Where(x => x.ProjectId == comment.ProjectId
+                            && x.CdiscDataType == comment.CdiscDataType
+                            && x.CommentId == comment.Id)
+                .ToListAsync();
+            foreach (var dataset in datasets)
+            {
+                dataset.CommentId = 0;
+                dataset.CommentUniqueId = string.Empty;
+            }
+            await sqlSugar.Updateable(datasets).ExecuteCommandAsync();
+            var variables = await sqlSugar.Queryable<Variable>()
+                .Where(x => x.ProjectId == comment.ProjectId
+                            && x.CdiscDataType == comment.CdiscDataType
+                            && x.CommentId == comment.Id)
+                .ToListAsync();
+            foreach (var variable in variables)
+            {
+                variable.CommentId = 0;
+                variable.CommentUniqueId = string.Empty;
+            }
+            await sqlSugar.Updateable(variables).ExecuteCommandAsync();
+            await sqlSugar.Updateable<CodeList>()
+                .SetColumns(x => new CodeList { CommentId = 0, CommentUniqueId = string.Empty })
+                .Where(x => x.ProjectId == comment.ProjectId && x.CdiscDataType == comment.CdiscDataType && x.CommentId == comment.Id)
+                .ExecuteCommandAsync();
+            await sqlSugar.Updateable<Term>()
+                .SetColumns(x => new Term { CommentId = 0 })
+                .Where(x => x.ProjectId == comment.ProjectId && x.CdiscDataType == comment.CdiscDataType && x.CommentId == comment.Id)
+                .ExecuteCommandAsync();
+            await sqlSugar.Updateable<ValueLevel>()
+                .SetColumns(x => new ValueLevel { CommentId = 0, CommentUniqueId = string.Empty })
+                .Where(x => x.ProjectId == comment.ProjectId && x.CdiscDataType == comment.CdiscDataType && x.CommentId == comment.Id)
+                .ExecuteCommandAsync();
         }
-        await sqlSugar.Updateable(datasets).ExecuteCommandAsync();
-        var variables = await sqlSugar.Queryable<Variable>()
-            .Where(x => x.ProjectId == comment.ProjectId 
-                        && x.CdiscDataType == comment.CdiscDataType
-                        && x.CommentId == comment.Id)
-            .ToListAsync();
-        foreach (var variable in variables)
-        {
-            variable.CommentId = 0;
-            variable.CommentUniqueId = string.Empty;
-        }
-        await sqlSugar.Updateable(variables).ExecuteCommandAsync();
         await lookupStore.RefreshAsync(LookupKind.Comment);
         return res;
     }

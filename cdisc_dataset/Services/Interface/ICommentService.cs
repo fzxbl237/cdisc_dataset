@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
@@ -21,7 +21,7 @@ public interface ICommentService
 
     Task<Dictionary<string,string>> ConfirmCommentRefenceAsync(Comment? comment);
     
-    Task<int> DeleteCommentAsync(Comment? comment);
+    Task<int> DeleteCommentAsync(Comment? comment, bool clearReferences = true);
     
     Task<Comment> InsertCommentAsync(Comment comment);
     

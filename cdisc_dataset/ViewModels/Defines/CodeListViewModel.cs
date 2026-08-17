@@ -33,6 +33,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
 {
     private readonly ICodeListService _codeListService;
     private readonly ICommentService _commentService;
+    private readonly IReferenceDeletionService _referenceDeletionService;
     private readonly IDialogHostService _dialogHostService;
     private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly IMessageService _messageService;
@@ -70,6 +71,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
 
     public CodeListViewModel(ICodeListService codeListService,
         ICommentService commentService,
+        IReferenceDeletionService referenceDeletionService,
         IDialogHostService dialogHostService,
         cdisc_dataset.Services.IDialogService dialogService,
         IMessageService messageService,
@@ -81,6 +83,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     {
         _codeListService = codeListService;
         _commentService = commentService;
+        _referenceDeletionService = referenceDeletionService;
         _dialogHostService = dialogHostService;
         _dialogService = dialogService;
         _messageService = messageService;
@@ -106,52 +109,24 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             .Subscribe(RebuildCommentLookups);
     }
 
-    private void UpdateNameDuplicate()
+    private void MarkDuplicates()
     {
-        _sourceCache.Edit(list =>
+        var codeLists = _sourceCache.Items.ToList();
+        foreach (var codeList in codeLists)
         {
-            var dictionary = list.Items
-                .Where(o=>!string.IsNullOrWhiteSpace(o.Name))
-                .GroupBy(o=>o.Name)
-                .ToDictionary(o=>o.Key??string.Empty,o=>o.ToList());
-            foreach (var dictionaryKey in dictionary.Keys)
-            {
-                bool isDuplicate = dictionary[dictionaryKey].Count > 1;
-                foreach (var codeListDto in dictionary[dictionaryKey])
-                {
-                    if (codeListDto.IsNameDuplicate != isDuplicate)
-                    {
-                        codeListDto.IsNameDuplicate = isDuplicate;
-                        ValidateCodeListDtoAsync(codeListDto,"Name").Await();
-                        list.AddOrUpdate(codeListDto);
-                    }
-                }
-            }
-        });
-    }
+            codeList.IsUniqueIdDuplicate = false;
+            codeList.IsNameDuplicate = false;
+        }
 
-    private void UpdateDuplicate()
-    {
-        _sourceCache.Edit(list =>
-        {
-            var dictionary = list.Items
-                .Where(o=>!string.IsNullOrWhiteSpace(o.UniqueId))
-                .GroupBy(o=>o.UniqueId)
-                .ToDictionary(o=>o.Key,o=>o.ToList());
-            foreach (var dictionaryKey in dictionary.Keys)
-            {
-                bool isDuplicate = dictionary[dictionaryKey].Count > 1;
-                foreach (var codeListDto in dictionary[dictionaryKey])
-                {
-                    if (codeListDto.IsDuplicate != isDuplicate)
-                    {
-                        codeListDto.IsDuplicate = isDuplicate;
-                        ValidateCodeListDtoAsync(codeListDto,"UniqueId").Await();
-                        list.AddOrUpdate(codeListDto);
-                    }
-                }
-            }
-        });
+        codeLists.MarkDuplicates(
+            o => o.UniqueId ?? string.Empty,
+            (codeList, isDuplicate) => codeList.IsUniqueIdDuplicate = isDuplicate,
+            key => !string.IsNullOrWhiteSpace(key));
+
+        codeLists.MarkDuplicates(
+            o => o.Name ?? string.Empty,
+            (codeList, isDuplicate) => codeList.IsNameDuplicate = isDuplicate,
+            key => !string.IsNullOrWhiteSpace(key));
     }
 
     partial void OnIsErrorOnlyChanged(bool value) => _sourceCache.Refresh();
@@ -173,31 +148,6 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         return (!string.IsNullOrWhiteSpace(value) && value.Contains(searchText!, StringComparison.OrdinalIgnoreCase));
     }
     
-    private async Task ValidateCodeListDtoAsync(CodeListDto codeListDto,string propertyName = "")
-    {
-        if (string.IsNullOrWhiteSpace(propertyName))
-        {
-            codeListDto.ClearErrors();
-        }
-        else
-        {
-            codeListDto.RemoveError(propertyName);
-        }
-
-        var result = await _validator.ValidateAsync(codeListDto, options =>
-        {
-            if (!string.IsNullOrWhiteSpace(propertyName))
-                options.IncludeProperties([propertyName]);
-        });
-        foreach (var validationFailure in result.Errors)
-        {
-            codeListDto.SetError(validationFailure.PropertyName,
-                new DataGridValidationResult(validationFailure.ErrorMessage,
-                    validationFailure.Severity==Severity.Error?DataGridValidationSeverity.Error
-                        :DataGridValidationSeverity.Warning));
-        }
-    }
-    
     public async Task LoadCodeLists()
     {
         // ?????????? PropertyChanged ????
@@ -209,7 +159,7 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         var list = await _codeListService.GetAllCodeListDtosAsync();
         foreach (var codeListDto in list)
         {
-            await ValidateCodeListDtoAsync(codeListDto);
+            await _validator.ValidateDtoAsync(codeListDto);
             codeListDto.PropertyChanged += CodeListDtoOnPropertyChanged;
         }
         _sourceCache.Edit(o =>
@@ -217,34 +167,46 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             o.Clear();
             o.AddOrUpdate(list);
         });
-        UpdateDuplicate();
-        UpdateNameDuplicate();
+        MarkDuplicates();
     }
 
     private void CodeListDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (sender is not CodeListDto codeListDto) return;
 
-        switch (e.PropertyName)
+        var duplicateFlagProperty = e.PropertyName switch
         {
-            case nameof(CodeListDto.CommentUniqueId):
-                HandleCommentUniqueIdChanged(codeListDto);
-                break;
-            case nameof(CodeListDto.UniqueId):
-                UpdateDuplicate();
-                break;
-            case nameof(CodeListDto.Name):
-                UpdateNameDuplicate();
-                break;
+            nameof(CodeListDto.IsUniqueIdDuplicate) => nameof(CodeListDto.UniqueId),
+            nameof(CodeListDto.IsNameDuplicate) => nameof(CodeListDto.Name),
+            _ => null
+        };
+
+        if (duplicateFlagProperty != null)
+        {
+            Observable.StartAsync(() => _validator.ValidateDtoAsync(codeListDto, duplicateFlagProperty));
+            return;
         }
 
-        if (e.PropertyName == nameof(CodeListDto.IsSelected)
-            || e.PropertyName == nameof(CodeListDto.HasChanged)
-            || e.PropertyName == nameof(CodeListDto.Comment)
-            || e.PropertyName == nameof(CodeListDto.CommentId)) return;
+        if (e.PropertyName is nameof(CodeListDto.CommentUniqueId))
+            HandleCommentUniqueIdChanged(codeListDto);
+
+        if (e.PropertyName is not (
+                nameof(CodeListDto.UniqueId) or
+                nameof(CodeListDto.Name) or
+                nameof(CodeListDto.Code) or
+                nameof(CodeListDto.Type) or
+                nameof(CodeListDto.Terminology) or
+                nameof(CodeListDto.CommentUniqueId) or
+                nameof(CodeListDto.DeveloperNotes)))
+        {
+            return;
+        }
         Observable.StartAsync(async () =>
         {
-            await _validator.ValidateDtoAsync(codeListDto,e.PropertyName);
+            if (e.PropertyName is nameof(CodeListDto.UniqueId) or nameof(CodeListDto.Name))
+                MarkDuplicates();
+
+            await _validator.ValidateDtoAsync(codeListDto, e.PropertyName);
             _sourceCache.AddOrUpdate(codeListDto);
         });
         codeListDto.HasChanged = true;
@@ -266,7 +228,6 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             codeListDto.CommentId = 0;
             codeListDto.Comment = null;
         }
-        // ValidateCodeListDtoAsync(codeListDto, "CommentUniqueId").Await();
         // _sourceCache.AddOrUpdate(codeListDto);
     }
     
@@ -324,20 +285,46 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task DeleteAsync(CodeListDto codeList)
     {
-        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
-        {
-            { "Title", "Delete CodeList" },
-            { "Message", $"Are you sure you want to delete code list {codeList.Name}?" }
-        });
-        if (result.Result != ButtonResult.OK)
+        var clearReferences = await _referenceDeletionService.ConfirmReferenceDeletionAsync(
+            $"Delete code list {codeList.Name}?",
+            "Code list",
+            await _codeListService.ConfirmCodeListReferenceAsync(codeList));
+        if (clearReferences == null)
             return;
 
-        await _codeListService.DeleteCodeListAsync(codeList);
+        await _codeListService.DeleteCodeListAsync(codeList, clearReferences.Value);
         _sourceCache.Edit(o =>
         {
             o.Remove(codeList);
         });
+        MarkDuplicates();
         _messageService.Success("Code list deleted successfully.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteSelectedAsync()
+    {
+        var selectedCodeLists = _sourceCache.Items.Where(o => o.IsSelected).ToList();
+        if (selectedCodeLists.Count == 0)
+        {
+            _messageService.Info("Please select at least one code list to delete.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Selected Code Lists" },
+            { "Message", $"Are you sure you want to delete {selectedCodeLists.Count} selected code list(s)?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
+        foreach (var codeList in selectedCodeLists)
+            await _codeListService.DeleteCodeListAsync(codeList);
+
+        _sourceCache.Remove(selectedCodeLists);
+        MarkDuplicates();
+        _messageService.Success($"{selectedCodeLists.Count} code list(s) deleted successfully.");
     }
     
     [RelayCommand]
@@ -373,32 +360,18 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task DeleteComment(Comment? comment)
     {
-        var dictionary = await _commentService.ConfirmCommentRefenceAsync(comment);
-        dictionary.TryGetValue("Datasets",out string? datasets);
-        dictionary.TryGetValue("Variables",out string? variables);
-        if (comment != null)
+        if (comment == null || !await _referenceDeletionService.ConfirmAndDeleteCommentAsync(comment))
+            return;
+
+        var codeLists = CodeLists.Where(o => o.CommentId == comment.Id).ToList();
+        foreach (var codeList in codeLists)
         {
-            var dialogParameters = new DialogParameters
-            {
-                { "Title", comment.UniqueId??string.Empty },
-                { "Variables", variables??string.Empty },
-                { "Datasets",datasets??string.Empty}
-            };
-            var result = await _dialogHostService.ShowDialogAsync("DeleteCommentDialog",dialogParameters);
-            if (result.Result == ButtonResult.OK)
-            {
-                await _commentService.DeleteCommentAsync(comment);
-                var codeLists = CodeLists.Where(o=>o.CommentId == comment.Id).ToList();
-                foreach (var codeList in codeLists)
-                {
-                    codeList.CommentId = 0;
-                    codeList.CommentUniqueId = string.Empty;
-                    codeList.Comment = null;
-                }
-                _sourceCache.Edit(o=>o.AddOrUpdate(codeLists));
-                _messageService.Success("Comment deleted successfully.");
-            }
+            codeList.CommentId = 0;
+            codeList.CommentUniqueId = string.Empty;
+            codeList.Comment = null;
         }
+        _sourceCache.Edit(o => o.AddOrUpdate(codeLists));
+        _messageService.Success("Comment deleted successfully.");
     }
     
     
@@ -409,8 +382,10 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
         if (result.Parameters.TryGetValue<CodeList>("CodeList",out CodeList? codeList))
         {
             CodeListDto entity = await _codeListService.InsertCodeListAsync(codeList);
-            await ValidateCodeListDtoAsync(entity);
+            await _validator.ValidateDtoAsync(entity);
+            entity.PropertyChanged += CodeListDtoOnPropertyChanged;
             _sourceCache.Edit(o=>o.AddOrUpdate(entity));
+            MarkDuplicates();
             _messageService.Success("Code list added successfully.");
         }
     }
@@ -418,7 +393,10 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task AddCodeListFromVariable()
     {
-        var result = await _dialogHostService.ShowDialogAsync("CodeListDialog", new DialogParameters());
+        var result = await _dialogHostService.ShowDialogAsync("CodeListDialog", new DialogParameters
+        {
+            { "SelectVariable", true }
+        });
         if (!result.Parameters.TryGetValue<CodeList>("CodeList", out var codeList) || codeList == null)
             return;
 
@@ -431,8 +409,10 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
             await _variableService.UpdateVariableAsync(variable);
         }
 
-        await ValidateCodeListDtoAsync(entity);
+        await _validator.ValidateDtoAsync(entity);
+        entity.PropertyChanged += CodeListDtoOnPropertyChanged;
         _sourceCache.Edit(o => o.AddOrUpdate(entity));
+        MarkDuplicates();
         _messageService.Success("Code list created and linked to the variable successfully.");
     }
 

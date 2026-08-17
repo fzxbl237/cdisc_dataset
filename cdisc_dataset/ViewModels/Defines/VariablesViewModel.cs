@@ -39,7 +39,10 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IVariableService _variableService;
     private readonly ICommentService _commentService;
+    private readonly IMethodService _methodService;
+    private readonly IReferenceDeletionService _referenceDeletionService;
     private readonly ICodeListService _codeListService;
+    private readonly IDictionaryService _dictionaryService;
     private readonly IMessageService _messageService;
     private readonly IDialogHostService _dialogHostService;
     private readonly cdisc_dataset.Services.IDialogService _dialogService;
@@ -80,7 +83,10 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     public VariablesViewModel(
         IVariableService variableService,
         ICommentService commentService,
+        IMethodService methodService,
+        IReferenceDeletionService referenceDeletionService,
         ICodeListService codeListService,
+        IDictionaryService dictionaryService,
         IMessageService messageService,
         IDialogHostService dialogHostService,
         cdisc_dataset.Services.IDialogService dialogService,
@@ -91,7 +97,10 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     {
         _variableService = variableService;
         _commentService = commentService;
+        _methodService = methodService;
+        _referenceDeletionService = referenceDeletionService;
         _codeListService = codeListService;
+        _dictionaryService = dictionaryService;
         _messageService = messageService;
         _dialogHostService = dialogHostService;
         _dialogService = dialogService;
@@ -99,8 +108,11 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         _mapper = mapper;
         _validator = validator;
 
-        var filter = this.WhenValueChanged(t => t.SearchText)
-            .Throttle(TimeSpan.FromMilliseconds(250))
+        var filter = Observable.Merge(
+                this.WhenValueChanged(t => t.SearchText)
+                    .Throttle(TimeSpan.FromMilliseconds(250)),
+                this.WhenValueChanged(t => t.IsErrorOnly)
+                    .Select(_ => SearchText))
             .Select(_ => BuildFilter());
         _sourceCache.Connect()
             .AutoRefresh(o => o.HasErrors)
@@ -179,8 +191,8 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         var list = await _variableService.GetAllVariableDtosAsync();
         foreach (var variableDto in list)
         {
-           await _validator.ValidateDtoAsync(variableDto);
-           variableDto.PropertyChanged+= VariableDtoOnPropertyChanged;
+            await _validator.ValidateDtoAsync(variableDto);
+            variableDto.PropertyChanged += VariableDtoOnPropertyChanged;
         }
         _sourceCache.Edit(o =>
         {
@@ -192,87 +204,145 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
 
     private void VariableDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (sender is not VariableDto variableDto) return;
-
-        switch (e.PropertyName)
+        if (sender is not VariableDto variableDto || string.IsNullOrWhiteSpace(e.PropertyName) ||
+            e.PropertyName == nameof(VariableDto.HasChanged))
         {
-            case nameof(VariableDto.MethodUniqueId):
-                HandleMethodUniqueIdChanged(variableDto);
-                break;
-            case nameof(VariableDto.CodeListUniqueId):
-                HandleCodeListUniqueIdChanged(variableDto);
-                break;
-            case nameof(VariableDto.CommentUniqueId):
-                HandleCommentUniqueIdChanged(variableDto);
-                break;
+            return;
         }
 
-        if (e.PropertyName != nameof(VariableDto.HasChanged))
+        if (e.PropertyName is not (
+                nameof(VariableDto.Order) or
+                nameof(VariableDto.DatasetName) or
+                nameof(VariableDto.VariableName) or
+                nameof(VariableDto.Label) or
+                nameof(VariableDto.DataType) or
+                nameof(VariableDto.Length) or
+                nameof(VariableDto.SignificantDigits) or
+                nameof(VariableDto.Format) or
+                nameof(VariableDto.Mandatory) or
+                nameof(VariableDto.CodeListUniqueId) or
+                nameof(VariableDto.Origin) or
+                nameof(VariableDto.Source) or
+                nameof(VariableDto.Pages) or
+                nameof(VariableDto.MethodUniqueId) or
+                nameof(VariableDto.Predecessor) or
+                nameof(VariableDto.Role) or
+                nameof(VariableDto.HasNoData) or
+                nameof(VariableDto.CommentUniqueId) or
+                nameof(VariableDto.DeveloperNotes)))
         {
-            Observable.StartAsync(async () =>
+            return;
+        }
+
+        Observable.StartAsync(async () =>
+        {
+            switch (e.PropertyName)
             {
-                await _validator.ValidateDtoAsync(variableDto,e.PropertyName);
-                _sourceCache.AddOrUpdate(variableDto);
-            });
-            variableDto.HasChanged = true;
-            HasChanges = true;
-        }
-        
+                case nameof(VariableDto.VariableName):
+                    await _validator.ValidateDtoAsync(variableDto, nameof(VariableDto.VariableName), nameof(VariableDto.Origin), nameof(VariableDto.CodeListUniqueId));
+                    break;
+                case nameof(VariableDto.DataType):
+                    await _validator.ValidateDtoAsync(variableDto, nameof(VariableDto.DataType), nameof(VariableDto.Length), nameof(VariableDto.SignificantDigits));
+                    break;
+                case nameof(VariableDto.Origin):
+                    await _validator.ValidateDtoAsync(variableDto, nameof(VariableDto.Origin), nameof(VariableDto.MethodUniqueId), nameof(VariableDto.Predecessor), nameof(VariableDto.Pages));
+                    break;
+                case nameof(VariableDto.Source):
+                    await _validator.ValidateDtoAsync(variableDto, nameof(VariableDto.Source), nameof(VariableDto.Pages));
+                    break;
+                case nameof(VariableDto.MethodUniqueId):
+                    ApplyMethod(variableDto, variableDto.MethodUniqueId);
+                    await _validator.ValidateDtoAsync(variableDto, nameof(VariableDto.MethodUniqueId));
+                    break;
+                case nameof(VariableDto.CodeListUniqueId):
+                    ApplyCodeList(variableDto, variableDto.CodeListUniqueId);
+                    await _validator.ValidateDtoAsync(variableDto, nameof(VariableDto.CodeListUniqueId));
+                    break;
+                case nameof(VariableDto.CommentUniqueId):
+                    ApplyComment(variableDto, variableDto.CommentUniqueId);
+                    await _validator.ValidateDtoAsync(variableDto, nameof(VariableDto.CommentUniqueId));
+                    break;
+                default:
+                    await _validator.ValidateDtoAsync(variableDto, e.PropertyName);
+                    break;
+            }
+            _sourceCache.AddOrUpdate(variableDto);
+        });
 
+        variableDto.HasChanged = true;
+        HasChanges = true;
     }
 
-    private void HandleMethodUniqueIdChanged(VariableDto variableDto)
+    private void ApplyMethod(VariableDto variableDto, string? methodUniqueId)
     {
-        if (_frozenMethodDictionary != null && _frozenMethodDictionary.TryGetValue(variableDto.MethodUniqueId ?? string.Empty, out var method))
-        {
-            variableDto.Method = method;
-            variableDto.MethodId = method.Id;
-        }
-        else
+        if (methodUniqueId == variableDto.Method?.UniqueId)
+            return;
+
+        if (string.IsNullOrWhiteSpace(methodUniqueId) || _frozenMethodDictionary == null ||
+            !_frozenMethodDictionary.TryGetValue(methodUniqueId, out var method))
         {
             variableDto.Method = null;
             variableDto.MethodId = 0;
+            return;
         }
-        
+
+        variableDto.Method = method;
+        variableDto.MethodId = method.Id;
+        variableDto.MethodUniqueId = method.UniqueId;
     }
 
-    private void HandleCodeListUniqueIdChanged(VariableDto variableDto)
+    private void ApplyCodeList(VariableDto variableDto, string? codeListUniqueId)
     {
-        if (_frozenDictionaryDictionary != null && _frozenDictionaryDictionary.TryGetValue(variableDto.CodeListUniqueId ?? string.Empty, out var dictionary))
+        if (codeListUniqueId == variableDto.CodeList?.UniqueId || codeListUniqueId == variableDto.Dictionary?.UniqueId)
+            return;
+
+        if (!string.IsNullOrWhiteSpace(codeListUniqueId) && _frozenDictionaryDictionary != null &&
+            _frozenDictionaryDictionary.TryGetValue(codeListUniqueId, out var dictionary))
         {
             variableDto.Dictionary = dictionary;
             variableDto.DictionaryId = dictionary.Id;
+            variableDto.DictionaryUniqueId = dictionary.UniqueId;
             variableDto.CodeList = null;
             variableDto.CodeListId = 0;
+            variableDto.CodeListUniqueId = dictionary.UniqueId;
+            return;
         }
-        else if (_frozenCodeListDictionary != null && _frozenCodeListDictionary.TryGetValue(variableDto.CodeListUniqueId ?? string.Empty, out var codeList))
+
+        if (!string.IsNullOrWhiteSpace(codeListUniqueId) && _frozenCodeListDictionary != null &&
+            _frozenCodeListDictionary.TryGetValue(codeListUniqueId, out var codeList))
         {
             variableDto.CodeList = codeList;
             variableDto.CodeListId = codeList.Id;
+            variableDto.CodeListUniqueId = codeList.UniqueId;
             variableDto.Dictionary = null;
             variableDto.DictionaryId = 0;
+            variableDto.DictionaryUniqueId = string.Empty;
+            return;
         }
-        else
-        {
-            variableDto.CodeList = null;
-            variableDto.CodeListId = 0;
-            variableDto.Dictionary = null;
-            variableDto.DictionaryId = 0;
-        }
+
+        variableDto.CodeList = null;
+        variableDto.CodeListId = 0;
+        variableDto.Dictionary = null;
+        variableDto.DictionaryId = 0;
+        variableDto.DictionaryUniqueId = string.Empty;
     }
 
-    private void HandleCommentUniqueIdChanged(VariableDto variableDto)
+    private void ApplyComment(VariableDto variableDto, string? commentUniqueId)
     {
-        if (_frozenCommentDictionary != null && _frozenCommentDictionary.TryGetValue(variableDto.CommentUniqueId ?? string.Empty, out var comment))
-        {
-            variableDto.Comment = comment;
-            variableDto.CommentId = comment.Id;
-        }
-        else
+        if (commentUniqueId == variableDto.Comment?.UniqueId)
+            return;
+
+        if (string.IsNullOrWhiteSpace(commentUniqueId) || _frozenCommentDictionary == null ||
+            !_frozenCommentDictionary.TryGetValue(commentUniqueId, out var comment))
         {
             variableDto.Comment = null;
             variableDto.CommentId = 0;
+            return;
         }
+
+        variableDto.Comment = comment;
+        variableDto.CommentId = comment.Id;
+        variableDto.CommentUniqueId = comment.UniqueId;
     }
 
 
@@ -367,6 +437,34 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         });
         _messageService.Success("Variable deleted successfully.");
     }
+
+    [RelayCommand]
+    private async Task DeleteSelectedAsync()
+    {
+        var selectedVariables = _sourceCache.Items.Where(o => o.IsSelected).ToList();
+        if (selectedVariables.Count == 0)
+        {
+            _messageService.Info("Please select at least one variable to delete.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Selected Variables" },
+            { "Message", $"Are you sure you want to delete {selectedVariables.Count} selected variable(s)?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
+        foreach (var variable in selectedVariables)
+        {
+            variable.PropertyChanged -= VariableDtoOnPropertyChanged;
+            await _variableService.DeleteVariableAsync(variable);
+        }
+
+        _sourceCache.Remove(selectedVariables);
+        _messageService.Success($"{selectedVariables.Count} variable(s) deleted successfully.");
+    }
     
     [RelayCommand]
     private async Task AddVariable()
@@ -392,6 +490,181 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
+    private async Task AddCodeListAsync(VariableDto variable)
+    {
+        if (_currentProjectService.CurrentProject == null)
+            return;
+
+        var result = await _dialogHostService.ShowDialogAsync("CodeListDialog", new DialogParameters
+        {
+            { "Variable", variable }
+        });
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<CodeList>("CodeList", out var codeList))
+            return;
+
+        var entity = await _codeListService.InsertCodeListAsync(codeList);
+        if (!result.Parameters.TryGetValue<VariableDto>("Variable", out var selectedVariable) || selectedVariable == null)
+            return;
+        await LinkCodeListAsync(selectedVariable, entity);
+        _messageService.Success("Code list created and linked to the variable successfully.");
+    }
+
+    [RelayCommand]
+    private async Task EditCodeListAsync(VariableDto variable)
+    {
+        if (variable.CodeList == null)
+            return;
+
+        var codeListDto = (await _codeListService.GetAllCodeListDtosAsync())
+            .FirstOrDefault(o => o.Id == variable.CodeList.Id);
+        if (codeListDto == null)
+            return;
+
+        var result = await _dialogHostService.ShowDialogAsync("CodeListDialog", new DialogParameters
+        {
+            { "Model", codeListDto }
+        });
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<CodeList>("CodeList", out var codeList))
+            return;
+
+        codeListDto = _mapper.Map<CodeListDto>(codeList);
+        await _codeListService.UpdateCodeListWithTermsAsync(codeListDto);
+        var updatedCodeList = _mapper.Map<CodeList>(codeListDto);
+        foreach (var item in _sourceCache.Items.Where(o => o.CodeListId == codeListDto.Id).ToList())
+        {
+            item.CodeList = updatedCodeList;
+            item.CodeListId = codeListDto.Id;
+            item.CodeListUniqueId = codeListDto.UniqueId;
+            await _variableService.UpdateVariableAsync(item);
+            _sourceCache.AddOrUpdate(item);
+        }
+        _messageService.Success("Code list updated successfully.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteCodeListAsync(VariableDto variable)
+    {
+        if (variable.CodeList == null)
+            return;
+
+        var codeList = variable.CodeList;
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Code List" },
+            { "Message", $"Are you sure you want to delete code list {codeList.UniqueId}? All references will be cleared." }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
+        await _codeListService.DeleteCodeListAsync(_mapper.Map<CodeListDto>(codeList));
+        var affectedVariables = _sourceCache.Items.Where(o => o.CodeListId == codeList.Id).ToList();
+        foreach (var item in affectedVariables)
+        {
+            item.CodeList = null;
+            item.CodeListId = 0;
+            item.CodeListUniqueId = string.Empty;
+            await _variableService.UpdateVariableAsync(item);
+            _sourceCache.AddOrUpdate(item);
+        }
+        _messageService.Success("Code list deleted successfully.");
+    }
+
+    [RelayCommand]
+    private async Task AddDictionaryAsync(VariableDto variable)
+    {
+        if (_currentProjectService.CurrentProject == null)
+            return;
+
+        var result = await _dialogService.ShowAddDictionaryModelAsync();
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<DictionaryDto>("Model", out var dictionary))
+            return;
+
+        var entity = await _dictionaryService.InsertDictionaryAsync(dictionary);
+        await LinkDictionaryAsync(variable, entity);
+        _messageService.Success("Dictionary created and linked to the variable successfully.");
+    }
+
+    [RelayCommand]
+    private async Task EditDictionaryAsync(VariableDto variable)
+    {
+        if (variable.Dictionary == null)
+            return;
+
+        var result = await _dialogService.ShowEditDictionaryModelAsync(_mapper.Map<DictionaryDto>(variable.Dictionary));
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<DictionaryDto>("Model", out var dictionary))
+            return;
+
+        var entity = await _dictionaryService.UpdateDictionaryAsync(dictionary);
+        foreach (var item in _sourceCache.Items.Where(o => o.DictionaryId == dictionary.Id).ToList())
+        {
+            item.Dictionary = entity;
+            item.DictionaryId = entity.Id;
+            item.DictionaryUniqueId = entity.UniqueId;
+            item.CodeListUniqueId = entity.UniqueId;
+            await _variableService.UpdateVariableAsync(item);
+            _sourceCache.AddOrUpdate(item);
+        }
+        _messageService.Success("Dictionary updated successfully.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteDictionaryAsync(VariableDto variable)
+    {
+        if (variable.Dictionary == null)
+            return;
+
+        var dictionary = variable.Dictionary;
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Dictionary" },
+            { "Message", $"Are you sure you want to delete dictionary {dictionary.UniqueId}? All references will be cleared." }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
+        await _dictionaryService.DeleteDictionaryAsync(_mapper.Map<DictionaryDto>(dictionary));
+        var affectedVariables = _sourceCache.Items.Where(o => o.DictionaryId == dictionary.Id).ToList();
+        foreach (var item in affectedVariables)
+        {
+            item.Dictionary = null;
+            item.DictionaryId = 0;
+            item.DictionaryUniqueId = string.Empty;
+            item.CodeListUniqueId = string.Empty;
+            await _variableService.UpdateVariableAsync(item);
+            _sourceCache.AddOrUpdate(item);
+        }
+        _messageService.Success("Dictionary deleted successfully.");
+    }
+
+    private async Task LinkCodeListAsync(VariableDto variable, CodeListDto codeList)
+    {
+        variable.CodeList = _mapper.Map<CodeList>(codeList);
+        variable.CodeListId = codeList.Id;
+        variable.CodeListUniqueId = codeList.UniqueId;
+        variable.Dictionary = null;
+        variable.DictionaryId = 0;
+        variable.DictionaryUniqueId = string.Empty;
+        await _variableService.UpdateVariableAsync(variable);
+        _sourceCache.AddOrUpdate(variable);
+    }
+
+    private async Task LinkDictionaryAsync(VariableDto variable, Dictionary dictionary)
+    {
+        variable.Dictionary = dictionary;
+        variable.DictionaryId = dictionary.Id;
+        variable.DictionaryUniqueId = dictionary.UniqueId;
+        variable.CodeList = null;
+        variable.CodeListId = 0;
+        variable.CodeListUniqueId = dictionary.UniqueId;
+        await _variableService.UpdateVariableAsync(variable);
+        _sourceCache.AddOrUpdate(variable);
+    }
+
+    [RelayCommand]
     private async Task CreateCodeList(VariableDto? variable)
     {
         if (variable == null || _currentProjectService.CurrentProject == null)
@@ -410,11 +683,17 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         }
 
         var entity = await _codeListService.InsertCodeListAsync(codeList);
-        variable.CodeListId = entity.Id;
-        variable.CodeListUniqueId = entity.UniqueId;
-        variable.CodeList = _mapper.Map<CodeList>(entity);
-        await _variableService.UpdateVariableAsync(variable);
-        _sourceCache.Edit(o => o.AddOrUpdate(variable));
+        if (!result.Parameters.TryGetValue<VariableDto>("Variable", out var selectedVariable) || selectedVariable == null)
+            return;
+
+        selectedVariable.CodeListId = entity.Id;
+        selectedVariable.CodeListUniqueId = entity.UniqueId;
+        selectedVariable.CodeList = _mapper.Map<CodeList>(entity);
+        selectedVariable.Dictionary = null;
+        selectedVariable.DictionaryId = 0;
+        selectedVariable.DictionaryUniqueId = string.Empty;
+        await _variableService.UpdateVariableAsync(selectedVariable);
+        _sourceCache.Edit(o => o.AddOrUpdate(selectedVariable));
         _messageService.Success("Code list created and linked to the variable successfully.");
     }
     
@@ -437,7 +716,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     }
     
     [RelayCommand]
-    private async Task AddComment(VariableDto variable)
+    private async Task AddCommentAsync(VariableDto variable)
     {
         var result = await _dialogService.ShowAddCommentModelAsync($"COM.{variable.VariableName}");
         if (result.Result == ButtonResult.Yes &&
@@ -473,6 +752,139 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         }
     }
 
+    [RelayCommand]
+    private async Task DeleteCommentAsync(VariableDto variable)
+    {
+        if (variable.Comment == null || !await _referenceDeletionService.ConfirmAndDeleteCommentAsync(variable.Comment))
+            return;
+
+        var affectedVariables = _sourceCache.Items
+            .Where(item => item.CommentId == variable.Comment.Id)
+            .ToList();
+        foreach (var affectedVariable in affectedVariables)
+        {
+            affectedVariable.Comment = null;
+            affectedVariable.CommentId = 0;
+            affectedVariable.CommentUniqueId = string.Empty;
+        }
+        _sourceCache.Edit(cache => cache.AddOrUpdate(affectedVariables));
+        _messageService.Success("Comment deleted successfully.");
+    }
+
+    [RelayCommand]
+    private async Task AddMethodAsync(VariableDto variable)
+    {
+        if (_currentProjectService.CurrentProject == null)
+            return;
+
+        var result = await _dialogService.ShowAddMethodModelAsync(new MethodDto
+        {
+            ProjectId = _currentProjectService.CurrentProject.Id,
+            CdiscDataType = _currentProjectService.CdiscDataType,
+            UniqueId = $"{variable.DatasetName}.{variable.VariableName}",
+            Name = $"Algorithm to derive {variable.DatasetName}.{variable.VariableName}",
+            Type = "Computation"
+        });
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<MethodDto>("Model", out var method))
+        {
+            return;
+        }
+
+        var linkMatchingVariables = result.Parameters.TryGetValue<bool>("LinkMatchingVariables", out var link) && link;
+        var variableMatchMode = result.Parameters.TryGetValue<string>("VariableMatchMode", out var mode) ? mode : null;
+        var variableMatchText = result.Parameters.TryGetValue<string>("VariableMatchText", out var text) ? text : null;
+
+        var methodDto = await _methodService.InsertMethodAsync(
+            method,
+            linkMatchingVariables,
+            variableMatchMode,
+            variableMatchText);
+        var methodEntity = _mapper.Map<Method>(methodDto);
+        variable.Method = methodEntity;
+        variable.MethodId = methodDto.Id;
+        variable.MethodUniqueId = methodDto.UniqueId;
+        _sourceCache.Edit(o => o.AddOrUpdate(variable));
+        await _variableService.UpdateVariableAsync(variable);
+
+        var linkedCount = 0;
+        if (linkMatchingVariables &&
+            !string.IsNullOrWhiteSpace(variableMatchMode) &&
+            !string.IsNullOrWhiteSpace(variableMatchText))
+        {
+            var matchText = variableMatchText;
+            var comparison = StringComparison.OrdinalIgnoreCase;
+            foreach (var variableDto in _sourceCache.Items.Where(variableDto =>
+                         variableDto.Id != variable.Id &&
+                         variableDto.MethodId == 0 &&
+                         !string.IsNullOrWhiteSpace(variableDto.VariableName) &&
+                         IsVariableNameMatch(variableDto.VariableName!, variableMatchMode!, matchText, comparison)))
+            {
+                variableDto.Method = methodEntity;
+                variableDto.MethodId = methodDto.Id;
+                variableDto.MethodUniqueId = methodDto.UniqueId;
+                _sourceCache.AddOrUpdate(variableDto);
+                linkedCount++;
+            }
+        }
+
+        _messageService.Success(linkedCount == 0
+            ? "Method added and linked to the variable successfully."
+            : $"Method added and linked to {linkedCount + 1} variable(s) successfully.");
+    }
+
+    private static bool IsVariableNameMatch(string variableName, string matchMode, string matchText, StringComparison comparison)
+    {
+        return matchMode switch
+        {
+            "Start With" => variableName.StartsWith(matchText, comparison),
+            "End With" => variableName.EndsWith(matchText, comparison),
+            "Equal" => string.Equals(variableName, matchText, comparison),
+            _ => variableName.Contains(matchText, comparison)
+        };
+    }
+
+    [RelayCommand]
+    private async Task EditMethodAsync(VariableDto variable)
+    {
+        if (variable.Method == null)
+            return;
+
+        var result = await _dialogService.ShowEditMethodModelAsync(_mapper.Map<MethodDto>(variable.Method));
+        if (result.Result != ButtonResult.Yes ||
+            !result.Parameters.TryGetValue<MethodDto>("Model", out var method))
+        {
+            return;
+        }
+
+        await _methodService.UpdateMethodAsync(method);
+        variable.Method = _mapper.Map<Method>(method);
+        variable.MethodId = method.Id;
+        variable.MethodUniqueId = method.UniqueId;
+        _sourceCache.Edit(o => o.AddOrUpdate(variable));
+        await _variableService.UpdateVariableAsync(variable);
+        _messageService.Success("Method updated successfully.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteMethodAsync(VariableDto variable)
+    {
+        if (variable.Method == null || !await _referenceDeletionService.ConfirmAndDeleteMethodAsync(variable.Method))
+            return;
+
+        var affectedVariables = _sourceCache.Items
+            .Where(item => item.MethodId == variable.Method.Id)
+            .ToList();
+        foreach (var affectedVariable in affectedVariables)
+        {
+            affectedVariable.Method = null;
+            affectedVariable.MethodId = 0;
+            affectedVariable.MethodUniqueId = string.Empty;
+        }
+        _sourceCache.Edit(cache => cache.AddOrUpdate(affectedVariables));
+        _messageService.Success("Method deleted successfully.");
+    }
+
     public override async Task OnNavigatedFromAsync(NavigationContext navigationContext)
     {
         await base.OnNavigatedFromAsync(navigationContext);
@@ -481,15 +893,16 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         {
             variableDto.PropertyChanged -= VariableDtoOnPropertyChanged;
         }
-        
-        _disposables.Dispose();
+        _sourceCache.Clear();
     }
 
-    public override Task OnNavigatedToAsync(NavigationContext navigationContext)
+    public override async Task OnNavigatedToAsync(NavigationContext navigationContext)
     {
+        await base.OnNavigatedToAsync(navigationContext);
         var cdiscDataType = _currentProjectService.CdiscDataType;
+        Origins.Clear();
         Origins.AddRange(cdiscDataType == CdiscDataType.Sdtm ? [.. ConstantOptions.SdtmOrigins] : [.. ConstantOptions.AdamOrigins]);
-        return Task.CompletedTask;
+
     }
 
 

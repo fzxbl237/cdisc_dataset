@@ -78,14 +78,16 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
     
     [ObservableProperty]
     private VariableDto? _defaultVariable;
-    
-    // [ObservableProperty]
-    // private AvaloniaList<VariableOption> _variables = [];
-    //
-    // [ObservableProperty] private VariableOption? _selectedVariable;
-    
-    
+
+    public AvaloniaList<VariableOption> Variables { get; } = [];
+
+    [ObservableProperty] private VariableOption? _selectedVariable;
+    [ObservableProperty] private string _selectedVariableDisplay = string.Empty;
+    [ObservableProperty] private bool _isVariableSelectionVisible;
+
     [ObservableProperty] private CodeListDto _codeListDto = new();
+
+    [ObservableProperty] private bool _isInEditMode;
     
     private readonly SourceCache<TermDto,string> _sourceList= new (o=>o.Uuid);
     
@@ -137,86 +139,94 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
             .SortAndBind(out _terms,SortExpressionComparer<TermDto>.Ascending(o => o.Order))
             .Subscribe();
         
-        observableCache.Connect()
-            .WhenPropertyChanged(o=>o.Name,notifyOnInitialValue:false)
-            .ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
-            .DistinctUntilChanged()
-            .Do((change) =>
+        _sourceList.Connect()
+            .Subscribe(changes =>
+            {
+                foreach (var change in changes)
                 {
-
-                    var termStd = _sqlSugar.Queryable<TermStd>()
-                        .Where(o => o.CodeListId == CodeListStdId)
-                        .Where(o => o.Name == change.Value)
-                        .First();
-                    if (termStd != null)
+                    switch (change.Reason)
                     {
-                        change.Sender.Code = termStd.Code;
-                        if (!string.IsNullOrWhiteSpace(termStd.Synonyms))
-                        {
-                            change.Sender.DecodedValue = termStd.Synonyms.Split(";").FirstOrDefault();
-                        }
+                        case ChangeReason.Add:
+                            AttachTerm(change.Current);
+                            break;
+                        case ChangeReason.Remove:
+                            DetachTerm(change.Current);
+                            break;
                     }
-                    else
-                    {
-                        change.Sender.Code = string.Empty;
-                        change.Sender.DecodedValue = string.Empty;
-                    }
+                }
 
+                if (changes.Any(change => change.Reason == ChangeReason.Remove))
                     UpdateTermsDuplicate();
-                })
-            .Subscribe((change) =>
-            {
-                ValidateTermDtoAsync(change.Sender).Await();
-                _sourceList.AddOrUpdate(change.Sender);
-            }).DisposeWith(_disposables);
-        
-        observableCache.Connect()
-            .DisposeMany()
-            .WhereReasonsAre(ChangeReason.Remove)
-            .Subscribe(changeSet =>
-            {
-                UpdateTermsDuplicate();
-            });
-        
-        observableCache.Connect()
-            .DisposeMany()
-            .WhenPropertyChanged(x=>x.IsNameDuplicate,false)
-            .SubscribeOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
-            .DistinctUntilChanged()
-            .Subscribe( (change) =>
-            {
-                ValidateTermDtoAsync(change.Sender).Await();
-                _sourceList.AddOrUpdate(change.Sender);
-            });
-        
-        observableCache.Connect()
-            .DisposeMany()
-            .WhenPropertyChanged(x=>x.Order,false)
-            .SubscribeOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
-            .DistinctUntilChanged()
-            .Subscribe( (change) =>
-            {
-                UpdateTermsOrder();
-            });
-        
-        observableCache.Connect()
-            .DisposeMany()
-            .WhenPropertyChanged(x=>x.DecodedValue,false)
-            .SubscribeOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))
-            .DistinctUntilChanged()
-            .Subscribe( (change) =>
-            {
-                UpdateDecodedValueConsistent();
-            });
-        
+            })
+            .DisposeWith(_disposables);
     }
 
+    private void AttachTerm(TermDto term)
+    {
+        term.PropertyChanged += TermOnPropertyChanged;
+    }
 
+    private void DetachTerm(TermDto term)
+    {
+        term.PropertyChanged -= TermOnPropertyChanged;
+    }
+
+    private void TermOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not TermDto term || string.IsNullOrWhiteSpace(e.PropertyName))
+            return;
+
+        switch (e.PropertyName)
+        {
+            case nameof(TermDto.Name):
+                var termStd = _sqlSugar.Queryable<TermStd>()
+                    .Where(o => o.CodeListId == CodeListStdId)
+                    .Where(o => o.Name == term.Name)
+                    .First();
+                if (termStd != null)
+                {
+                    term.Code = termStd.Code;
+                    term.DecodedValue = string.IsNullOrWhiteSpace(termStd.Synonyms)
+                        ? string.Empty
+                        : termStd.Synonyms.Split(";").FirstOrDefault();
+                }
+                else
+                {
+                    term.Code = string.Empty;
+                    term.DecodedValue = string.Empty;
+                }
+
+                UpdateTermsDuplicate();
+                ValidateTermDtoAsync(term).Await();
+                _sourceList.AddOrUpdate(term);
+                break;
+            case nameof(TermDto.IsNameDuplicate):
+                ValidateTermDtoAsync(term).Await();
+                _sourceList.AddOrUpdate(term);
+                break;
+            case nameof(TermDto.Order):
+                UpdateTermsOrder();
+                break;
+            case nameof(TermDto.DecodedValue):
+                UpdateDecodedValueConsistent();
+                break;
+        }
+    }
+
+    private void CodeListDtoOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(CodeListDto.Terminology) && string.IsNullOrWhiteSpace(CodeListDto.Terminology))
+        {
+            CodeLists.Clear();
+            SelectedCodeList = null;
+        }
+    }
 
     private static Func<TermDto, bool> BuildFilter(string? searchText)
     {
         if (string.IsNullOrEmpty(searchText)) return trade => true;
         return o => Contains(searchText, o.Order.ToString(CultureInfo.InvariantCulture))
+                    ||Contains(searchText, o.CodeListUniqueId)
                     || Contains(searchText, o.Name)
                     || Contains(searchText,o.Code)
                     || Contains(searchText,o.DecodedValue)
@@ -230,44 +240,87 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
     
     public void OnDialogOpened(IDialogParameters parameters)
     {
-        if (parameters.TryGetValue<VariableDto>("Variable", out var defaultVariable))
+        CodeListDto.PropertyChanged -= CodeListDtoOnPropertyChanged;
+        DefaultVariable = null;
+        SelectedVariable = null;
+        Display = "Select CodeList";
+        IsInEditMode = parameters.TryGetValue<CodeListDto>("Model", out var model);
+        IsVariableSelectionVisible = !IsInEditMode &&
+                                     (parameters.ContainsKey("Variable") ||
+                                      (parameters.TryGetValue<bool>("SelectVariable", out var selectVariable) && selectVariable));
+        if (IsInEditMode && model != null)
         {
-            DefaultVariable =  defaultVariable;
+            CodeListDto = model;
+            _sourceList.Edit(items =>
+            {
+                items.Clear();
+                items.AddOrUpdate(_mapper.Map<List<TermDto>>(model.Terms ?? []));
+            });
+            Display = $"Edit codelist: {model.UniqueId}";
         }
-        if (DefaultVariable != null)
+        else if (IsVariableSelectionVisible)
         {
-            CodeListDto.Type = DefaultVariable?.DataType ?? Types[0];
-            LoadTermsFromXptAsync().Await();
-            Display = $"Create codelist for variable: {DefaultVariable?.DatasetName}.{DefaultVariable?.VariableName}";
+            parameters.TryGetValue<VariableDto>("Variable", out var defaultVariable);
+            LoadVariablesAsync(defaultVariable).Await();
         }
+
         Terminologies.Clear();
-        var list = _sqlSugar.Queryable<CodeListStd>().Select(o=>o.Terminology).Distinct().ToList();
+        var list = _sqlSugar.Queryable<CodeListStd>().Select(o => o.Terminology).Distinct().ToList();
         Terminologies.Add(" ");
         Terminologies.AddRange(list);
         LoadComments().Await();
 
-        if (Terminologies.Count >= 2)
+        if (!IsInEditMode && Terminologies.Count >= 2)
         {
-            var terminology = Terminologies[1];
-            CodeListDto.Terminology = terminology;
+            CodeListDto.Terminology = Terminologies[1];
         }
-        
 
-        this.WhenPropertyChanged(x => x.CodeListDto.Terminology)
-            .Select(o => o.Value)
-            .Subscribe(s =>
-            {
-                if (string.IsNullOrWhiteSpace(s))
-                {
-                    CodeLists.Clear();
-                    SelectedCodeList = null;
-                }
-            });
-        CodeListDto.Type = Types[0];
+        CodeListDto.PropertyChanged += CodeListDtoOnPropertyChanged;
+        if (string.IsNullOrWhiteSpace(CodeListDto.Type))
+            CodeListDto.Type = Types[0];
     }
-    
-    
-    
+
+    private async Task LoadVariablesAsync(VariableDto? defaultVariable)
+    {
+        var variables = await _variableService.GetAllVariableDtosAsync();
+        Variables.Clear();
+        Variables.AddRange(variables
+            .OrderBy(o => o.DatasetName)
+            .ThenBy(o => o.VariableName)
+            .Select(o => new VariableOption
+            {
+                Header = $"{o.DatasetName}.{o.VariableName}",
+                Content = o,
+                Variable = o
+            }));
+
+        if (defaultVariable == null)
+            return;
+
+        SelectedVariable = Variables.FirstOrDefault(o => o.Variable.Id == defaultVariable.Id);
+    }
+
+    partial void OnSelectedVariableChanged(VariableOption? value)
+    {
+        var variable = value?.Variable;
+        DefaultVariable = variable;
+        SelectedCodeList = null;
+        CodeLists.Clear();
+        _sourceList.Clear();
+
+        if (variable == null)
+        {
+            SelectedVariableDisplay = string.Empty;
+            Display = "Select CodeList";
+            return;
+        }
+
+        SelectedVariableDisplay = $"{variable.DatasetName}.{variable.VariableName}";
+        Display = $"Create codelist for variable: {SelectedVariableDisplay}";
+        CodeListDto.Type = variable.DataType ?? Types[0];
+        LoadTermsFromXptAsync().Await();
+    }
+
     partial void OnSelectedCodeListChanged(CodeListOption? value)
     {
         
@@ -341,16 +394,23 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
 
         var currentProjectId = _currentProjectService.CurrentProject?.Id??0;
 
+        var normalizedDatasetName = Path.GetFileNameWithoutExtension(datasetName.Trim());
         var projectFile = _projectFiles.Query()
             .Where(o => o.ProjectId == currentProjectId && o.FileType == ProjectFileType.Sdtm)
             .ToList()
             .FirstOrDefault(o => string.Equals(
-                Path.GetFileNameWithoutExtension(o.FileName),
-                datasetName,
+                Path.GetFileNameWithoutExtension(o.FileName.Trim()),
+                normalizedDatasetName,
                 StringComparison.OrdinalIgnoreCase));
         if (projectFile == null)
         {
-            _messageService.Error($"SDTM XPT file for {datasetName} was not found");
+            _messageService.Error($"SDTM XPT file for {normalizedDatasetName} was not found in the current project. Please upload {normalizedDatasetName}.xpt first.");
+            return;
+        }
+
+        if (!_liteDatabase.FileStorage.Exists(projectFile.StorageId.ToString()))
+        {
+            _messageService.Error($"SDTM XPT file {projectFile.FileName} is registered but its stored content is missing. Please upload it again.");
             return;
         }
 
@@ -595,6 +655,7 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
     [RelayCommand]
     private void Save()
     {
+        DetachPropertyChangedHandlers();
         var codeList = _mapper.Map<CodeList>(CodeListDto);
         codeList.ProjectId = _currentProjectService.CurrentProject?.Id??0;
         codeList.CdiscDataType = _currentProjectService.CdiscDataType;
@@ -618,9 +679,17 @@ public partial class CodeListDialogViewModel: ObservableObject, IDialogHostAware
         DialogHost.Close("Root",dialogResult );
     }
     
+    private void DetachPropertyChangedHandlers()
+    {
+        CodeListDto.PropertyChanged -= CodeListDtoOnPropertyChanged;
+        foreach (var term in _sourceList.Items)
+            DetachTerm(term);
+    }
+
     [RelayCommand]
     private void Cancel()
     {
+        DetachPropertyChangedHandlers();
         DialogHost.Close("Root",new DialogResult{Result = ButtonResult.Cancel} );
     }
 }
@@ -678,4 +747,9 @@ public record TermCompleteOption : AutoCompleteOption
 public class CodeListOption :SelectOption
 {
     public CodeListReference? CodeListReference { get; set; }
+}
+
+public class VariableOption : SelectOption
+{
+    public VariableDto Variable { get; set; } = null!;
 }

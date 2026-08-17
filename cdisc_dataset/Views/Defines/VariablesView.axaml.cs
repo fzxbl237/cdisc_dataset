@@ -1,10 +1,7 @@
-﻿using AsyncNavigation.Abstractions;
-using System;
-using System.Reactive.Linq;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using AsyncNavigation.Abstractions;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using cdisc_dataset.ViewModels.Defines;
 using ReactiveUI;
@@ -28,7 +25,7 @@ public partial class VariablesView : UserControl, IActivatableView, IView
                         await Task.Delay(250);
                         await vm.LoadVariablesAsync();
                     });
-                }, DispatcherPriority.Background);
+                });
             }
         });
     }

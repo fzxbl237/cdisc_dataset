@@ -14,9 +14,11 @@ public interface IDocumentService
 
     Task<List<Document>> GetAllDocumentsAsync();
 
-    Task<int> DeleteDocumentAsync(Document? document);
+    Task<Dictionary<string, string>> ConfirmDocumentReferenceAsync(DocumentDto document);
+
+    Task<int> DeleteDocumentAsync(Document? document, bool clearReferences = true);
     
-    Task<int> DeleteDocumentDtoAsync(DocumentDto? document);
+    Task<int> DeleteDocumentDtoAsync(DocumentDto? document, bool clearReferences = true);
 
     Task<Document> InsertDocumentAsync(Document document);
     

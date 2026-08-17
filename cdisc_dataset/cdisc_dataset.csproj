@@ -44,6 +44,7 @@
       <ProjectReference Include="..\Validator.Api\Validator.Api.csproj" />
       <ProjectReference Include="..\Validator.Core\Validator.Core.csproj" />
       <ProjectReference Include="..\Validator.Data\Validator.Data.csproj" />
+      <ProjectReference Include="..\Validator.Define\Validator.Define.csproj" />
       <ProjectReference Include="..\WhereClause\WhereClause.csproj" />
     </ItemGroup>
 
@@ -62,6 +63,9 @@
     <ItemGroup>
       <AvaloniaResource Include="Assets\paches_square.png" />
       <AvaloniaResource Include="Assets\define2-1-0.xsl" />
+      <Content Include="Assets\DefineXmlSchema\**\*.xsd">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
       <AvaloniaResource Include="Controls\DataGrid\Themes\**\*.axaml" />
       <None Remove="Assets\paches.png" />
       <AvaloniaResource Include="Assets\paches.png" />

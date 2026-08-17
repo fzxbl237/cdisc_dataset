@@ -1,8 +1,10 @@
 ﻿using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using AtomUI.Controls;
+using AtomUI.Controls.Data;
 using AtomUI.Controls.Utils;
 using AtomUI.Desktop.Controls;
 using Avalonia.Collections;
@@ -24,16 +26,21 @@ namespace cdisc_dataset.ViewModels.Dialogs;
 public partial class CommentViewModel(
     IMessageService messageService,
     IDocumentService documentService,
+    IVariableService variableService,
     FormCommentValidator formCommentValidator,
     ICurrentProjectService currentProjectService,
     IValidator<CommentDto> validator)
     : ObservableObject, IDialogHostAware
 {
     private readonly IValidator<CommentDto> _validator = validator;
+    private readonly IVariableService _variableService = variableService;
 
     private FrozenDictionary<string, Document>? _frozenDocumentDictionary;
 
     public string? DialogHostName { get; set; }
+
+    public DefaultFilterValueSelector VariableFilterValueSelector { get; } = data =>
+        (data as IListItemData)?.Content;
 
     [ObservableProperty]
     private string? _title;
@@ -50,6 +57,12 @@ public partial class CommentViewModel(
     [ObservableProperty]
     private IList<IFormValidator> _validators = [];
 
+    [ObservableProperty]
+    private List<IListItemData> _variables = [];
+
+    [ObservableProperty]
+    private ObservableCollection<EntityKey> _targetKeys = [];
+
     public AvaloniaList<ISelectOption> DocumentOptions { get; } = [];
 
     public void OnDialogOpened(IDialogParameters parameters)
@@ -65,6 +78,7 @@ public partial class CommentViewModel(
         formCommentValidator.CommentDto = Comment;
         Validators.Add(formCommentValidator);
         LoadDocuments().Await();
+        LoadVariables().Await();
     }
 
     partial void OnSelectedDocumentOptionChanged(CommentDocumentSelectOption? value)
@@ -80,6 +94,23 @@ public partial class CommentViewModel(
         Comment.Document = value.Document;
         Comment.DocumentId = value.Document.Id;
         Comment.DocumentUniqueId = value.Document.UniqueId;
+    }
+
+    private async Task LoadVariables()
+    {
+        var variables = await _variableService.GetAllVariableDtosAsync();
+        Variables = variables
+            .Where(variable => variable.CommentId == 0)
+            .OrderBy(variable => variable.DatasetName)
+            .ThenBy(variable => variable.Order)
+            .ThenBy(variable => variable.VariableName)
+            .Select(variable => (IListItemData)new ListItemData
+            {
+                ItemKey = variable.Id.ToString(),
+                Content = $"{variable.DatasetName}.{variable.VariableName} - {variable.Label}"
+            })
+            .ToList();
+        TargetKeys.Clear();
     }
 
     private async Task LoadDocuments()
@@ -129,7 +160,17 @@ public partial class CommentViewModel(
         var dialogResult = new DialogResult
         {
             Result = ButtonResult.Yes,
-            Parameters = new DialogParameters { { "Model", Comment } }
+            Parameters = new DialogParameters
+            {
+                { "Model", Comment },
+                {
+                    "VariableIds",
+                    TargetKeys
+                        .Select(key => int.TryParse(key.Value, out var id) ? id : 0)
+                        .Where(id => id > 0)
+                        .ToList()
+                }
+            }
         };
         DialogHost.Close(DialogHostName ?? "Root", dialogResult);
     }

@@ -1,4 +1,5 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using cdisc_dataset.Models.Dto;
 using FluentValidation;
 using FluentValidation.Results;
@@ -95,6 +96,12 @@ public class ValueLevelValidator : AbstractValidator<ValueLevelDto>
             .WithSeverity(Severity.Warning)
             .WithMessage("The Length attribute is required when DataType is integer, float, or text.");
         
+        RuleFor(x => x.Format)
+            .Must(format => string.IsNullOrWhiteSpace(format) ||
+                            !Regex.IsMatch(format.Trim(), @"^(\$\d+|best)", RegexOptions.IgnoreCase))
+            .WithSeverity(Severity.Warning)
+            .WithMessage("This format is generally redundant.");
+
         RuleFor(x => x.Length)
             .InclusiveBetween(1, 200)
             .When(x => x.Length.HasValue)

@@ -26,7 +26,10 @@ public partial class VariableDto:BaseDto
     
     [ObservableProperty] private string? _assignedValue;
 
-    [ObservableProperty] private CodeList? _codeList;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CodeListExist))]
+    [NotifyPropertyChangedFor(nameof(CodeListOrDictionaryEmpty))]
+    private CodeList? _codeList;
     
     [ObservableProperty] private string? _codeListUniqueId;
     
@@ -52,7 +55,10 @@ public partial class VariableDto:BaseDto
     
     [ObservableProperty] private int _dictionaryId;
     
-    [ObservableProperty] private Dictionary? _dictionary;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DictionaryExist))]
+    [NotifyPropertyChangedFor(nameof(CodeListOrDictionaryEmpty))]
+    private Dictionary? _dictionary;
     
     [ObservableProperty] private string? _dictionaryUniqueId;
     
@@ -89,6 +95,12 @@ public partial class VariableDto:BaseDto
     public bool CommentExist =>Comment!=null;
     
     public bool MethodExist =>Method!=null;
+
+    public bool CodeListExist => CodeList != null;
+
+    public bool DictionaryExist => Dictionary != null;
+
+    public bool CodeListOrDictionaryEmpty => CodeList == null && Dictionary == null;
     
     
 }

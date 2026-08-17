@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace cdisc_dataset.Models.Dto;
 
@@ -39,4 +39,5 @@ public partial class MethodDto : BaseDto
 
     [ObservableProperty]
     private bool _hasNameDuplicate;
+
 }

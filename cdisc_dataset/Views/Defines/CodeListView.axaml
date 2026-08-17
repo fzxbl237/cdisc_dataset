@@ -310,8 +310,22 @@
                             OffContent="All"
                             OnContent="Has Error"
                             VerticalAlignment="Center" />
-                        <atom:Button Color="Default" Command="{Binding AddCodeListCommand}" Content="新增" Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" Variant="Solid" />
-                        <atom:Button Color="Default" Command="{Binding AddCodeListFromVariableCommand}" Content="从变量创建" Icon="{antd-icons:AntDesignIconProvider Kind=DatabaseOutlined}" Variant="Solid" />
+                        <atom:Button Color="Default" Command="{Binding DeleteSelectedCommand}" Content="批量删除" Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" Variant="Solid" />
+                        <atom:SplitButton
+                            Command="{Binding AddCodeListFromVariableCommand}"
+                            Content="从变量创建"
+                            Icon="{antd-icons:AntDesignIconProvider Kind=DatabaseOutlined}">
+                            <atom:SplitButton.Flyout>
+                                <atom:Flyout Placement="Bottom">
+                                    <StackPanel>
+                                        <atom:MenuItem
+                                            Command="{Binding AddCodeListCommand}"
+                                            Header="新增"
+                                            Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+                                    </StackPanel>
+                                </atom:Flyout>
+                            </atom:SplitButton.Flyout>
+                        </atom:SplitButton>
                         <atom:Button Color="Default" Command="{Binding MergeSelectedCodeListsCommand}" Content="合并" Icon="{antd-icons:AntDesignIconProvider Kind=MergeCellsOutlined}" Variant="Solid" />
                     </StackPanel>
                 </customGrid:DataGrid.SearchBarRightContent>
@@ -332,7 +346,8 @@
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:CodeListViewModel)DataContext).AddCommentCommand}" CommandParameter="{Binding}" Content="Add New" IsVisible="{Binding !CommentExist}" SizeType="Small" />
                                         <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:CodeListViewModel)DataContext).EditCommentCommand}" CommandParameter="{Binding Comment}" Content="Open in Editor" IsVisible="{Binding CommentExist}" SizeType="Small" />
-                                        <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:CodeListViewModel)DataContext).DeleteCommentCommand}" CommandParameter="{Binding Comment}" Content="Delete" IsVisible="{Binding CommentExist}" SizeType="Small" />
+                                        <Border Background="#D9D9D9" Height="18" IsVisible="{Binding CommentExist}" VerticalAlignment="Center" Width="1" />
+                                        <atom:Button ButtonType="Link" Command="{Binding #Root.((vm:CodeListViewModel)DataContext).DeleteCommentCommand}" CommandParameter="{Binding Comment}" Content="Delete" IsDanger="True" IsVisible="{Binding CommentExist}" SizeType="Small" />
                                     </StackPanel>
                                 </Border>
                             </DataTemplate>

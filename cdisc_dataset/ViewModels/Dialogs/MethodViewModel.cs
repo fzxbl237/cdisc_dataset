@@ -53,7 +53,11 @@ public partial class MethodViewModel : ObservableObject, IDialogHostAware
     private IList<IFormValidator>  _validators = [];
 
     [ObservableProperty] private AvaloniaList<string> _types = ["Computation", "Imputation"];
-    
+    [ObservableProperty] private bool _isVariableLinkEnabled;
+    [ObservableProperty] private string? _variableMatchMode = "Equal";
+    [ObservableProperty] private string? _variableMatchText;
+
+    public AvaloniaList<string> VariableMatchModes { get; } = ["Equal","Start With", "End With", "Contains"];
     public AvaloniaList<ISelectOption> DocumentOptions { get; } = [];
     
 
@@ -159,7 +163,28 @@ public partial class MethodViewModel : ObservableObject, IDialogHostAware
         var dialogResult = new DialogResult
         {
             Result = ButtonResult.Yes,
-            Parameters = new DialogParameters { { "Model", Method } }
+            Parameters = new DialogParameters { { "Model", new MethodDto
+            {
+                Id = Method.Id,
+                ProjectId = Method.ProjectId,
+                CdiscDataType = Method.CdiscDataType,
+                UniqueId = Method.UniqueId,
+                Name = Method.Name,
+                Type = Method.Type,
+                Description = Method.Description,
+                ExpressionContext = Method.ExpressionContext,
+                ExpressionCode = Method.ExpressionCode,
+                Pages = Method.Pages,
+                DocumentId = Method.DocumentId,
+                Document = Method.Document,
+                DocumentUniqueId = Method.DocumentUniqueId,
+                HasUniqueIdDuplicate = Method.HasUniqueIdDuplicate,
+                HasNameDuplicate = Method.HasNameDuplicate
+            } },
+            { "LinkMatchingVariables", IsVariableLinkEnabled },
+            { "VariableMatchMode", VariableMatchMode },
+            { "VariableMatchText", VariableMatchText }
+        }
         };
         DialogHost.Close(DialogHostName ?? "Root", dialogResult);
     }

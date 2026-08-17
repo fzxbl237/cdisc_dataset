@@ -149,6 +149,11 @@
                                     CommandParameter="{Binding}"
                                     Header="Delete"
                                     Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:CommentsViewModel)DataContext).AssignVariablesCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="关联变量"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=LinkOutlined}" />
                             </atom:ContextMenu>
                         </Setter>
                     </Style>
@@ -162,6 +167,12 @@
                             VerticalAlignment="Center" />
                         <atom:Button
                             Color="Default"
+                            Command="{Binding DeleteSelectedCommand}"
+                            Content="批量删除"
+                            Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}"
+                            Variant="Solid" />
+                        <atom:Button
+                            Color="Default"
                             Command="{Binding AddCommentCommand}"
                         Content="新增"
                             Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
@@ -169,6 +180,7 @@
                     </StackPanel>
                 </customGrid:DataGrid.SearchBarRightContent>
                 <customGrid:DataGrid.Columns>
+                    <customGrid:DataGridCheckBoxColumn Binding="{Binding IsSelected}" Header="" IsReadOnly="False" Width="40" />
                     <customGrid:DataGridTextColumn
                         Binding="{Binding UniqueId}"
                         Header="Id"

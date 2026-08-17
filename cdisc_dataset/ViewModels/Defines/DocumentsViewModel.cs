@@ -31,6 +31,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
     private readonly cdisc_dataset.Services.IDialogService _dialogService;
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IValidator<DocumentDto> _validator;
+    private readonly IReferenceDeletionService _referenceDeletionService;
 
     [ObservableProperty]
     private bool _hasChanges;
@@ -51,7 +52,8 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         IDialogHostService dialogHostService,
         cdisc_dataset.Services.IDialogService dialogService,
         ICurrentProjectService currentProjectService,
-        IValidator<DocumentDto> validator)
+        IValidator<DocumentDto> validator,
+        IReferenceDeletionService referenceDeletionService)
     {
         _messageService = messageService;
         _documentService = documentService;
@@ -60,6 +62,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         _dialogService = dialogService;
         _currentProjectService = currentProjectService;
         _validator = validator;
+        _referenceDeletionService = referenceDeletionService;
 
     }
 
@@ -247,21 +250,50 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task DeleteAsync(DocumentDto documentDto)
     {
-        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
-        {
-            { "Title", "Delete Document" },
-            { "Message", $"Are you sure you want to delete document {documentDto.Title}?" }
-        });
-        if (result.Result != ButtonResult.OK)
+        var clearReferences = await _referenceDeletionService.ConfirmReferenceDeletionAsync(
+            $"Delete document {documentDto.Title}?",
+            "Document",
+            await _documentService.ConfirmDocumentReferenceAsync(documentDto));
+        if (clearReferences == null)
             return;
 
-        await _documentService.DeleteDocumentDtoAsync(documentDto);
+        await _documentService.DeleteDocumentDtoAsync(documentDto, clearReferences.Value);
         UnregisterDocumentDtoPropertyChanged(documentDto);
         _allDocuments.Remove(documentDto);
         MarkDuplicates();
         RefreshDocuments();
         //HasChanges = true;
         _messageService.Success("Document deleted successfully.");
+    }
+
+    [RelayCommand]
+    private async Task DeleteSelectedAsync()
+    {
+        var selectedDocuments = _allDocuments.Where(o => o.IsSelected).ToList();
+        if (selectedDocuments.Count == 0)
+        {
+            _messageService.Info("Please select at least one document to delete.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Selected Documents" },
+            { "Message", $"Are you sure you want to delete {selectedDocuments.Count} selected document(s)?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
+        foreach (var document in selectedDocuments)
+        {
+            await _documentService.DeleteDocumentDtoAsync(document);
+            UnregisterDocumentDtoPropertyChanged(document);
+            _allDocuments.Remove(document);
+        }
+
+        MarkDuplicates();
+        RefreshDocuments();
+        _messageService.Success($"{selectedDocuments.Count} document(s) deleted successfully.");
     }
 
     [RelayCommand]

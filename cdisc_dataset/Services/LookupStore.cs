@@ -19,7 +19,6 @@ public sealed class LookupStore : ILookupStore
     private readonly SourceCache<CodeList, int> _codeLists = new(o => o.Id);
     private readonly SourceCache<Dictionary, int> _dictionaries = new(o => o.Id);
     private readonly SourceCache<Dataset, int> _datasets = new(o => o.Id);
-    private readonly SourceCache<Variable, int> _variables = new(o => o.Id);
     private readonly SourceCache<Document, int> _documents = new(o => o.Id);
 
     public IObservable<IChangeSet<Comment, int>> Comments => _comments.Connect();
@@ -27,8 +26,17 @@ public sealed class LookupStore : ILookupStore
     public IObservable<IChangeSet<CodeList, int>> CodeLists => _codeLists.Connect();
     public IObservable<IChangeSet<Dictionary, int>> Dictionaries => _dictionaries.Connect();
     public IObservable<IChangeSet<Dataset, int>> Datasets => _datasets.Connect();
-    public IObservable<IChangeSet<Variable, int>> Variables => _variables.Connect();
     public IObservable<IChangeSet<Document, int>> Documents => _documents.Connect();
+
+    public void UpsertMethod(Method method)
+    {
+        _methods.AddOrUpdate(method);
+    }
+
+    public void RemoveMethod(int methodId)
+    {
+        _methods.RemoveKey(methodId);
+    }
 
     public LookupStore(
         IServiceProvider serviceProvider,
@@ -62,7 +70,6 @@ public sealed class LookupStore : ILookupStore
             await RefreshCoreAsync(LookupKind.CodeList);
             await RefreshCoreAsync(LookupKind.Dictionary);
             await RefreshCoreAsync(LookupKind.Dataset);
-            await RefreshCoreAsync(LookupKind.Variable);
             await RefreshCoreAsync(LookupKind.Document);
         }
         finally
@@ -119,16 +126,6 @@ public sealed class LookupStore : ILookupStore
             {
                 var items = await _serviceProvider.GetRequiredService<IDatasetService>().GetAllDatasetsWithoutErrorAsync();
                 _datasets.Edit(cache =>
-                {
-                    cache.Clear();
-                    cache.AddOrUpdate(items);
-                });
-                break;
-            }
-            case LookupKind.Variable:
-            {
-                var items = await _serviceProvider.GetRequiredService<IVariableService>().GetAllVariablesWithoutErorrAsync();
-                _variables.Edit(cache =>
                 {
                     cache.Clear();
                     cache.AddOrUpdate(items);

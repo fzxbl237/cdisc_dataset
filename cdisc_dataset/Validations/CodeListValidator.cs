@@ -27,23 +27,22 @@ public class CodeListValidator : AbstractValidator<CodeListDto>
             .WithSeverity(severity:Severity.Error).WithMessage("CodeList Name cannot be empty");
         
         RuleFor(x=>x.UniqueId).Empty()
-            .When(o=>o.IsDuplicate)
+            .When(o=>o.IsUniqueIdDuplicate)
             .WithSeverity(Severity.Error)
             .WithMessage("CodeList Id is duplicate");
         
         RuleFor(x=>x.Name).Empty()
             .When(o=>o.IsNameDuplicate)
-            .WithSeverity(Severity.Error)
+            .WithSeverity(Severity.Warning)
             .WithMessage("CodeList Name is duplicate");
         
-        //TODO need custom comboBoxColumn to validation Terminology rather than Code?
-        RuleFor(x=>x.Code).Empty()
-            .When(o=>string.IsNullOrWhiteSpace(o.Terminology))
+        RuleFor(x=>x.Terminology).NotEmpty()
+            .When(o=>!string.IsNullOrWhiteSpace(o.Code))
             .WithSeverity(Severity.Error)
             .WithMessage("Terminology cannot be empty when Code is not empty");
         
-        RuleFor(x=>x.Code).NotEmpty()
-            .When(o=>!string.IsNullOrWhiteSpace(o.Terminology))
+        RuleFor(x=>x.Terminology).Empty()
+            .When(o=>string.IsNullOrWhiteSpace(o.Code))
             .WithSeverity(Severity.Error)
             .WithMessage("Terminology should be empty when Code is empty");
         

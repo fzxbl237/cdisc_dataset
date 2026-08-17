@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using cdisc_dataset.Models.Enums;
 
 namespace cdisc_dataset.Models.Dto;
@@ -6,6 +6,7 @@ namespace cdisc_dataset.Models.Dto;
 public class IssueDto
 {
     public int Id { get; set; }
+    public bool IsSelected { get; set; }
     public int ProjectId { get; set; }
     public CdiscDataType CdiscDataType { get; set; }
     public string EntityType { get; set; } = string.Empty;

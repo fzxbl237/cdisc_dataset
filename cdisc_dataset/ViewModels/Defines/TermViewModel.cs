@@ -344,6 +344,36 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         UpdateDecodedValueConsistent();
         _messageService.Success("Term deleted successfully.");
     }
+
+    [RelayCommand]
+    private async Task DeleteSelectedAsync()
+    {
+        var selectedTerms = _sourceCache.Items.Where(o => o.IsSelected).ToList();
+        if (selectedTerms.Count == 0)
+        {
+            _messageService.Info("Please select at least one term to delete.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("ConfirmDialog", new DialogParameters
+        {
+            { "Title", "Delete Selected Terms" },
+            { "Message", $"Are you sure you want to delete {selectedTerms.Count} selected term(s)?" }
+        });
+        if (result.Result != ButtonResult.OK)
+            return;
+
+        foreach (var term in selectedTerms)
+        {
+            await _termService.DeleteTermAsync(term);
+            Detach(term);
+        }
+
+        _sourceCache.Remove(selectedTerms);
+        MarkNameDuplicates();
+        UpdateDecodedValueConsistent();
+        _messageService.Success($"{selectedTerms.Count} term(s) deleted successfully.");
+    }
     
     [RelayCommand]
     private async Task AddTermAsync()
