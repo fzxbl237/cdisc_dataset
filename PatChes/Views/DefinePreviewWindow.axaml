@@ -1,0 +1,22 @@
+﻿<local:Window
+    Height="800"
+    MinHeight="600"
+    MinWidth="800"
+    Title="Define-XML 预览"
+    Width="1280"
+    x:Class="PatChes.Views.DefinePreviewWindow"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:atom="https://atomui.net"
+    xmlns:local="using:PatChes.Controls"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <atom:Spin
+        HorizontalAlignment="Center"
+        IsSpinning="True"
+        IsTipVisible="True"
+        SizeType="Large"
+        Tip="正在生成 Define-XML 预览..."
+        VerticalAlignment="Center"
+        x:Name="LoadingSpin">
+        <NativeWebView IsVisible="False" x:Name="WebView" />
+    </atom:Spin>
+</local:Window>

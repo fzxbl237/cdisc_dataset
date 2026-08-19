@@ -1,0 +1,73 @@
+﻿<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="PatChes.Views.Defines.IssueView"
+    x:DataType="vm:IssueViewModel"
+    x:Name="Root"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:customGrid="using:PatChes.Controls.DataGrid"
+    xmlns:converters="clr-namespace:PatChes.Converters"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:PatChes.ViewModels.Defines"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <atom:Skeleton
+        HorizontalAlignment="Stretch"
+        IsActive="True"
+        IsLoading="{Binding IsLoading}"
+        ParagraphRows="10"
+        VerticalAlignment="Stretch">
+        <customGrid:DataGrid
+            Background="White"
+            BorderBrush="#D0D0D0"
+            BorderThickness="1"
+            ColumnHeaderHeight="34"
+            IsReadOnly="False"
+            ItemsSource="{Binding Issues}"
+            LeftFrozenColumnCount="2"
+            Margin="8,4"
+            RowHeight="32">
+            <customGrid:DataGrid.Styles>
+                <Style Selector="customGrid|DataGridRow">
+                    <Setter Property="ContextMenu">
+                        <atom:ContextMenu>
+                            <atom:MenuItem
+                                Command="{Binding #Root.((vm:IssueViewModel)DataContext).DeleteSelectedCommand}"
+                                Header="批量删除"
+                                Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                        </atom:ContextMenu>
+                    </Setter>
+                </Style>
+            </customGrid:DataGrid.Styles>
+            <customGrid:DataGrid.SearchBarRightContent>
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <atom:Button
+                        Color="Primary"
+                        Command="{Binding ValidateDefineXmlCommand}"
+                        Content="验证 Define XML"
+                        Icon="{antd-icons:AntDesignIconProvider Kind=SafetyCertificateOutlined}"
+                        Variant="Solid" />
+                    <atom:Button
+                        Color="Default"
+                        Command="{Binding LoadDataCommand}"
+                        Content="刷新"
+                        Icon="{antd-icons:AntDesignIconProvider Kind=ReloadOutlined}"
+                        Variant="Solid" />
+                </StackPanel>
+            </customGrid:DataGrid.SearchBarRightContent>
+            <customGrid:DataGrid.Columns>
+                <customGrid:DataGridCheckBoxColumn Binding="{Binding IsSelected}" Header="" IsReadOnly="False" Width="40" />
+                <customGrid:DataGridTagColumn Binding="{Binding Severity}" ColorConverter="{x:Static converters:IssueSeverityTagColorConverter.Instance}" Header="Severity" Width="110" />
+                <customGrid:DataGridTextColumn Binding="{Binding EntityType}" Header="Entity" IsReadOnly="True" Width="150" />
+                <customGrid:DataGridTextColumn Binding="{Binding EntityId}" Header="Entity Id" IsReadOnly="True" Width="100" />
+                <customGrid:DataGridTextColumn Binding="{Binding PropertyName}" Header="Property" IsReadOnly="True" Width="160" />
+                <customGrid:DataGridTextColumn Binding="{Binding ErrorMessage}" Header="Message" IsReadOnly="True" ShowToolTip="True" Width="460" />
+                <customGrid:DataGridTextColumn Binding="{Binding IssueCode}" Header="Issue Code" IsReadOnly="True" Width="160" />
+                <customGrid:DataGridTextColumn Binding="{Binding UpdatedAt}" Header="Updated At" IsReadOnly="True" Width="180" />
+            </customGrid:DataGrid.Columns>
+        </customGrid:DataGrid>
+    </atom:Skeleton>
+</UserControl>

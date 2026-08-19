@@ -1,0 +1,267 @@
+﻿<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="PatChes.Views.Defines.DictionariesView"
+    x:DataType="vm:DictionariesViewModel"
+    x:Name="Root"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:controls="using:PatChes.Controls"
+    xmlns:customGrid="using:PatChes.Controls.DataGrid"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogs="clr-namespace:PatChes.ViewModels.Dialogs"
+    xmlns:dto="clr-namespace:PatChes.Models.Dto"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:PatChes.ViewModels.Defines"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{Binding SaveCommand}" Gesture="Ctrl+S" />
+        <KeyBinding Command="{Binding DiscardCommand}" Gesture="Escape" />
+    </UserControl.KeyBindings>
+    <atom:Skeleton
+        HorizontalAlignment="Stretch"
+        IsActive="True"
+        IsLoading="{Binding IsLoading}"
+        ParagraphRows="10"
+        VerticalAlignment="Stretch">
+        <Grid RowDefinitions="50,*,50">
+            <!-- Original native toolbar and DataGrid retained for migration reference.
+        <DockPanel>
+            <atom:LineEdit
+                DockPanel.Dock="Left"
+                IsAllowClear="True"
+                MinWidth="200"
+                PlaceholderText="Please input search string"
+                Text="{Binding SearchText}" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding AddDictionaryCommand}"
+                Content="新增"
+                DockPanel.Dock="Right"
+                HorizontalAlignment="Right"
+                Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+        </DockPanel>
+        <DataGrid
+            Grid.Row="1"
+            IsReadOnly="False"
+            ItemsSource="{Binding Dictionarys}">
+            <DataGrid.Styles>
+                <Style Selector="DataGridRow">
+                    <Setter Property="ContextMenu">
+                        <atom:ContextMenu x:DataType="dto:DictionaryDto">
+                            <atom:MenuItem
+                                Command="{Binding #Root.((vm:DictionariesViewModel)DataContext).DeleteCommand}"
+                                CommandParameter="{Binding}"
+                                Header="Delete"
+                                Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                        </atom:ContextMenu>
+                    </Setter>
+                </Style>
+            </DataGrid.Styles>
+            <DataGrid.Columns>
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding UniqueId}"
+                    Header="Id"
+                    IsReadOnly="False"
+                    Width="150" />
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding Name}"
+                    Header="Name"
+                    IsReadOnly="False"
+                    Width="200" />
+                <controls:DataGridAtomComboBoxColumn
+                    Binding="{Binding DataType}"
+                    Header="Data Type"
+                    IsReadOnly="False"
+                    ItemsSource="{Binding DataTypeOptions}"
+                    Width="120" />
+                <controls:DataGridAtomAutoCompleteColumn
+                    Binding="{Binding DictionaryName}"
+                    Header="Dictionary Name"
+                    IsReadOnly="False"
+                    OptionsSource="{Binding DictionaryNameOptions}"
+                    Width="200">
+                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                        <DataTemplate x:DataType="atom:AutoCompleteOption">
+                            <StackPanel Margin="0,5">
+                                <atom:TextBlock
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Content}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                </controls:DataGridAtomAutoCompleteColumn>
+                [comment]  <controls:DataGridAtomComboBoxColumn  [/comment]
+                [comment]  Binding="{Binding Version}"  [/comment]
+                [comment]  Header="Version1"  [/comment]
+                [comment]  IsReadOnly="False"  [/comment]
+                [comment]  IsVisible="{Binding ShowComboBox}"  [/comment]
+                [comment]  ItemsSource="{Binding Versions}"  [/comment]
+                [comment]  Width="160"  [/comment]
+                [comment]  x:DataType="dto:DictionaryDto" />  [/comment]
+
+                [comment]  <controls:DataGridAtomLineEditColumn  [/comment]
+                [comment]  Binding="{Binding Version}"  [/comment]
+                [comment]  Header="Version"  [/comment]
+                [comment]  IsReadOnly="False"  [/comment]
+                [comment]  Width="160" />  [/comment]
+                <DataGridBoundTemplateColumn
+                    Binding="{Binding Version, Mode=TwoWay}"
+                    Header="Version"
+                    Width="160">
+                    [comment] <DataGridBoundTemplateColumn.CellTemplate> [/comment]
+                    [comment]     <DataTemplate> [/comment]
+                    [comment]         <TextBlock Text="{Binding Version}" /> [/comment]
+                    [comment]     </DataTemplate> [/comment]
+                    [comment] </DataGridBoundTemplateColumn.CellTemplate> [/comment]
+                    <DataGridBoundTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <atom:ComboBox
+                                    HorizontalAlignment="Stretch"
+                                    IsVisible="{Binding ShowComboBox}"
+                                    ItemsSource="{Binding Versions}"
+                                    SelectedItem="{Binding Version, Mode=TwoWay}"
+                                    StyleVariant="Borderless" />
+                                <atom:LineEdit
+                                    IsVisible="{Binding !ShowComboBox}"
+                                    StyleVariant="Borderless"
+                                    Text="{Binding Version, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" />
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridBoundTemplateColumn.CellTemplate>
+                </DataGridBoundTemplateColumn>
+                <DataGridTemplateColumn Header="Options">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="10,0,0,0">
+                                <atom:HyperLinkTextBlock
+                                    Command="{Binding $parent[DataGrid].((vm:DictionariesViewModel)DataContext).EditDictionaryCommand}"
+                                    CommandParameter="{Binding}"
+                                    Text="Edit"
+                                    VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+            -->
+            <customGrid:DataGrid
+                Background="White"
+                BorderBrush="#D0D0D0"
+                BorderThickness="1"
+                ColumnHeaderHeight="34"
+                Grid.Row="0"
+                Grid.RowSpan="2"
+                ItemsSource="{Binding Dictionarys}"
+                LeftFrozenColumnCount="1"
+                Margin="8,4"
+                RowHeight="32">
+                <customGrid:DataGrid.Styles>
+                    <Style Selector="customGrid|DataGridRow">
+                        <Setter Property="ContextMenu">
+                            <atom:ContextMenu x:DataType="dto:DictionaryDto">
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:DictionariesViewModel)DataContext).EditDictionaryCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Edit"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=EditOutlined}" />
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:DictionariesViewModel)DataContext).DeleteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Delete"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:DictionariesViewModel)DataContext).DeleteSelectedCommand}"
+                                    Header="批量删除"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                            </atom:ContextMenu>
+                        </Setter>
+                    </Style>
+                </customGrid:DataGrid.Styles>
+                <customGrid:DataGrid.SearchBarRightContent>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <atom:ToggleSwitch
+                            IsChecked="{Binding IsErrorOnly}"
+                            OffContent="All"
+                            OnContent="Has Error"
+                            VerticalAlignment="Center" />
+                        <atom:Button
+                            Color="Default"
+                            Command="{Binding AddDictionaryCommand}"
+                        Content="新增"
+                            Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
+                            Variant="Solid" />
+                    </StackPanel>
+                </customGrid:DataGrid.SearchBarRightContent>
+                <customGrid:DataGrid.Columns>
+                    <customGrid:DataGridCheckBoxColumn Binding="{Binding IsSelected}" Header="" IsReadOnly="False" Width="40" />
+                    <customGrid:DataGridTextColumn
+                        Binding="{Binding UniqueId}"
+                        Header="Id"
+                        IsReadOnly="False"
+                        Width="150" />
+                    <customGrid:DataGridTextColumn
+                        Binding="{Binding Name}"
+                        Header="Name"
+                        IsReadOnly="False"
+                        Width="*" />
+                    <customGrid:DataGridComboBoxColumn
+                        Binding="{Binding DataType}"
+                        Header="Data Type"
+                        IsReadOnly="False"
+                        ItemsSource="{Binding DataTypeOptions}"
+                        Width="120" />
+                    <customGrid:DataGridAutoCompleteColumn
+                        Binding="{Binding DictionaryName}"
+                        Header="Dictionary Name"
+                        IsReadOnly="False"
+                        OptionsSource="{Binding DictionaryNameOptions}"
+                        Width="200">
+                        <customGrid:DataGridAutoCompleteColumn.OptionTemplate>
+                            <DataTemplate x:DataType="atom:AutoCompleteOption">
+                                <StackPanel Margin="0,5">
+                                    <atom:TextBlock
+                                        HorizontalAlignment="Left"
+                                        Text="{Binding Content}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </customGrid:DataGridAutoCompleteColumn.OptionTemplate>
+                    </customGrid:DataGridAutoCompleteColumn>
+                    <customGrid:DataGridDynamicColumn
+                        Binding="{Binding Version}"
+                        Header="Version"
+                        IsReadOnly="False"
+                        Width="160" />
+                </customGrid:DataGrid.Columns>
+            </customGrid:DataGrid>
+            <StackPanel
+                Grid.Row="2"
+                HorizontalAlignment="Right"
+                Orientation="Horizontal"
+                Spacing="15">
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding SaveCommand}"
+                    Content="Save"
+                    IsEnabled="{Binding HasChanges}"
+                    SizeType="Middle"
+                    atom:ToolTip.Tip="Save(Ctrl+S)" />
+
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding DiscardCommand}"
+                    Content="Discard"
+                    IsDanger="True"
+                    IsEnabled="{Binding HasChanges}"
+                    SizeType="Middle"
+                    atom:ToolTip.Tip="Discard(Esc)" />
+            </StackPanel>
+        </Grid>
+    </atom:Skeleton>
+</UserControl>

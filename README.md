@@ -1,4 +1,4 @@
-﻿# cdisc_dataset
+﻿# PatChes
 
 基于 Avalonia 的 CDISC 数据集与 Define-XML 管理桌面应用，面向 SDTM/ADaM 数据定义维护、标准数据导入、Define 元数据编辑、Define-XML 导出与验证。
 
@@ -69,8 +69,8 @@
 ## 解决方案结构
 
 ```text
-cdisc_dataset.sln
-├── cdisc_dataset/       主 Avalonia 桌面应用
+PatChes.sln
+├── PatChes/       主 Avalonia 桌面应用
 ├── Validator.Api/       数据校验相关 API 和模型
 ├── Validator.Core/      通用校验核心逻辑
 ├── Validator.Data/      校验数据访问与规则数据
@@ -81,7 +81,7 @@ cdisc_dataset.sln
 ### 主应用目录
 
 ```text
-cdisc_dataset/
+PatChes/
 ├── Assets/
 │   └── DefineXmlSchema/       ODM 1.3.2 和 Define-XML 2.1 Schema
 ├── Controls/                  自定义控件和 DataGrid 扩展
@@ -91,7 +91,7 @@ cdisc_dataset/
 ├── ViewModels/                MVVM ViewModel
 ├── Views/                     Avalonia 页面和对话框
 ├── App.axaml.cs               DI、数据库和导航注册
-└── cdisc_dataset.csproj       主应用项目文件
+└── PatChes.csproj       主应用项目文件
 ```
 
 ## 环境要求
@@ -107,8 +107,8 @@ cdisc_dataset/
 在仓库根目录执行：
 
 ```powershell
-dotnet restore cdisc_dataset.sln
-dotnet build cdisc_dataset.sln
+dotnet restore PatChes.sln
+dotnet build PatChes.sln
 ```
 
 当前解决方案的主应用目标框架为 `net10.0`，Define 验证相关子项目目标框架为 `net9.0`。
@@ -116,20 +116,20 @@ dotnet build cdisc_dataset.sln
 ## 运行
 
 ```powershell
-dotnet run --project cdisc_dataset/cdisc_dataset.csproj
+dotnet run --project PatChes/PatChes.csproj
 ```
 
 也可以直接使用 Rider 或 Visual Studio 打开：
 
 ```text
-cdisc_dataset.sln
+PatChes.sln
 ```
 
 ## 本地数据库
 
 应用启动时会自动初始化或升级 SQLite 数据库：
 
-- `cdisc_dataset.db`：项目数据、Define 元数据和 Issues
+- `PatChes.db`：项目数据、Define 元数据和 Issues
 - `cdisc_setting.db`：标准变量、标准数据集、受控术语和其他设置数据
 - `cdisc_files.db`：LiteDB 文件存储，用于保存上传的 XPT、PDF 等项目文件
 
@@ -185,14 +185,14 @@ public interface IDefineValidator
 这些路径是当前开发环境中的本地路径。若在其他机器构建，需要：
 
 1. 准备对应版本的 DLL；
-2. 修改 `cdisc_dataset/cdisc_dataset.csproj` 中的 `HintPath`；或
+2. 修改 `PatChes/PatChes.csproj` 中的 `HintPath`；或
 3. 将相关依赖改为 NuGet 或项目引用。
 
 ## 数据导入说明
 
 ### SDTM XPT
 
-SDTM XPT 导入逻辑位于 `cdisc_dataset/ViewModels/FileViewModel.cs`，主要步骤包括：
+SDTM XPT 导入逻辑位于 `PatChes/ViewModels/FileViewModel.cs`，主要步骤包括：
 
 - 解析 SAS Transport 文件；
 - 读取变量名、标签、格式、长度和记录值；
@@ -230,7 +230,7 @@ Code Lists、Methods、Comments、Dictionaries 和 Documents 的单项右键删�
 构建解决方案：
 
 ```powershell
-dotnet build cdisc_dataset.sln --no-restore
+dotnet build PatChes.sln --no-restore
 ```
 
 检查 Git 差异格式：

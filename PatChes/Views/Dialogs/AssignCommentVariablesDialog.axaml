@@ -1,0 +1,41 @@
+﻿<UserControl
+    d:DesignHeight="560"
+    d:DesignWidth="920"
+    mc:Ignorable="d"
+    x:Class="PatChes.Views.Dialogs.AssignCommentVariablesDialog"
+    x:DataType="vm:AssignCommentVariablesViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:atom="https://atomui.net"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:PatChes.ViewModels.Dialogs"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Margin="24" MinWidth="860" Spacing="16">
+        <atom:TextBlock
+            FontSize="20"
+            FontWeight="Bold"
+            Text="关联 Variables" />
+        <atom:ListTransfer
+            FilterValueSelector="{Binding VariableFilterValueSelector}"
+            IsFilterEnabled="True"
+            ItemsSource="{Binding Variables}"
+            ListHeight="360"
+            ListWidth="400"
+            SourceTitle="未关联 Comment 的 Variables"
+            TargetKeys="{Binding TargetKeys, Mode=TwoWay}"
+            TargetTitle="待关联 Variables" />
+        <StackPanel
+            HorizontalAlignment="Right"
+            Orientation="Horizontal"
+            Spacing="12">
+            <atom:Button
+                ButtonType="Default"
+                Command="{Binding CancelCommand}"
+                Content="取消" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding ConfirmCommand}"
+                Content="确认关联" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

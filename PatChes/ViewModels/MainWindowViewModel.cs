@@ -1,0 +1,158 @@
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using AtomUI.Controls;
+using AtomUI.Controls.Primitives;
+using AtomUI.Controls.Utils;
+using AtomUI.Desktop.Controls;
+using AtomUI.Desktop.Controls.Primitives;
+using AtomUI.Icons;
+using AtomUI.Icons.AntDesign;
+using AtomUI.Theme.Configuration;
+using AtomUI.Theme.DesignTokens;
+using AtomUI.Theme.Schema;
+using Avalonia.Collections;
+using Avalonia.Controls;
+using PatChes.Extensions;
+using PatChes.Messages;
+using PatChes.Models;
+using PatChes.Models.Enums;
+using PatChes.Services.Interface;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using AsyncNavigation.Abstractions;
+
+namespace PatChes.ViewModels;
+
+public partial class MainWindowViewModel : ObservableObject
+{
+    private readonly IRegionManager _regionManager;
+    private readonly IProjectService _projectService;
+    private readonly ICurrentProjectService _currentProjectService;
+    private readonly ISettingsService _settingsService;
+
+    [ObservableProperty] private NavMenuNode? _selectedNavMenuItem;
+
+    [ObservableProperty] private Project? _currentProject;
+    [ObservableProperty] private bool _isNavigationCollapsed;
+    
+    public int NavigationWidth => IsNavigationCollapsed ? 80 : 220;
+
+    public TreeNodePath DefaultSelectedPath { get; set; } = new("/Projects");
+
+    public AvaloniaList<Project> Projects { get; set; } = [];
+
+    private const string CurrentProjectIdKey = "CurrentProjectId";
+    
+    public ThemeConfig NavMenuConfig { get; }
+
+    public MainWindowViewModel(
+        IRegionManager regionManager,
+        IProjectService projectService,
+        ICurrentProjectService currentProjectService,
+        ISettingsService settingsService)
+    {
+        _regionManager = regionManager;
+        _projectService = projectService;
+        _currentProjectService = currentProjectService;
+        _settingsService = settingsService;
+        WeakReferenceMessenger.Default.Register<ProjectChangedMessage>(this, (_, message) =>
+        {
+            message.Reply(RefreshProjectsAsync());
+        });
+        LoadProjects().AwaitWithOpt();
+        NavMenuConfig = BuildControlConfig(ControlAlgorithmMode.Global);
+    }
+    
+    public AvaloniaList<NavMenuNode> NavMenuItems { get; set; } =
+    [new(){ Header = "Projects",Icon = new ProjectOutlined(),ItemKey = "Projects"},
+        new(){ Header = "Files",Icon = new FileAddOutlined(),ItemKey = "Files"},
+        new(){ Header = "SDTM Define",Icon = new DatabaseOutlined(),ItemKey = "SdtmDefine"},
+        new(){ Header = "Terminology",Icon = new CodeOutlined(),ItemKey = "Terminology"}
+
+    ];
+
+    partial void OnIsNavigationCollapsedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(NavigationWidth));
+    }
+
+    [RelayCommand]
+    private void ToggleNavigation()
+    {
+        IsNavigationCollapsed = !IsNavigationCollapsed;
+    }
+
+    partial void OnSelectedNavMenuItemChanged(NavMenuNode? value)
+    {
+        if (value == null)
+            return;
+
+        if (value.ItemKey == "SdtmDefine")
+        {
+            _currentProjectService.CdiscDataType = CdiscDataType.Sdtm;
+        }
+
+        _ = _regionManager.RequestNavigateAsync("ContentRegion", value.ItemKey.ToString()!);
+    }
+
+    partial void OnCurrentProjectChanged(Project? value)
+    {
+        _currentProjectService.CurrentProject = value;
+        
+        if (value?.Id != null)
+        {
+            _settingsService.SetAsync(CurrentProjectIdKey, value.Id).AwaitWithOpt();
+            _settingsService.SaveAsync().AwaitWithOpt();
+        }
+    }
+
+    private async Task LoadProjects()
+    {
+        await RefreshProjectsAsync();
+    }
+
+    private async Task<bool> RefreshProjectsAsync()
+    {
+        Projects.Clear();
+        Projects.AddRange(await _projectService.GetAllProjectsAsync());
+
+        await SetCurrentProjectFromSettingsAsync();
+
+        return true;
+    }
+
+    private async Task SetCurrentProjectFromSettingsAsync()
+    {
+        var savedProjectId = await _settingsService.GetAsync<int?>(CurrentProjectIdKey);
+        
+        if (savedProjectId.HasValue)
+        {
+            var project = Projects.FirstOrDefault(p => p.Id == savedProjectId.Value);
+            if (project != null)
+            {
+                CurrentProject = project;
+                return;
+            }
+        }
+        
+        if (Projects.Count > 0)
+        {
+            CurrentProject = Projects[0];
+        }
+    }
+
+    private static ThemeConfig BuildControlConfig(ControlAlgorithmMode algorithm)
+    {
+        return new ThemeConfigBuilder()
+            .WithControl(
+                new ControlTokenIdentity("AtomUI", "NavMenu"),
+                new ControlThemeConfigBuilder()
+                    .WithAlgorithm(algorithm)
+                    .WithToken("DarkMenuBg", "#1C1E22")
+                    .Build())
+            .Build();
+    }
+
+}

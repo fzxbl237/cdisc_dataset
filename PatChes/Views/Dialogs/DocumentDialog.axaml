@@ -1,0 +1,83 @@
+﻿<UserControl
+    d:DesignHeight="360"
+    d:DesignWidth="700"
+    mc:Ignorable="d"
+    x:Class="PatChes.Views.Dialogs.DocumentDialog"
+    x:DataType="vm:DocumentViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:atom="https://atomui.net"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:PatChes.ViewModels.Dialogs"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel
+        Margin="20"
+        MinWidth="620"
+        Spacing="15">
+        <atom:TextBlock
+            FontSize="18"
+            FontWeight="Bold"
+            HorizontalAlignment="Left"
+            Text="{Binding Title}" />
+
+        <atom:Form
+            HorizontalAlignment="Stretch"
+            LabelColInfo="5*"
+            WrapperColInfo="17*">
+            <Interaction.Behaviors>
+                <EventTriggerBehavior EventName="Submitted">
+                    <InvokeCommandAction Command="{Binding ConfirmCommand}" />
+                </EventTriggerBehavior>
+            </Interaction.Behaviors>
+
+            <atom:FormItem
+                FieldName="UniqueId"
+                IsRequired="True"
+                IsValidateFeedbackEnabled="True"
+                LabelText="Id"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:LineEdit
+                    PlaceholderText="请输入 Id"
+                    Text="{Binding Document.UniqueId, Mode=TwoWay}" />
+            </atom:FormItem>
+
+            <atom:FormItem
+                FieldName="Title"
+                IsRequired="True"
+                IsValidateFeedbackEnabled="True"
+                LabelText="Title"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:LineEdit
+                    PlaceholderText="请输入 Title"
+                    Text="{Binding Document.Title, Mode=TwoWay}" />
+            </atom:FormItem>
+
+            <atom:FormItem
+                FieldName="Href"
+                IsRequired="True"
+                IsValidateFeedbackEnabled="True"
+                LabelText="Href"
+                ValidateTrigger="OnChanged"
+                Validators="{Binding Validators}">
+                <atom:LineEdit
+                    PlaceholderText="请输入 Href"
+                    Text="{Binding Document.Href, Mode=TwoWay}" />
+            </atom:FormItem>
+
+            <atom:FormActionsItem>
+                <StackPanel
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal"
+                    Spacing="15">
+                    <atom:Button
+                        ButtonType="Default"
+                        Command="{Binding CancelCommand}"
+                        Content="取消" />
+                    <atom:SubmitButton Content="确认" />
+                </StackPanel>
+            </atom:FormActionsItem>
+        </atom:Form>
+    </StackPanel>
+</UserControl>

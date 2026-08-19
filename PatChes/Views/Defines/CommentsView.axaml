@@ -1,0 +1,276 @@
+﻿<UserControl
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="PatChes.Views.Defines.CommentsView"
+    x:DataType="vm:CommentsViewModel"
+    x:Name="Root"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:controls="using:PatChes.Controls"
+    xmlns:converter="using:PatChes.Converters"
+    xmlns:customGrid="using:PatChes.Controls.DataGrid"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogs="clr-namespace:PatChes.ViewModels.Dialogs"
+    xmlns:dto="clr-namespace:PatChes.Models.Dto"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="clr-namespace:PatChes.ViewModels.Defines"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <atom:Skeleton
+        HorizontalAlignment="Stretch"
+        IsActive="True"
+        IsLoading="{Binding IsLoading}"
+        ParagraphRows="10"
+        VerticalAlignment="Stretch">
+        <Grid RowDefinitions="50,*,50">
+            <!-- Original native toolbar and DataGrid retained for migration reference.
+        <DockPanel>
+            <atom:LineEdit
+                DockPanel.Dock="Left"
+                IsAllowClear="True"
+                MinWidth="200"
+                PlaceholderText="Please input search string"
+                Text="{Binding SearchText}" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding AddCommentCommand}"
+                Content="新增"
+                DockPanel.Dock="Right"
+                HorizontalAlignment="Right"
+                Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
+        </DockPanel>
+        <DataGrid
+            CanUserSortColumns="False"
+            Grid.Row="1"
+            GridLinesVisibility="Horizontal"
+            HeadersVisibility="Column"
+            HorizontalScrollBarVisibility="Visible"
+            IsReadOnly="False"
+            ItemsSource="{Binding Comments}"
+            SelectionUnit="FullRow">
+            <DataGrid.Styles>
+                <Style Selector="TextBlock">
+                    <Setter Property="TextWrapping" Value="Wrap" />
+                </Style>
+                <Style Selector="DataGridCell.template:cell-selected">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                </Style>
+                <Style Selector="DataGridRow">
+                    <Setter Property="ContextMenu">
+                        <atom:ContextMenu x:DataType="dto:CommentDto">
+                            <atom:MenuItem
+                                Command="{Binding #Root.((vm:CommentsViewModel)DataContext).EditCommentCommand}"
+                                CommandParameter="{Binding}"
+                                Header="Edit" />
+                            <atom:MenuItem
+                                Command="{Binding #Root.((vm:CommentsViewModel)DataContext).DeleteCommand}"
+                                CommandParameter="{Binding}"
+                                Header="Delete"
+                                Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                        </atom:ContextMenu>
+                    </Setter>
+                </Style>
+            </DataGrid.Styles>
+            <DataGrid.Columns>
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding UniqueId}"
+                    Header="Id"
+                    IsReadOnly="False"
+                    Width="200" />
+
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding Description}"
+                    Header="Description"
+                    IsReadOnly="False"
+                    Width="300" />
+                [comment]  <DataGridTextColumn  [/comment]
+                [comment]  Binding="{Binding DocumentUniqueId}"  [/comment]
+                [comment]  Header="Document"  [/comment]
+                [comment]  IsReadOnly="False"  [/comment]
+                [comment]  Width="200" />  [/comment]
+
+                <controls:DataGridAtomAutoCompleteColumn
+                    Binding="{Binding DocumentUniqueId}"
+                    Header="Document"
+                    IsReadOnly="False"
+                    OptionsSource="{Binding DocumentOptions}"
+                    Width="200">
+                    <controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                        <DataTemplate x:DataType="vm:DocumentAutoCompleteOption">
+                            <StackPanel Margin="0,5">
+                                <atom:TextBlock
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Content}"
+                                    TextWrapping="Wrap" />
+                                <atom:TextBlock
+                                    FontSize="12"
+                                    Foreground="#1677ff"
+                                    HorizontalAlignment="Left"
+                                    Text="{Binding Document.Title}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </controls:DataGridAtomAutoCompleteColumn.OptionTemplate>
+                </controls:DataGridAtomAutoCompleteColumn>
+
+
+                <controls:DataGridAtomLineEditColumn
+                    Binding="{Binding Pages}"
+                    Header="Pages"
+                    IsReadOnly="False"
+                    Width="200" />
+            </DataGrid.Columns>
+        </DataGrid>
+            -->
+            <customGrid:DataGrid
+                Background="White"
+                BorderBrush="#D0D0D0"
+                BorderThickness="1"
+                ColumnHeaderHeight="34"
+                Grid.Row="0"
+                Grid.RowSpan="2"
+                ItemsSource="{Binding Comments}"
+                LeftFrozenColumnCount="1"
+                Margin="8,4"
+                RowHeight="32">
+                <customGrid:DataGrid.Styles>
+                    <Style Selector="customGrid|DataGridRow">
+                        <Setter Property="ContextMenu">
+                            <atom:ContextMenu x:DataType="dto:CommentDto">
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:CommentsViewModel)DataContext).EditCommentCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Edit"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=EditOutlined}" />
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:CommentsViewModel)DataContext).DeleteCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="Delete"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:CommentsViewModel)DataContext).AssignVariablesCommand}"
+                                    CommandParameter="{Binding}"
+                                    Header="关联变量"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=LinkOutlined}" />
+                                <atom:MenuItem
+                                    Command="{Binding #Root.((vm:CommentsViewModel)DataContext).DeleteSelectedCommand}"
+                                    Header="批量删除"
+                                    Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                            </atom:ContextMenu>
+                        </Setter>
+                    </Style>
+                </customGrid:DataGrid.Styles>
+                <customGrid:DataGrid.SearchBarRightContent>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <atom:ToggleSwitch
+                            IsChecked="{Binding IsErrorOnly}"
+                            OffContent="All"
+                            OnContent="Has Error"
+                            VerticalAlignment="Center" />
+                        <atom:Button
+                            Color="Default"
+                            Command="{Binding AddCommentCommand}"
+                        Content="新增"
+                            Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
+                            Variant="Solid" />
+                    </StackPanel>
+                </customGrid:DataGrid.SearchBarRightContent>
+                <customGrid:DataGrid.Columns>
+                    <customGrid:DataGridCheckBoxColumn Binding="{Binding IsSelected}" Header="" IsReadOnly="False" Width="40" />
+                    <customGrid:DataGridTextColumn
+                        Binding="{Binding UniqueId}"
+                        Header="Id"
+                        IsReadOnly="False"
+                        Width="200" />
+                    <customGrid:DataGridTextColumn
+                        Binding="{Binding Description}"
+                        Header="Description"
+                        IsReadOnly="False"
+                        Width="*" />
+                    <customGrid:DataGridAutoCompleteColumn
+                        Binding="{Binding DocumentUniqueId}"
+                        Header="Document"
+                        IsReadOnly="False"
+                        OptionsSource="{Binding DocumentOptions}"
+                        Width="200">
+                        <customGrid:DataGridAutoCompleteColumn.OptionTemplate>
+                            <DataTemplate x:DataType="vm:DocumentAutoCompleteOption">
+                                <StackPanel Margin="0,5">
+                                    <atom:TextBlock
+                                        HorizontalAlignment="Left"
+                                        Text="{Binding Content}"
+                                        TextWrapping="Wrap" />
+                                    <atom:TextBlock
+                                        FontSize="12"
+                                        Foreground="#1677ff"
+                                        HorizontalAlignment="Left"
+                                        Text="{Binding Document.Title}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </customGrid:DataGridAutoCompleteColumn.OptionTemplate>
+                        <customGrid:FloatingBar.FloatingBarTemplate>
+                            <DataTemplate x:DataType="dto:CommentDto">
+                                <Border
+                                    Background="White"
+                                    BorderBrush="{atom:SharedTokenResource ColorPrimary}"
+                                    BorderThickness="0.5"
+                                    BoxShadow="0 1 6 0 #18000000"
+                                    CornerRadius="4"
+                                    Padding="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <atom:Button
+                                            ButtonType="Link"
+                                            Command="{Binding #Root.((vm:CommentsViewModel)DataContext).AddDocumentCommand}"
+                                            CommandParameter="{Binding}"
+                                            Content="Add New"
+                                            IsVisible="{Binding Document, Converter={x:Static converter:Converters.IsNull}}"
+                                            SizeType="Small" />
+                                        <atom:Button
+                                            ButtonType="Link"
+                                            Command="{Binding #Root.((vm:CommentsViewModel)DataContext).EditDocumentCommand}"
+                                            CommandParameter="{Binding}"
+                                            Content="Open in Editor"
+                                            IsVisible="{Binding Document, Converter={x:Static converter:Converters.IsNotNull}}"
+                                            SizeType="Small" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </customGrid:FloatingBar.FloatingBarTemplate>
+                    </customGrid:DataGridAutoCompleteColumn>
+                    <customGrid:DataGridTextColumn
+                        Binding="{Binding Pages}"
+                        Header="Pages"
+                        IsReadOnly="False"
+                        Width="200" />
+                </customGrid:DataGrid.Columns>
+            </customGrid:DataGrid>
+            <StackPanel
+                Grid.Row="2"
+                HorizontalAlignment="Right"
+                Margin="0,0,15,0"
+                Orientation="Horizontal"
+                Spacing="15"
+                VerticalAlignment="Center">
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding SaveCommand}"
+                    Content="Save"
+                    IsEnabled="{Binding HasChanges}"
+                    SizeType="Middle"
+                    atom:ToolTip.Tip="Save(Ctrl+S)" />
+
+                <atom:Button
+                    ButtonType="Primary"
+                    Command="{Binding DiscardCommand}"
+                    Content="Discard"
+                    IsDanger="True"
+                    IsEnabled="{Binding HasChanges}"
+                    SizeType="Middle"
+                    atom:ToolTip.Tip="Discard(Esc)" />
+            </StackPanel>
+        </Grid>
+    </atom:Skeleton>
+</UserControl>

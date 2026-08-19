@@ -1,0 +1,150 @@
+﻿<atom:Window
+    IsPinCaptionButtonVisible="True"
+    IsTitleBarVisible="False"
+    Title="PaChes"
+    Width="1400"
+    WindowStartupLocation="CenterScreen"
+    WindowState="Normal"
+    d:DesignHeight="450"
+    d:DesignWidth="800"
+    mc:Ignorable="d"
+    x:Class="PatChes.Views.MainWindow"
+    x:DataType="vm:MainWindowViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:an="https://github.com/NeverMorewd/AsyncNavigation"
+    xmlns:antd-icons="https://atomui.net/icons/antdesign"
+    xmlns:atom="https://atomui.net"
+    xmlns:controls="using:PatChes.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:dialogHost="clr-namespace:DialogHostAvalonia;assembly=DialogHost.Avalonia"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:PatChes.ViewModels"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- <controls:Window.RightAddOn> -->
+    <!--     <StackPanel HorizontalAlignment="Right"> -->
+    <!--         <atom:Button ButtonType="Primary" Content="aaa" /> -->
+    <!--     </StackPanel> -->
+    <!-- </controls:Window.RightAddOn> -->
+    <atom:Window.Styles>
+        <dialogHost:DialogHostStyles />
+    </atom:Window.Styles>
+    <dialogHost:DialogHost
+        BlurBackground="True"
+        BlurBackgroundRadius="2"
+        Identifier="Root"
+        Padding="0,-50,0,0"
+        dialogHost:DialogHostStyle.CornerRadius="7">
+        <DockPanel LastChildFill="True" Margin="0">
+
+
+
+            <Border Background="#1C1E22" DockPanel.Dock="Left">
+
+                <atom:ThemeConfigProvider Config="{Binding NavMenuConfig}" Grid.Row="1">
+                    <atom:NavMenu
+                        DefaultSelectedPath="{Binding DefaultSelectedPath}"
+                        HorizontalAlignment="Stretch"
+                        IsDarkStyle="False"
+                        IsInlineCollapsed="{Binding IsNavigationCollapsed}"
+                        ItemsSource="{Binding NavMenuItems}"
+                        Mode="Inline"
+                        Name="ShowCaseNavMenu"
+                        SelectedItem="{Binding SelectedNavMenuItem}"
+                        VerticalAlignment="Stretch"
+                        Width="{Binding NavigationWidth}">
+                        <atom:NavMenu.Header>
+                            <StackPanel
+                                HorizontalAlignment="Center"
+                                Margin="0,18,0,16"
+                                Orientation="Horizontal"
+                                Spacing="10">
+                                <Border
+                                    ClipToBounds="True"
+                                    CornerRadius="10"
+                                    Height="42"
+                                    Width="42">
+                                    <Image
+                                        RenderOptions.BitmapInterpolationMode="HighQuality"
+                                        Source="avares://PatChes/Assets/paches_square.png"
+                                        Stretch="Uniform" />
+                                </Border>
+
+                                <StackPanel
+                                    IsVisible="{Binding !IsNavigationCollapsed}"
+                                    Spacing="1"
+                                    VerticalAlignment="Center">
+                                    <atom:TextBlock
+                                        FontSize="18"
+                                        FontWeight="Bold"
+                                        Foreground="#1C1E22"
+                                        Text="PaChes" />
+                                    <atom:TextBlock
+                                        FontSize="13"
+                                        Foreground="#A7ADB7"
+                                        Text="CDISC Define Tool" />
+                                </StackPanel>
+                            </StackPanel>
+                        </atom:NavMenu.Header>
+                    </atom:NavMenu>
+                </atom:ThemeConfigProvider>
+            </Border>
+
+
+
+            <Border DockPanel.Dock="Top">
+                <DockPanel
+                    Background="Transparent"
+                    HorizontalAlignment="Stretch"
+                    Name="TitleBarHost"
+                    PointerCaptureLost="TitleBarOnPointerCaptureLost"
+                    PointerMoved="TitleBarOnPointerMoved"
+                    PointerPressed="TitleBarOnPointerPressed"
+                    PointerReleased="TitleBarOnPointerReleased">
+
+                    <atom:WindowTitleBar DockPanel.Dock="Right" />
+                    <StackPanel
+                        DockPanel.Dock="Left"
+                        Margin="12,8,0,0"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <atom:Button
+                            ButtonType="Text"
+                            Command="{Binding ToggleNavigationCommand}"
+                            Icon="{antd-icons:AntDesignIconProvider Kind=MenuOutlined}"
+                            SizeType="Middle"
+                            atom:ToolTip.Tip="展开或折叠导航栏" />
+                    </StackPanel>
+                    <StackPanel
+                        DockPanel.Dock="Right"
+                        HorizontalAlignment="Right"
+                        Margin="0,8,12,0"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <atom:TextBlock
+                            HorizontalAlignment="Right"
+                            Text="Project: "
+                            VerticalAlignment="Center" />
+                        <atom:ComboBox
+                            DisplayMemberBinding="{Binding ProjectCode}"
+                            ItemsSource="{Binding Projects}"
+                            MinWidth="220"
+                            SelectedItem="{Binding CurrentProject}"
+                            VerticalAlignment="Center" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <ContentControl
+                Background="white"
+                BorderBrush="#E5E7EB"
+                BorderThickness="1"
+                CornerRadius="3"
+                DockPanel.Dock="Right"
+                Margin="12"
+                Padding="12,20,12,12"
+                an:RegionManager.RegionName="ContentRegion" />
+        </DockPanel>
+
+    </dialogHost:DialogHost>
+</atom:Window>

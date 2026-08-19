@@ -1,0 +1,33 @@
+﻿using PatChes.Models.Enums;
+using SqlSugar;
+
+namespace PatChes.Models;
+
+[TenantAttribute("project")]
+public class Document
+{
+    [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]
+    public int Id { get; set; }
+
+    public string? UniqueId { get; set; }
+    
+    public string? Title { get; set; }
+    
+    public string? Href { get; set; }
+    
+    public CdiscDataType CdiscDataType { get; set; }
+    
+    [SugarColumn(IsNullable = false)]
+    public bool HasErrors { get; set; } = false;
+
+    [SugarColumn(IsIgnore = true)]
+    public bool IsUniqueIdDuplicate { get; set; }
+
+    [SugarColumn(IsIgnore = true)]
+    public bool IsTitleDuplicate { get; set; }
+
+    [SugarColumn(IsIgnore = true)]
+    public bool IsHrefDuplicate { get; set; }
+    
+    public int ProjectId { get; set; }
+}
