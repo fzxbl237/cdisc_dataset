@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+ï»¿using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Services;
@@ -7,7 +7,8 @@ using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels;
 
@@ -31,7 +32,10 @@ public partial class ProjectViewModel : ViewModelBase
     private async void LoadProjects()
     {
         Projects.Clear();
-        Projects.AddRange(await _projectService.GetAllProjectDtosAsync());
+        foreach (var project in await _projectService.GetAllProjectDtosAsync())
+        {
+            Projects.Add(project);
+        }
     }
 
     [RelayCommand]
@@ -40,7 +44,7 @@ public partial class ProjectViewModel : ViewModelBase
         await _projectService.DeleteProjectAsync(project);
         Projects.Remove(project);
         await WeakReferenceMessenger.Default.Send(new ProjectChangedMessage());
-        _messageService.Success("É¾³ý³É¹¦");
+        _messageService.Success("É¾ï¿½ï¿½ï¿½É¹ï¿½");
     }
 
     [RelayCommand]
@@ -54,14 +58,14 @@ public partial class ProjectViewModel : ViewModelBase
         };
 
         var result = await _dialogHostService.ShowDialogAsync("ProjectDialog", parameters);
-        if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Project"))
+        if (result.Result != DialogButtonResult.Yes || !result.Parameters.ContainsKey("Project"))
             return;
 
         var updatedProject = result.Parameters.GetValue<ProjectDto>("Project");
         
         await _projectService.UpdateProjectAsync(updatedProject);
         await WeakReferenceMessenger.Default.Send(new ProjectChangedMessage());
-        _messageService.Success("¸üÐÂ³É¹¦");
+        _messageService.Success("ï¿½ï¿½ï¿½Â³É¹ï¿½");
     }
     
     [RelayCommand]
@@ -73,18 +77,18 @@ public partial class ProjectViewModel : ViewModelBase
             { "IsNotEditMode", true }
         };
         var result = await _dialogHostService.ShowDialogAsync("ProjectDialog", parameters);
-        if (result.Result != ButtonResult.Yes || !result.Parameters.ContainsKey("Project"))
+        if (result.Result != DialogButtonResult.Yes || !result.Parameters.ContainsKey("Project"))
             return;
 
         var project = result.Parameters.GetValue<ProjectDto>("Project");
         if (await _projectService.ProjectCodeExistsAsync(project.ProjectCode))
         {
-            _messageService.Error("ProjectCode ÒÑ´æÔÚ£¬ÎÞ·¨ÐÂÔö");
+            _messageService.Error("ProjectCode ï¿½Ñ´ï¿½ï¿½Ú£ï¿½ï¿½Þ·ï¿½ï¿½ï¿½ï¿½ï¿½");
             return;
         }
 
         await _projectService.InsertProjectAsync(project);
         await WeakReferenceMessenger.Default.Send(new ProjectChangedMessage());
-        _messageService.Success("ÐÂÔö³É¹¦");
+        _messageService.Success("ï¿½ï¿½ï¿½ï¿½ï¿½É¹ï¿½");
     }
 }

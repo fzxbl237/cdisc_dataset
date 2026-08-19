@@ -20,7 +20,7 @@ public class DataGridColumnHeadersPresenter : Panel
         if (OwningGrid == null || OwningGrid.Columns.Count == 0)
             return new Size(0, 0);
 
-        double totalWidth = 0;
+        double totalWidth = OwningGrid.RowDragHandleOffset;
         double maxHeight = 0;
         foreach (var child in Children)
         {
@@ -31,7 +31,13 @@ public class DataGridColumnHeadersPresenter : Panel
                 totalWidth += w;
                 maxHeight = Math.Max(maxHeight, header.DesiredSize.Height);
             }
+            else if (child is Border slot)
+            {
+                slot.Measure(new Size(OwningGrid.RowDragHandleOffset, double.PositiveInfinity));
+                maxHeight = Math.Max(maxHeight, slot.DesiredSize.Height);
+            }
         }
+        maxHeight = Math.Max(maxHeight, OwningGrid.ColumnHeaderHeight);
         return new Size(totalWidth, maxHeight);
     }
 
@@ -69,6 +75,12 @@ public class DataGridColumnHeadersPresenter : Panel
 
         foreach (var child in Children)
         {
+            if (child is Border slot)
+            {
+                slot.Arrange(new Rect(0, 0, OwningGrid.RowDragHandleOffset, height));
+                continue;
+            }
+
             if (child is DataGridColumnHeader header && header.OwningColumn != null)
             {
                 int colIdx = columns.IndexOf(header.OwningColumn);
@@ -95,7 +107,7 @@ public class DataGridColumnHeadersPresenter : Panel
                     headerX = pos - hOff;
                 }
 
-                header.Arrange(new Rect(headerX, 0, w, height));
+                header.Arrange(new Rect(headerX + OwningGrid.RowDragHandleOffset, 0, w, height));
 
                 if (hasFrozen)
                 {

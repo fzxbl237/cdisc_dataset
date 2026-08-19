@@ -1,11 +1,14 @@
-﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using cdisc_dataset.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -27,8 +30,9 @@ public partial class DeleteConfirmedViewModel : ObservableObject, IDialogHostAwa
 
     public bool HasReferences => ReferenceGroups.Count > 0;
 
-    public void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         parameters.TryGetValue("Title", out string? title);
         parameters.TryGetValue("EntityType", out string? entityType);
         parameters.TryGetValue("References", out Dictionary<string, string>? references);
@@ -46,19 +50,19 @@ public partial class DeleteConfirmedViewModel : ObservableObject, IDialogHostAwa
     [RelayCommand]
     private void PreserveReferences()
     {
-        DialogHost.Close(DialogHostName, new DialogResult(ButtonResult.Yes));
+        DialogHost.Close(DialogHostName, new DialogHostResult(DialogButtonResult.Yes));
     }
 
     [RelayCommand]
     private void Save()
     {
-        DialogHost.Close(DialogHostName, new DialogResult(ButtonResult.OK));
+        DialogHost.Close(DialogHostName, new DialogHostResult(DialogButtonResult.OK));
     }
 
     [RelayCommand]
     private void Cancel()
     {
-        DialogHost.Close(DialogHostName, new DialogResult { Result = ButtonResult.Cancel });
+        DialogHost.Close(DialogHostName, new DialogHostResult { Result = DialogButtonResult.Cancel });
     }
 }
 

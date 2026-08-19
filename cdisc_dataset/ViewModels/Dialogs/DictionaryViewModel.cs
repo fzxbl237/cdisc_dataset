@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using AtomUI.Controls;
 using AtomUI.Controls.Utils;
 using AtomUI.Desktop.Controls;
@@ -15,7 +16,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
 using FluentValidation;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -62,8 +64,9 @@ public partial class DictionaryViewModel : ObservableObject, IDialogHostAware
         _validator = validator;
     }
 
-    public void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         if (parameters.ContainsKey("Title"))
             Title = parameters.GetValue<string>("Title");
 
@@ -92,7 +95,7 @@ public partial class DictionaryViewModel : ObservableObject, IDialogHostAware
     {
         if (e.PropertyName == "DictionaryName" && sender is DictionaryDto dictionary)
         {
-            LoadDictionaryVersionsAsync(dictionary).Await();
+            LoadDictionaryVersionsAsync(dictionary).AwaitWithOpt();
         }
     }
     
@@ -125,9 +128,9 @@ public partial class DictionaryViewModel : ObservableObject, IDialogHostAware
     private void Confirm()
     {
         Dictionary.PropertyChanged -= DictionaryPropertyChanged;
-        var dialogResult = new DialogResult
+        var dialogResult = new DialogHostResult
         {
-            Result = ButtonResult.Yes,
+            Result = DialogButtonResult.Yes,
             Parameters = new DialogParameters { { "Model", Dictionary } }
         };
         DialogHost.Close(DialogHostName ?? "Root", dialogResult);
@@ -137,6 +140,6 @@ public partial class DictionaryViewModel : ObservableObject, IDialogHostAware
     private void Cancel()
     {
         Dictionary.PropertyChanged -= DictionaryPropertyChanged;
-        DialogHost.Close(DialogHostName ?? "Root", new DialogResult { Result = ButtonResult.Cancel });
+        DialogHost.Close(DialogHostName ?? "Root", new DialogHostResult { Result = DialogButtonResult.Cancel });
     }
 }

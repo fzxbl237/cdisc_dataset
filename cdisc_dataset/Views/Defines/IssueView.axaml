@@ -4,6 +4,7 @@
     mc:Ignorable="d"
     x:Class="cdisc_dataset.Views.Defines.IssueView"
     x:DataType="vm:IssueViewModel"
+    x:Name="Root"
     xmlns="https://github.com/avaloniaui"
     xmlns:antd-icons="https://atomui.net/icons/antdesign"
     xmlns:atom="https://atomui.net"
@@ -29,6 +30,18 @@
             LeftFrozenColumnCount="2"
             Margin="8,4"
             RowHeight="32">
+            <customGrid:DataGrid.Styles>
+                <Style Selector="customGrid|DataGridRow">
+                    <Setter Property="ContextMenu">
+                        <atom:ContextMenu>
+                            <atom:MenuItem
+                                Command="{Binding #Root.((vm:IssueViewModel)DataContext).DeleteSelectedCommand}"
+                                Header="批量删除"
+                                Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
+                        </atom:ContextMenu>
+                    </Setter>
+                </Style>
+            </customGrid:DataGrid.Styles>
             <customGrid:DataGrid.SearchBarRightContent>
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <atom:Button
@@ -36,12 +49,6 @@
                         Command="{Binding ValidateDefineXmlCommand}"
                         Content="验证 Define XML"
                         Icon="{antd-icons:AntDesignIconProvider Kind=SafetyCertificateOutlined}"
-                        Variant="Solid" />
-                    <atom:Button
-                        Color="Default"
-                        Command="{Binding DeleteSelectedCommand}"
-                        Content="批量删除"
-                        Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}"
                         Variant="Solid" />
                     <atom:Button
                         Color="Default"

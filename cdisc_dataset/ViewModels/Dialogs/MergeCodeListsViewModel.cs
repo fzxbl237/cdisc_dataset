@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Collections.Generic;
 using System.Linq;
 using AtomUI.Controls;
 using AtomUI.Controls.Utils;
@@ -10,7 +12,8 @@ using cdisc_dataset.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -32,8 +35,9 @@ public partial class MergeCodeListsViewModel : ObservableObject, IDialogHostAwar
 
     private CodeListDto? _retainedCodeList;
 
-    public void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         if (!parameters.TryGetValue<List<CodeListDto>>("CodeLists", out var codeLists) || codeLists.Count == 0)
             return;
 
@@ -77,9 +81,9 @@ public partial class MergeCodeListsViewModel : ObservableObject, IDialogHostAwar
             ProjectId = _retainedCodeList.ProjectId
         };
 
-        DialogHost.Close("Root", new DialogResult
+        DialogHost.Close("Root", new DialogHostResult
         {
-            Result = ButtonResult.OK,
+            Result = DialogButtonResult.OK,
             Parameters = new DialogParameters { { "MergedCodeList", mergedCodeList } }
         });
     }
@@ -87,6 +91,6 @@ public partial class MergeCodeListsViewModel : ObservableObject, IDialogHostAwar
     [RelayCommand]
     private void Cancel()
     {
-        DialogHost.Close("Root", new DialogResult { Result = ButtonResult.Cancel });
+        DialogHost.Close("Root", new DialogHostResult { Result = DialogButtonResult.Cancel });
     }
 }

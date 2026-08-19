@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using AtomUI.Controls;
@@ -8,7 +10,8 @@ using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -22,8 +25,9 @@ public partial class ImportSettingVariablesViewModel(IVariableService variableSe
     [ObservableProperty]
     private ObservableCollection<EntityKey> _targetKeys = [];
 
-    public async void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         var templates = await variableService.GetAvailableSettingVariableTemplatesAsync();
         Variables = templates
             .Select(template => (IListItemData)new ListItemData
@@ -38,9 +42,9 @@ public partial class ImportSettingVariablesViewModel(IVariableService variableSe
     [RelayCommand]
     private void Save()
     {
-        DialogHost.Close(DialogHostName ?? "Root", new DialogResult
+        DialogHost.Close(DialogHostName ?? "Root", new DialogHostResult
         {
-            Result = ButtonResult.Yes,
+            Result = DialogButtonResult.Yes,
             Parameters = new DialogParameters
             {
                 {
@@ -57,6 +61,6 @@ public partial class ImportSettingVariablesViewModel(IVariableService variableSe
     [RelayCommand]
     private void Cancel()
     {
-        DialogHost.Close(DialogHostName ?? "Root", new DialogResult { Result = ButtonResult.Cancel });
+        DialogHost.Close(DialogHostName ?? "Root", new DialogHostResult { Result = DialogButtonResult.Cancel });
     }
 }

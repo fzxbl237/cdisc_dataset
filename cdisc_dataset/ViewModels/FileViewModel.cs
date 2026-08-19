@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -23,7 +23,8 @@ using P21.Validator.Api.Options;
 using P21.Validator.Data;
 using Mapster;
 using P21.Validator.Api.Models;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 using AsyncNavigation;
 using SqlSugar;
 using Window = AtomUI.Desktop.Controls.Window;
@@ -129,7 +130,7 @@ public partial class FileViewModel : ViewModelBase
                     { "Message", $"{SelectedFileType} already exists in current project. Do you want to replace the existing file(s)?" }
                 });
 
-            if (replaceResult.Result != ButtonResult.OK)
+            if (replaceResult.Result != DialogButtonResult.OK)
                 return;
 
             foreach (var existingFile in existingFiles)

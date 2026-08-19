@@ -1,21 +1,23 @@
-﻿using System.Windows.Input;
-using Prism.Commands;
-using Prism.Dialogs;
-using IDialogAware = AsyncNavigation.Abstractions.IDialogAware;
+﻿using System.Threading;
+using System.Threading.Tasks;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.Services;
 
-public interface IDialogHostAware
+public interface IDialogHostAware : IDialogAware
 {
-    /// <summary>
-    /// DialoHost名称
-    /// </summary>
     string? DialogHostName { get; set; }
 
-    /// <summary>
-    /// 打开过程中执行
-    /// </summary>
-    /// <param name="parameters"></param>
-    void OnDialogOpened(IDialogParameters parameters);
-    
+    string IDialogAware.Title => string.Empty;
+
+    event AsyncEventHandler<DialogCloseEventArgs>? IDialogAware.RequestCloseAsync
+    {
+        add { }
+        remove { }
+    }
+
+    Task IDialogAware.OnDialogClosingAsync(IDialogResult? dialogResult, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    Task IDialogAware.OnDialogClosedAsync(IDialogResult? dialogResult, CancellationToken cancellationToken) => Task.CompletedTask;
 }

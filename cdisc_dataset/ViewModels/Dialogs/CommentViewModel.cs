@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using AtomUI.Controls;
 using AtomUI.Controls.Data;
 using AtomUI.Controls.Utils;
@@ -19,7 +20,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
 using FluentValidation;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -65,8 +67,9 @@ public partial class CommentViewModel(
 
     public AvaloniaList<ISelectOption> DocumentOptions { get; } = [];
 
-    public void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         parameters.TryGetValue("Title", out string? title);
         Title = title;
         parameters.TryGetValue("Model", out CommentDto? model);
@@ -77,8 +80,8 @@ public partial class CommentViewModel(
         Comment.CdiscDataType = currentProjectService.CdiscDataType;
         formCommentValidator.CommentDto = Comment;
         Validators.Add(formCommentValidator);
-        LoadDocuments().Await();
-        LoadVariables().Await();
+        await LoadDocuments();
+        await LoadVariables();
     }
 
     partial void OnSelectedDocumentOptionChanged(CommentDocumentSelectOption? value)
@@ -157,9 +160,9 @@ public partial class CommentViewModel(
         //     return;
         // }
 
-        var dialogResult = new DialogResult
+        var dialogResult = new DialogHostResult
         {
-            Result = ButtonResult.Yes,
+            Result = DialogButtonResult.Yes,
             Parameters = new DialogParameters
             {
                 { "Model", Comment },
@@ -178,7 +181,7 @@ public partial class CommentViewModel(
     [RelayCommand]
     private void Cancel()
     {
-        DialogHost.Close(DialogHostName ?? "Root", new DialogResult { Result = ButtonResult.Cancel });
+        DialogHost.Close(DialogHostName ?? "Root", new DialogHostResult { Result = DialogButtonResult.Cancel });
     }
 }
 

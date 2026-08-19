@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using AtomUI.Controls;
 using AtomUI.Controls.Utils;
 using AtomUI.Desktop.Controls;
@@ -14,7 +15,8 @@ using cdisc_dataset.Validations.Form;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -54,12 +56,13 @@ public partial class PairTermsViewModel:ObservableObject,IDialogHostAware
         Validators.Add(_pairCodeListValidator);
     }
     
-    public void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         CdiscDataType = _currentProjectService.CdiscDataType;
         if (_currentProjectService.CurrentProject != null) 
             CurrentProjectId = _currentProjectService.CurrentProject.Id;
-        LoadCodeLists().Await();
+        await LoadCodeLists();
     }
 
     partial void OnForCodeListOptionChanged(ISelectOption? value)
@@ -123,9 +126,9 @@ public partial class PairTermsViewModel:ObservableObject,IDialogHostAware
             await _termService.InsertTermsAsync(res);
         }
         
-        var dialogResult = new DialogResult
+        var dialogResult = new DialogHostResult
         {
-            Result = ButtonResult.Yes,
+            Result = DialogButtonResult.Yes,
             // Parameters = new DialogParameters{{"CodeList",codeList}}
         };
         DialogHost.Close("Root",dialogResult );
@@ -134,6 +137,6 @@ public partial class PairTermsViewModel:ObservableObject,IDialogHostAware
     [RelayCommand]
     private void Cancel()
     {
-        DialogHost.Close("Root",new DialogResult{Result = ButtonResult.Cancel} );
+        DialogHost.Close("Root",new DialogHostResult{Result = DialogButtonResult.Cancel} );
     }
 }

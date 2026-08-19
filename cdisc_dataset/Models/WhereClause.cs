@@ -2,7 +2,7 @@ using SqlSugar;
 
 namespace cdisc_dataset.Models;
 
-[TenantAttribute("project")]
+[Tenant("project")]
 public class WhereClause
 {
     [SugarColumn(IsPrimaryKey = true, IsIdentity = true)]

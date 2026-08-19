@@ -8,11 +8,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:antd-icons="https://atomui.net/icons/antdesign"
     xmlns:atom="https://atomui.net"
-    xmlns:constant="using:cdisc_dataset.Constants"
-    xmlns:controls="using:cdisc_dataset.Controls"
-    xmlns:customGrid="using:cdisc_dataset.Controls.DataGrid"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:dto="using:cdisc_dataset.Models.Dto"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:model="using:cdisc_dataset.Models"
     xmlns:vm="using:cdisc_dataset.ViewModels.Dialogs"
@@ -64,7 +60,7 @@
                 FontWeight="Bold"
                 Foreground="#14213D"
                 HorizontalAlignment="Left"
-                Text="Add CodeList" />
+                Text="{Binding DialogTitle}" />
         </Grid>
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel Spacing="18">
@@ -124,6 +120,7 @@
                         Grid.Column="3"
                         HorizontalAlignment="Stretch"
                         IsAllowClear="True"
+                        IsEnabled="{Binding !IsInEditMode}"
                         IsFilterEnabled="True"
                         Mode="Single"
                         OptionsSource="{Binding CodeLists, Mode=TwoWay}"
@@ -266,137 +263,10 @@
                         </atom:Select.OptionTemplate>
                     </atom:Select>
                 </Grid>
-                <Grid
-                    ColumnDefinitions="4,Auto,*"
-                    ColumnSpacing="12"
-                    Height="28">
-                    <Border
-                        Background="#2F6BFF"
-                        Classes="section-line"
-                        CornerRadius="2"
-                        Height="22"
-                        Width="4" />
-                    <atom:TextBlock
-                        Classes="section-title"
-                        Grid.Column="1"
-                        Text="Terms" />
-                </Grid>
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="16">
-                    <atom:LineEdit
-                        Grid.Column="0"
-                        IsAllowClear="True"
-                        MinWidth="310"
-                        PlaceholderText="请输入搜索字段"
-                        Text="{Binding SearchText}" />
-                    <atom:Button
-                        ButtonType="Primary"
-                        Command="{Binding AddTermCommand}"
-                        Content="新增"
-                        Grid.Column="1"
-                        HorizontalAlignment="Left"
-                        Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
-                </Grid>
-                <customGrid:DataGrid
-                    Background="White"
-                    BorderBrush="Transparent"
-                    BorderThickness="0"
-                    ColumnHeaderHeight="34"
-                    GridLinesVisibility="Horizontal"
-                    Height="250"
-                    IsReadOnly="False"
-                    IsSearchBarVisible="False"
-                    ItemsSource="{Binding Terms}"
-                    LeftFrozenColumnCount="1"
-                    MaxHeight="250"
-                    RowBackground="Transparent"
-                    RowHeight="40">
-                    <customGrid:DataGrid.Styles>
-                        <Style Selector="customGrid|DataGridRow">
-                            <Setter Property="ContextMenu">
-                                <atom:ContextMenu x:DataType="dto:TermDto">
-                                    <atom:MenuItem
-                                        Command="{Binding #Root.((vm:CodeListDialogViewModel)DataContext).InsertTermAboveCommand}"
-                                        CommandParameter="{Binding}"
-                                        Header="Insert Above"
-                                        Icon="{antd-icons:AntDesignIconProvider Kind=InsertRowAboveOutlined}" />
-                                    <atom:MenuItem
-                                        Command="{Binding #Root.((vm:CodeListDialogViewModel)DataContext).InsertTermBelowCommand}"
-                                        CommandParameter="{Binding}"
-                                        Header="Insert Below"
-                                        Icon="{antd-icons:AntDesignIconProvider Kind=InsertRowBelowOutlined}" />
-                                    <atom:MenuItem
-                                        Command="{Binding #Root.((vm:CodeListDialogViewModel)DataContext).DeleteCommand}"
-                                        CommandParameter="{Binding}"
-                                        Header="Delete"
-                                        Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
-                                </atom:ContextMenu>
-                            </Setter>
-                        </Style>
-                    </customGrid:DataGrid.Styles>
-                    <customGrid:DataGrid.Columns>
-                        <customGrid:DataGridNumericUpDownColumn
-                            Binding="{Binding Order, UpdateSourceTrigger=LostFocus}"
-                            Header="Order"
-                            Increment="1"
-                            IsReadOnly="False"
-                            Minimum="1"
-                            Width="90" />
-                        <customGrid:DataGridTextColumn
-                            Binding="{Binding CodeListUniqueId}"
-                            Header="CodeList"
-                            IsReadOnly="True"
-                            Width="150" />
-                        <!--  <controls:DataGridAtomLineEditColumn  -->
-                        <!--  Binding="{Binding CodeListUniqueId}"  -->
-                        <!--  Header="CodeList"  -->
-                        <!--  IsReadOnly="False" />  -->
-                        <customGrid:DataGridAutoCompleteColumn
-                            Binding="{Binding Name}"
-                            Header="Term"
-                            IsReadOnly="False"
-                            OptionsAsyncLoader="{Binding TermOptionsAsyncLoader}"
-                            Width="200">
-                            <customGrid:DataGridAutoCompleteColumn.OptionTemplate>
-                                <DataTemplate x:DataType="vm:TermCompleteOption">
-                                    <StackPanel Margin="0,5">
-                                        <atom:TextBlock
-                                            HorizontalAlignment="Left"
-                                            Text="{Binding Content}"
-                                            TextWrapping="Wrap" />
-                                        <atom:TextBlock
-                                            FontSize="12"
-                                            Foreground="#1677ff"
-                                            HorizontalAlignment="Left"
-                                            IsVisible="{Binding !SynonymsIsEmpty}"
-                                            Text="{Binding Synonyms}"
-                                            TextWrapping="Wrap" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </customGrid:DataGridAutoCompleteColumn.OptionTemplate>
-                        </customGrid:DataGridAutoCompleteColumn>
-
-                        <customGrid:DataGridTextColumn
-                            Binding="{Binding Code}"
-                            Header="NCI Code"
-                            IsReadOnly="True"
-                            Width="150" />
-                        <!--  <DataGridCheckBoxColumn  -->
-                        <!--  Binding="{Binding IsNameDuplicate}"  -->
-                        <!--  Header="Duplicate"  -->
-                        <!--  IsReadOnly="False" />  -->
-                        <!-- <DataGridTextColumn Binding="{Binding DecodedValue}" Header="Decoded Value" /> -->
-                        <customGrid:DataGridTextColumn
-                            Binding="{Binding DecodedValue}"
-                            Header="Decoded Value"
-                            IsReadOnly="False"
-                            Width="*" />
-                    </customGrid:DataGrid.Columns>
-                </customGrid:DataGrid>
             </StackPanel>
         </ScrollViewer>
         <Border
             BorderBrush="#E6EAF0"
-            BorderThickness="0,1,0,0"
             Grid.Row="2"
             Padding="0,18,0,0">
             <StackPanel

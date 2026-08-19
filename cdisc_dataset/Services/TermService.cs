@@ -61,6 +61,15 @@ public class TermService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueService
             .ToListAsync();
     }
 
+    public async Task<List<TermDto>?> GetTermDtosByCodeListIdAsync(int? codeListId)
+    {
+        return await sqlSugar.Queryable<Term>()
+            .Includes(o => o.CodeList)
+            .Where(x => x.CodeListId == codeListId)
+            .Select(o=>new TermDto(){CodeList = o.CodeList},true)
+            .ToListAsync();
+    }
+
     public async Task<List<string?>> GetTermCodesByCodeListIdAsync(string? codeListId)
     {
         var (projectId, dataType) = GetCurrentProjectContext();

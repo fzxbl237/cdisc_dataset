@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using AtomUI.Controls;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Services;
@@ -10,7 +11,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
 using FluentValidation;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -44,8 +46,9 @@ public partial class DocumentViewModel : ObservableObject, IDialogHostAware
         _validator = validator;
     }
 
-    public void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         if (parameters.ContainsKey("Title"))
             Title = parameters.GetValue<string>("Title");
 
@@ -70,9 +73,9 @@ public partial class DocumentViewModel : ObservableObject, IDialogHostAware
             return;
         }
 
-        DialogHost.Close(DialogHostName ?? "Root", new DialogResult
+        DialogHost.Close(DialogHostName ?? "Root", new DialogHostResult
         {
-            Result = ButtonResult.Yes,
+            Result = DialogButtonResult.Yes,
             Parameters = new DialogParameters { { "Model", Document } }
         });
     }
@@ -80,6 +83,6 @@ public partial class DocumentViewModel : ObservableObject, IDialogHostAware
     [RelayCommand]
     private void Cancel()
     {
-        DialogHost.Close(DialogHostName ?? "Root", new DialogResult { Result = ButtonResult.Cancel });
+        DialogHost.Close(DialogHostName ?? "Root", new DialogHostResult { Result = DialogButtonResult.Cancel });
     }
 }

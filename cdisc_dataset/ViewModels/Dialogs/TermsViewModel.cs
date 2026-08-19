@@ -25,7 +25,8 @@ using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
 using MapsterMapper;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 using SqlSugar;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
@@ -123,7 +124,7 @@ public partial class TermsViewModel: ObservableObject, IDialogHostAware
                 })
             .Subscribe((change) =>
             {
-                ValidateTermDtoAsync(change.Sender).Await();
+                ValidateTermDtoAsync(change.Sender).AwaitWithOpt();
                 _sourceList.AddOrUpdate(change.Sender);
             }).DisposeWith(_disposables);
         
@@ -142,7 +143,7 @@ public partial class TermsViewModel: ObservableObject, IDialogHostAware
             .DistinctUntilChanged()
             .Subscribe( (change) =>
             {
-                ValidateTermDtoAsync(change.Sender).Await();
+                ValidateTermDtoAsync(change.Sender).AwaitWithOpt();
                 _sourceList.AddOrUpdate(change.Sender);
             });
         
@@ -185,12 +186,13 @@ public partial class TermsViewModel: ObservableObject, IDialogHostAware
         return (!string.IsNullOrWhiteSpace(value) && value.Contains(searchText!, StringComparison.OrdinalIgnoreCase));
     }
 
-    public void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         CdiscDataType = _currentProjectService.CdiscDataType;
         if (_currentProjectService.CurrentProject != null)
             CurrentProjectId = _currentProjectService.CurrentProject.Id;
-        LoadCodeLists().Await();
+        await LoadCodeLists();
     }
 
     
@@ -216,7 +218,7 @@ public partial class TermsViewModel: ObservableObject, IDialogHostAware
             {
                 changesItem.CodeListUniqueId = CodeListDto.UniqueId;
                 changesItem.CodeList = _mapper.Map<CodeList>(CodeListDto);
-                ValidateTermDtoAsync(changesItem).Await();
+                ValidateTermDtoAsync(changesItem).AwaitWithOpt();
                 changes.AddOrUpdate(changesItem);
             }
         });
@@ -392,7 +394,7 @@ public partial class TermsViewModel: ObservableObject, IDialogHostAware
                 if (termDto.DecodedValueConsistent!=consistent)
                 {
                     termDto.DecodedValueConsistent = consistent;
-                    ValidateTermDtoAsync(termDto).Await();
+                    ValidateTermDtoAsync(termDto).AwaitWithOpt();
                     list.AddOrUpdate(termDto);
                 }
 
@@ -413,9 +415,9 @@ public partial class TermsViewModel: ObservableObject, IDialogHostAware
             term.CdiscDataType = CdiscDataType;
         }
         codeList.Terms = terms;
-        var dialogResult = new DialogResult
+        var dialogResult = new DialogHostResult
         {
-            Result = ButtonResult.Yes,
+            Result = DialogButtonResult.Yes,
             Parameters = new DialogParameters{{"CodeList",codeList}}
         };
         DialogHost.Close("Root",dialogResult );
@@ -424,7 +426,7 @@ public partial class TermsViewModel: ObservableObject, IDialogHostAware
     [RelayCommand]
     private void Cancel()
     {
-        DialogHost.Close("Root",new DialogResult{Result = ButtonResult.Cancel} );
+        DialogHost.Close("Root",new DialogHostResult{Result = DialogButtonResult.Cancel} );
     }
 }
 

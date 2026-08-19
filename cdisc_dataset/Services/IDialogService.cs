@@ -1,7 +1,8 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.Services;
 

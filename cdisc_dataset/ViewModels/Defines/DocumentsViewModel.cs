@@ -1,4 +1,4 @@
-﻿using AsyncNavigation;
+using AsyncNavigation;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -17,7 +17,8 @@ using cdisc_dataset.Validations;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FluentValidation;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
@@ -177,7 +178,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
             return;
 
         var result = await _dialogHostService.ShowDialogAsync("ImportSettingDocumentsDialog", null);
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<List<int>>("TemplateDocumentIds", out var templateDocumentIds))
         {
             return;
@@ -202,7 +203,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
 
         var result = await _dialogService.ShowAddDocumentModelAsync(
             new DocumentDto { ProjectId = _currentProjectService.CurrentProject.Id, CdiscDataType = _currentProjectService.CdiscDataType });
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<DocumentDto>("Model", out var document))
             return;
 
@@ -230,7 +231,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
         };
 
         var result = await _dialogService.ShowEditDocumentModelAsync(editedDocument);
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<DocumentDto>("Model", out var updatedDocument))
             return;
 
@@ -281,7 +282,7 @@ public partial class DocumentsViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Selected Documents" },
             { "Message", $"Are you sure you want to delete {selectedDocuments.Count} selected document(s)?" }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         foreach (var document in selectedDocuments)

@@ -1,8 +1,11 @@
+using System.Threading.Tasks;
+using System.Threading;
 using cdisc_dataset.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -16,8 +19,9 @@ public partial class ConfirmViewModel : ObservableObject, IDialogHostAware
     [ObservableProperty]
     private string _message = "Are you sure?";
 
-    public void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         if (parameters.TryGetValue("Title", out string? title) && !string.IsNullOrWhiteSpace(title))
         {
             Title = title;
@@ -32,12 +36,12 @@ public partial class ConfirmViewModel : ObservableObject, IDialogHostAware
     [RelayCommand]
     private void Confirm()
     {
-        DialogHost.Close(DialogHostName, new DialogResult(ButtonResult.OK));
+        DialogHost.Close(DialogHostName, new DialogHostResult(DialogButtonResult.OK));
     }
 
     [RelayCommand]
     private void Cancel()
     {
-        DialogHost.Close(DialogHostName, new DialogResult(ButtonResult.Cancel));
+        DialogHost.Close(DialogHostName, new DialogHostResult(DialogButtonResult.Cancel));
     }
 }

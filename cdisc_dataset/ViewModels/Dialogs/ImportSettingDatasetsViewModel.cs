@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using AtomUI.Controls;
 using AtomUI.Controls.Data;
 using cdisc_dataset.Services;
@@ -9,7 +10,8 @@ using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -23,8 +25,9 @@ public partial class ImportSettingDatasetsViewModel(IDatasetService datasetServi
     [ObservableProperty]
     private ObservableCollection<EntityKey> _targetKeys = [];
 
-    public async void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         var datasets = await datasetService.GetAvailableSettingDatasetsAsync();
         Datasets = datasets
             .Where(dataset => !string.IsNullOrWhiteSpace(dataset.Name))
@@ -43,9 +46,9 @@ public partial class ImportSettingDatasetsViewModel(IDatasetService datasetServi
     [RelayCommand]
     private void Save()
     {
-        var result = new DialogResult
+        var result = new DialogHostResult
         {
-            Result = ButtonResult.Yes,
+            Result = DialogButtonResult.Yes,
             Parameters = new DialogParameters
             {
                 { "DatasetNames", TargetKeys.Select(key => key.Value).ToList() }
@@ -57,6 +60,6 @@ public partial class ImportSettingDatasetsViewModel(IDatasetService datasetServi
     [RelayCommand]
     private void Cancel()
     {
-        DialogHost.Close(DialogHostName ?? "Root", new DialogResult { Result = ButtonResult.Cancel });
+        DialogHost.Close(DialogHostName ?? "Root", new DialogHostResult { Result = DialogButtonResult.Cancel });
     }
 }

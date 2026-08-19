@@ -40,7 +40,7 @@ using Window = AtomUI.Desktop.Controls.Window;
 
 namespace cdisc_dataset;
 
-public class App : Application
+public partial class App : Application
 {
     public override void Initialize()
     {
@@ -202,6 +202,7 @@ public class App : Application
         RegisterDialog<DeleteConfirmedDialog, DeleteConfirmedViewModel>(services, "DeleteConfirmedDialog");
         RegisterDialog<EditKeyVariablesDialog, EditKeyVariablesViewModel>(services, "EditKeyVariables");
         RegisterDialog<CodeListDialog, CodeListDialogViewModel>(services, "CodeListDialog");
+        RegisterDialog<EditTermsDialog, EditTermsViewModel>(services, "EditTermsDialog");
         RegisterDialog<TermsDialog, TermsViewModel>(services, "TermsDialog");
         RegisterDialog<PairTermsDialog, PairTermsViewModel>(services, "PairTermsDialog");
         RegisterDialog<UnsavedChangesDialog, UnsavedChangesViewModel>(services, "UnsavedChangesDialog");

@@ -1,4 +1,4 @@
-﻿using AsyncNavigation;
+using AsyncNavigation;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -20,7 +20,8 @@ using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FluentValidation;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
@@ -160,7 +161,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
     private async Task AddDictionaryAsync()
     {
         var result = await _dialogService.ShowAddDictionaryModelAsync();
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<DictionaryDto>("Model", out var dictionary) ||
             _currentProjectService.CurrentProject == null)
             return;
@@ -175,7 +176,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
     private async Task EditDictionaryAsync(DictionaryDto dictionary)
     {
         var result = await _dialogService.ShowEditDictionaryModelAsync(dictionary);
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<DictionaryDto>("Model", out var model) ||
             _currentProjectService.CurrentProject == null)
             return;
@@ -218,7 +219,7 @@ public partial class DictionariesViewModel : ConfirmNavigationViewModelBase, IDa
             { "Title", "Delete Selected Dictionaries" },
             { "Message", $"Are you sure you want to delete {selectedDictionaries.Count} selected dictionary item(s)?" }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         foreach (var dictionary in selectedDictionaries)

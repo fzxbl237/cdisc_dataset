@@ -40,22 +40,6 @@
                     HorizontalAlignment="Right"
                     Orientation="Horizontal"
                     Spacing="10">
-                    <atom:Button
-                        ButtonType="Primary"
-                        Command="{Binding AddCodeListCommand}"
-                        Content="新增"
-                        HorizontalAlignment="Right"
-                        Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
-                    <atom:Button
-                        ButtonType="Default"
-                        Command="{Binding AddCodeListFromVariableCommand}"
-                        Content="从变量创建"
-                        Icon="{antd-icons:AntDesignIconProvider Kind=DatabaseOutlined}" />
-                    <atom:Button
-                        ButtonType="Default"
-                        Command="{Binding MergeSelectedCodeListsCommand}"
-                        Content="合并"
-                        Icon="{antd-icons:AntDesignIconProvider Kind=MergeCellsOutlined}" />
                 </StackPanel>
 
             </DockPanel>
@@ -301,7 +285,7 @@
             -->
             <customGrid:DataGrid Grid.Row="0" Grid.RowSpan="2" Background="White" BorderBrush="#D0D0D0" BorderThickness="1" ColumnHeaderHeight="34" ItemsSource="{Binding CodeLists}" LeftFrozenColumnCount="2" Margin="8,4" RowHeight="32">
                 <customGrid:DataGrid.Styles>
-                    <Style Selector="customGrid|DataGridRow"><Setter Property="ContextMenu"><atom:ContextMenu x:DataType="dto:CodeListDto"><atom:MenuItem Command="{Binding #Root.((vm:CodeListViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" Header="Delete" Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" /></atom:ContextMenu></Setter></Style>
+                    <Style Selector="customGrid|DataGridRow"><Setter Property="ContextMenu"><atom:ContextMenu x:DataType="dto:CodeListDto"><atom:MenuItem Command="{Binding #Root.((vm:CodeListViewModel)DataContext).EditCodeListCommand}" CommandParameter="{Binding}" Header="Edit CodeList" Icon="{antd-icons:AntDesignIconProvider Kind=EditOutlined}" /><atom:MenuItem Command="{Binding #Root.((vm:CodeListViewModel)DataContext).EditTermsCommand}" CommandParameter="{Binding}" Header="Edit Terms" Icon="{antd-icons:AntDesignIconProvider Kind=EditOutlined}" /><atom:MenuItem Command="{Binding #Root.((vm:CodeListViewModel)DataContext).DeleteCommand}" CommandParameter="{Binding}" Header="Delete" Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" /><atom:MenuItem Command="{Binding #Root.((vm:CodeListViewModel)DataContext).DeleteSelectedCommand}" Header="批量删除" Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" /><atom:MenuItem Command="{Binding #Root.((vm:CodeListViewModel)DataContext).MergeSelectedCodeListsCommand}" Header="合并" Icon="{antd-icons:AntDesignIconProvider Kind=MergeCellsOutlined}" /></atom:ContextMenu></Setter></Style>
                 </customGrid:DataGrid.Styles>
                 <customGrid:DataGrid.SearchBarRightContent>
                     <StackPanel Orientation="Horizontal" Spacing="10">
@@ -310,23 +294,11 @@
                             OffContent="All"
                             OnContent="Has Error"
                             VerticalAlignment="Center" />
-                        <atom:Button Color="Default" Command="{Binding DeleteSelectedCommand}" Content="批量删除" Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" Variant="Solid" />
-                        <atom:SplitButton
+                        <atom:Button
+                            ButtonType="Default"
                             Command="{Binding AddCodeListFromVariableCommand}"
                             Content="从变量创建"
-                            Icon="{antd-icons:AntDesignIconProvider Kind=DatabaseOutlined}">
-                            <atom:SplitButton.Flyout>
-                                <atom:Flyout Placement="Bottom">
-                                    <StackPanel>
-                                        <atom:MenuItem
-                                            Command="{Binding AddCodeListCommand}"
-                                            Header="新增"
-                                            Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
-                                    </StackPanel>
-                                </atom:Flyout>
-                            </atom:SplitButton.Flyout>
-                        </atom:SplitButton>
-                        <atom:Button Color="Default" Command="{Binding MergeSelectedCodeListsCommand}" Content="合并" Icon="{antd-icons:AntDesignIconProvider Kind=MergeCellsOutlined}" Variant="Solid" />
+                            Icon="{antd-icons:AntDesignIconProvider Kind=DatabaseOutlined}" />
                     </StackPanel>
                 </customGrid:DataGrid.SearchBarRightContent>
                 <customGrid:DataGrid.Columns>

@@ -1,4 +1,4 @@
-﻿using AsyncNavigation;
+using AsyncNavigation;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -24,7 +24,8 @@ using DynamicData.Binding;
 using FluentValidation;
 using MapsterMapper;
 using Net.Pinnacle21.Define.Parser;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 using NavigationContext = AsyncNavigation.NavigationContext;
 using DataGridCellPointerPressedEventArgs = Avalonia.Controls.DataGridCellPointerPressedEventArgs;
 using DataGridPreparingCellForEditEventArgs = Avalonia.Controls.DataGridPreparingCellForEditEventArgs;
@@ -315,7 +316,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Value Level" },
             { "Message", $"Are you sure you want to delete value level {valueLevelDto.Dataset}/{valueLevelDto.Variable}?" }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         await _valueLevelService.DeleteValueLevelAsync(valueLevelDto);
@@ -340,7 +341,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Selected Value Levels" },
             { "Message", $"Are you sure you want to delete {selectedValueLevels.Count} selected value level(s)?" }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         foreach (var valueLevel in selectedValueLevels)
@@ -389,7 +390,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         };
 
         var result = await _dialogHostService.ShowDialogAsync("WhereClauseEditorDialog", dialogParameters);
-        if (result.Result != ButtonResult.Yes)
+        if (result.Result != DialogButtonResult.Yes)
             return;
 
         if (result.Parameters.TryGetValue<List<WhereClauseDto>>("WhereClauses", out var whereClauses))
@@ -442,7 +443,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         var defaultId = string.Join(".", new[] { "COM", valueLevel.Dataset, valueLevel.Variable }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         var result = await _dialogService.ShowAddCommentModelAsync(defaultId);
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<CommentDto>("Model", out var comment))
             return;
 
@@ -462,7 +463,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             return;
 
         var result = await _dialogService.ShowEditCommentModelAsync(_mapper.Map<CommentDto>(valueLevel.Comment));
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<CommentDto>("Model", out var comment))
             return;
 

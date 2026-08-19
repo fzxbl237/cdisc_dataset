@@ -1,5 +1,6 @@
-﻿using System.Threading.Tasks;
-using Prism.Dialogs;
+using System.Threading.Tasks;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.Services;
 

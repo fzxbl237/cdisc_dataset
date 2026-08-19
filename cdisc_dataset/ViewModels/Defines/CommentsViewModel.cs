@@ -1,4 +1,4 @@
-﻿using AsyncNavigation;
+using AsyncNavigation;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -25,7 +25,8 @@ using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
 using MapsterMapper;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
@@ -189,7 +190,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
     private async Task AddDocumentAsync(CommentDto commentDto)
     {
         var result = await _dialogService.ShowAddDocumentModelAsync(new DocumentDto());
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<DocumentDto>("Model", out var documentDto))
             return;
 
@@ -207,7 +208,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
             return;
 
         var result = await _dialogService.ShowEditDocumentModelAsync(_mapper.Map<DocumentDto>(commentDto.Document));
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<DocumentDto>("Model", out var documentDto))
             return;
 
@@ -291,7 +292,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         }
 
         var result = await _dialogHostService.ShowDialogAsync("AssignCommentVariablesDialog", new DialogParameters());
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<List<int>>("VariableIds", out var variableIds))
         {
             return;
@@ -344,7 +345,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Selected Comments" },
             { "Message", $"Are you sure you want to delete {selectedComments.Count} selected comment(s)? All references will be cleared." }
         });
-        if (result.Result != ButtonResult.OK || _currentProjectService.CurrentProject == null)
+        if (result.Result != DialogButtonResult.OK || _currentProjectService.CurrentProject == null)
             return;
 
         var selectedIds = selectedComments.Select(o => o.Id).ToHashSet();
@@ -430,13 +431,13 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
         };
 
         var result = await _dialogHostService.ShowDialogAsync("UnsavedChangesDialog", dialogParameters);
-        if (result.Result == ButtonResult.OK)
+        if (result.Result == DialogButtonResult.OK)
         {
             await SaveCommand.ExecuteAsync(null);
             return;
         }
 
-        if (result.Result == ButtonResult.No)
+        if (result.Result == DialogButtonResult.No)
         {
             await DiscardCommand.ExecuteAsync(null);
         }

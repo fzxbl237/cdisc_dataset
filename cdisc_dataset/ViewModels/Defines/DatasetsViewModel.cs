@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -23,7 +23,8 @@ using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
 using MapsterMapper;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
@@ -299,7 +300,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Dataset" },
             { "Message", $"Are you sure you want to delete dataset {dataset.Name}?" }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         UnregisterDatasetDtoPropertyChanged(dataset);
@@ -325,7 +326,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Selected Datasets" },
             { "Message", $"Are you sure you want to delete {selectedDatasets.Count} selected dataset(s)?" }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         foreach (var dataset in selectedDatasets)
@@ -382,7 +383,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     private async Task AddCommentAsync(DatasetDto dataset)
     {
         var result = await _dialogService.ShowAddCommentModelAsync($"COM.{dataset.Name}");
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<CommentDto>("Model", out var comment))
             return;
 
@@ -401,7 +402,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             return;
 
         var result = await _dialogService.ShowEditCommentModelAsync(_mapper.Map<CommentDto>(dataset.Comment));
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<CommentDto>("Model", out var model))
             return;
 
@@ -439,7 +440,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             return;
 
         var result = await _dialogHostService.ShowDialogAsync("ImportSettingDatasetsDialog", null);
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<List<string>>("DatasetNames", out var selectedNames))
             return;
 

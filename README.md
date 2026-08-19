@@ -53,7 +53,6 @@
 - C#
 - Avalonia UI 12
 - AtomUI Desktop Controls
-- Prism.Avalonia
 - AsyncNavigation.Avalonia
 - CommunityToolkit.Mvvm
 - ReactiveUI.Avalonia

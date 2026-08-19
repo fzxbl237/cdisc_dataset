@@ -61,7 +61,7 @@ public partial class MainWindowViewModel : ObservableObject
         {
             message.Reply(RefreshProjectsAsync());
         });
-        LoadProjects().Await();
+        LoadProjects().AwaitWithOpt();
         NavMenuConfig = BuildControlConfig(ControlAlgorithmMode.Global);
     }
     
@@ -103,8 +103,8 @@ public partial class MainWindowViewModel : ObservableObject
         
         if (value?.Id != null)
         {
-            _settingsService.SetAsync(CurrentProjectIdKey, value.Id).Await();
-            _settingsService.SaveAsync().Await();
+            _settingsService.SetAsync(CurrentProjectIdKey, value.Id).AwaitWithOpt();
+            _settingsService.SaveAsync().AwaitWithOpt();
         }
     }
 

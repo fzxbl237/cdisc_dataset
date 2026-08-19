@@ -1,4 +1,4 @@
-﻿using AsyncNavigation;
+using AsyncNavigation;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -28,7 +28,8 @@ using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
 using MapsterMapper;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 using NavigationContext = AsyncNavigation.NavigationContext;
 using ReactiveUI;
 using ReactiveUI.Primitives.Disposables;
@@ -426,7 +427,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Variable" },
             { "Message", $"Are you sure you want to delete variable {variable.VariableName}?" }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         variable.PropertyChanged -= VariableDtoOnPropertyChanged;
@@ -453,7 +454,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Selected Variables" },
             { "Message", $"Are you sure you want to delete {selectedVariables.Count} selected variable(s)?" }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         foreach (var variable in selectedVariables)
@@ -472,7 +473,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         if (_currentProjectService.CurrentProject == null) return;
 
         var result = await _dialogHostService.ShowDialogAsync("ImportSettingVariablesDialog", null);
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<List<int>>("TemplateVariableIds", out var templateVariableIds))
         {
             return;
@@ -499,7 +500,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         {
             { "Variable", variable }
         });
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<CodeList>("CodeList", out var codeList))
             return;
 
@@ -525,7 +526,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         {
             { "Model", codeListDto }
         });
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<CodeList>("CodeList", out var codeList))
             return;
 
@@ -555,7 +556,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Code List" },
             { "Message", $"Are you sure you want to delete code list {codeList.UniqueId}? All references will be cleared." }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         await _codeListService.DeleteCodeListAsync(_mapper.Map<CodeListDto>(codeList));
@@ -578,7 +579,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             return;
 
         var result = await _dialogService.ShowAddDictionaryModelAsync();
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<DictionaryDto>("Model", out var dictionary))
             return;
 
@@ -594,7 +595,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             return;
 
         var result = await _dialogService.ShowEditDictionaryModelAsync(_mapper.Map<DictionaryDto>(variable.Dictionary));
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<DictionaryDto>("Model", out var dictionary))
             return;
 
@@ -623,7 +624,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Dictionary" },
             { "Message", $"Are you sure you want to delete dictionary {dictionary.UniqueId}? All references will be cleared." }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         await _dictionaryService.DeleteDictionaryAsync(_mapper.Map<DictionaryDto>(dictionary));
@@ -675,7 +676,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             { "Variable", variable }
         };
         var result = await _dialogHostService.ShowDialogAsync("CodeListDialog", dialogParameters);
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<CodeList?>("CodeList", out var codeList) ||
             codeList == null)
         {
@@ -719,7 +720,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     private async Task AddCommentAsync(VariableDto variable)
     {
         var result = await _dialogService.ShowAddCommentModelAsync($"COM.{variable.VariableName}");
-        if (result.Result == ButtonResult.Yes &&
+        if (result.Result == DialogButtonResult.Yes &&
             result.Parameters.TryGetValue<CommentDto>("Model", out var comment))
         {
             var commentDto = await _commentService.InsertCommentAsync(comment);
@@ -739,7 +740,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         if(variable.Comment==null) return;
         var commentDto = _mapper.Map<CommentDto>(variable.Comment);
         var result = await _dialogService.ShowEditCommentModelAsync(commentDto);
-        if (result.Result == ButtonResult.Yes &&
+        if (result.Result == DialogButtonResult.Yes &&
             result.Parameters.TryGetValue<CommentDto>("Model", out var model))
         {
             var entity = await _commentService.UpdateCommentAsync(model);
@@ -785,7 +786,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             Name = $"Algorithm to derive {variable.DatasetName}.{variable.VariableName}",
             Type = "Computation"
         });
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<MethodDto>("Model", out var method))
         {
             return;
@@ -851,7 +852,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             return;
 
         var result = await _dialogService.ShowEditMethodModelAsync(_mapper.Map<MethodDto>(variable.Method));
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<MethodDto>("Model", out var method))
         {
             return;

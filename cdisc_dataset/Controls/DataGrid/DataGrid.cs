@@ -47,6 +47,13 @@ public class DataGrid : TemplatedControl
     private bool _itemsDirty = true;
     private List<object>? _cachedItems;
     private TextBlock? _statusBar;
+    private Border? _rowDropIndicator;
+    private DataGridRow? _draggedRow;
+    private DataGridRow? _dragPreviewRow;
+    private Point _rowDragStartPosition;
+    private bool _isRowDragging;
+    private int _rowDropIndex = -1;
+    private const double RowDragHandleWidth = 36;
 
     // Validation tracking
     private readonly HashSet<INotifyDataErrorInfo> _validationTrackedItems = new(ReferenceEqualityComparer.Instance);
@@ -106,6 +113,8 @@ public class DataGrid : TemplatedControl
         AvaloniaProperty.Register<DataGrid, bool>(nameof(IsReadOnly));
     public static readonly StyledProperty<DataGridGridLinesVisibility> GridLinesVisibilityProperty =
         AvaloniaProperty.Register<DataGrid, DataGridGridLinesVisibility>(nameof(GridLinesVisibility), DataGridGridLinesVisibility.Both);
+    public static readonly StyledProperty<bool> CanUserReorderRowsProperty =
+        AvaloniaProperty.Register<DataGrid, bool>(nameof(CanUserReorderRows));
 
     public IEnumerable? ItemsSource { get => GetValue(ItemsSourceProperty); set => SetValue(ItemsSourceProperty, value); }
     public object? SelectedItem { get => GetValue(SelectedItemProperty); set => SetValue(SelectedItemProperty, value); }
@@ -120,14 +129,17 @@ public class DataGrid : TemplatedControl
     public int RightFrozenColumnCount { get => GetValue(RightFrozenColumnCountProperty); set => SetValue(RightFrozenColumnCountProperty, value); }
     public bool IsReadOnly { get => GetValue(IsReadOnlyProperty); set => SetValue(IsReadOnlyProperty, value); }
     public DataGridGridLinesVisibility GridLinesVisibility { get => GetValue(GridLinesVisibilityProperty); set => SetValue(GridLinesVisibilityProperty, value); }
+    public bool CanUserReorderRows { get => GetValue(CanUserReorderRowsProperty); set => SetValue(CanUserReorderRowsProperty, value); }
 
     public ObservableCollection<DataGridColumn> Columns { get; } = new();
     public DataGridRow? CurrentRow => _currentRow;
+    internal DataGridRow? DragPreviewRow => _dragPreviewRow;
     public DataGridCell? CurrentCell => _currentCell;
     public bool IsEditing => _isEditing;
     internal double HorizontalOffset => _horizontalOffset;
     internal double VerticalOffset => _verticalOffset;
     internal DataGridColumnHeadersPresenter? HeadersPresenter => _headersPresenter;
+    internal double RowDragHandleOffset => CanUserReorderRows ? RowDragHandleWidth : 0;
 
     internal double GetLeftFrozenWidth()
     {
@@ -156,6 +168,7 @@ public class DataGrid : TemplatedControl
     public event EventHandler<DataGridColumnEventArgs>? ColumnHeaderClick;
     public event EventHandler? SelectionChanged;
     public event EventHandler<DataGridCellEditEndingEventArgs>? CellEditEnding;
+    public event EventHandler<DataGridRowReorderedEventArgs>? RowReordered;
 
     public bool IsValid
     {
@@ -731,6 +744,17 @@ public class DataGrid : TemplatedControl
     {
         if (_headersPresenter == null) return;
         _headersPresenter.Children.Clear();
+        if (CanUserReorderRows)
+        {
+            _headersPresenter.Children.Add(new Border
+            {
+                Width = RowDragHandleWidth,
+                Height = ColumnHeaderHeight,
+                Background = HeaderBackground ?? new SolidColorBrush(Color.Parse("#F0F0F0")),
+                IsHitTestVisible = false,
+            });
+        }
+
         int leftFrozen = Math.Min(LeftFrozenColumnCount, Columns.Count);
         int rightFrozen = Math.Min(RightFrozenColumnCount, Columns.Count);
         int totalCount = Columns.Count;
@@ -974,6 +998,217 @@ public class DataGrid : TemplatedControl
 
         SelectionChanged?.Invoke(this, EventArgs.Empty);
         e.Handled = true;
+    }
+
+    internal bool TryBeginRowDrag(DataGridRow row, PointerPressedEventArgs e)
+    {
+        if (!CanUserReorderRows
+            || IsReadOnly
+            || _isEditing
+            || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
+            || Columns.Any(column => column.IsFiltered)
+            || (_searchModel?.Results.Count ?? 0) != 0)
+        {
+            return false;
+        }
+
+        _draggedRow = row;
+        _rowDragStartPosition = e.GetPosition(this);
+        _rowDropIndex = row.Index;
+        return true;
+    }
+
+    internal void UpdateRowDrag(DataGridRow row, PointerEventArgs e)
+    {
+        if (_draggedRow == null || !ReferenceEquals(row, _draggedRow))
+            return;
+
+        var position = e.GetPosition(this);
+        if (!_isRowDragging)
+        {
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
+                || Math.Abs(position.Y - _rowDragStartPosition.Y) < 4)
+                return;
+
+            _isRowDragging = true;
+            _draggedRow.Opacity = 0;
+            _draggedRow.ZIndex = 0;
+            CreateDragPreview();
+        }
+
+        UpdateDragLayout(position);
+        e.Handled = true;
+    }
+
+    internal void CompleteRowDrag(DataGridRow row, PointerReleasedEventArgs e)
+    {
+        if (_draggedRow == null || !ReferenceEquals(row, _draggedRow))
+            return;
+
+        if (_isRowDragging)
+        {
+            CompleteRowDrag();
+            e.Handled = true;
+        }
+
+        ResetRowDrag(e.Pointer);
+    }
+
+    internal void CancelRowDrag(DataGridRow row, IPointer pointer)
+    {
+        if (_draggedRow != null && ReferenceEquals(row, _draggedRow))
+            ResetRowDrag(pointer);
+    }
+
+    private void CreateDragPreview()
+    {
+        if (_scrollPanel == null || _draggedRow == null || _dragPreviewRow != null)
+            return;
+
+        _dragPreviewRow = new DataGridRow
+        {
+            Index = _draggedRow.Index,
+            DataContext = _draggedRow.DataContext,
+            Height = RowHeight,
+            OwningGrid = this,
+            IsHitTestVisible = false,
+            ZIndex = 35,
+            Opacity = 0.98
+        };
+        _dragPreviewRow.UpdateCells();
+        _dragPreviewRow.SetDragVisualState(true);
+        _scrollPanel.Children.Add(_dragPreviewRow);
+    }
+
+    private void UpdateDragLayout(Point position)
+    {
+        UpdateRowDropIndicator(position);
+    }
+
+    private void ApplyDragRowOffsets()
+    {
+        if (!_isRowDragging || _draggedRow == null)
+            return;
+
+        var sourceIndex = _draggedRow.Index;
+        var targetIndex = _rowDropIndex;
+        foreach (var row in _realizedRows)
+        {
+            row.RenderTransform = null;
+            if (row == _draggedRow || row == _dragPreviewRow)
+                continue;
+
+            if (sourceIndex < targetIndex && row.Index > sourceIndex && row.Index <= targetIndex)
+                row.RenderTransform = new TranslateTransform(0, -RowHeight);
+            else if (sourceIndex > targetIndex && row.Index >= targetIndex && row.Index < sourceIndex)
+                row.RenderTransform = new TranslateTransform(0, RowHeight);
+        }
+    }
+
+    internal void ArrangeDragPreview(DataGridScrollPanel panel, Size finalSize, double verticalOffset)
+    {
+        if (_dragPreviewRow == null || _rowDropIndex < 0)
+            return;
+
+        _dragPreviewRow.RenderTransform = null;
+        _dragPreviewRow.Arrange(new Rect(
+            0,
+            _rowDropIndex * RowHeight - verticalOffset,
+            finalSize.Width,
+            RowHeight));
+    }
+
+    private void UpdateRowDropIndicator(Point position)
+    {
+        if (_scrollPanel == null || _draggedRow == null)
+            return;
+
+        var itemCount = GetItemCount();
+        if (itemCount == 0)
+            return;
+
+        var panelPosition = position - _scrollPanel.TranslatePoint(default, this)!.Value;
+        _rowDropIndex = Math.Clamp(
+            (int)Math.Floor((panelPosition.Y + _verticalOffset) / RowHeight),
+            0,
+            itemCount - 1);
+
+        _rowDropIndicator ??= new Border
+        {
+            Background = new SolidColorBrush(Color.Parse("#1677FF")),
+            CornerRadius = new CornerRadius(2),
+            Height = 2,
+            IsHitTestVisible = false,
+            ZIndex = 40,
+        };
+        if (!_scrollPanel.Children.Contains(_rowDropIndicator))
+            _scrollPanel.Children.Add(_rowDropIndicator);
+
+        var y = _rowDropIndex * RowHeight - _verticalOffset;
+        _rowDropIndicator.Arrange(new Rect(
+            0,
+            y,
+            _scrollPanel.Bounds.Width,
+            2));
+        _rowDropIndicator.IsVisible = true;
+        ApplyDragRowOffsets();
+        _scrollPanel.InvalidateArrange();
+    }
+
+    private void CompleteRowDrag()
+    {
+        if (_draggedRow == null || _rowDropIndex < 0)
+            return;
+
+        var oldIndex = _draggedRow.Index;
+        var newIndex = _rowDropIndex;
+        if (newIndex == oldIndex)
+            return;
+
+        var item = _draggedRow.DataContext;
+        var moved = false;
+        if (ItemsSource is IList sourceList && !sourceList.IsReadOnly && !sourceList.IsFixedSize
+            && oldIndex >= 0 && oldIndex < sourceList.Count)
+        {
+            sourceList.RemoveAt(oldIndex);
+            sourceList.Insert(newIndex, item);
+            moved = true;
+        }
+
+        RowReordered?.Invoke(this, new DataGridRowReorderedEventArgs(item, oldIndex, newIndex, moved));
+        if (moved)
+        {
+            InvalidateItemsCache();
+            UpdateViewport();
+        }
+    }
+
+    private void ResetRowDrag(IPointer pointer)
+    {
+        foreach (var row in _realizedRows)
+            row.RenderTransform = null;
+
+        if (_dragPreviewRow != null)
+        {
+            _dragPreviewRow.RenderTransform = null;
+            _dragPreviewRow.SetDragVisualState(false);
+            _scrollPanel?.Children.Remove(_dragPreviewRow);
+            _dragPreviewRow = null;
+        }
+
+        if (_rowDropIndicator != null)
+            _rowDropIndicator.IsVisible = false;
+
+        if (_draggedRow != null)
+        {
+            _draggedRow.Opacity = 1;
+            _draggedRow.ZIndex = 0;
+            pointer.Capture(null);
+        }
+
+        _draggedRow = null;
+        _isRowDragging = false;
+        _rowDropIndex = -1;
     }
 
     private void ToggleCheckBoxValue(DataGridCell cell)
@@ -1456,13 +1691,14 @@ internal class DataGridScrollPanel : Panel
 
         for (int i = 0; i < Children.Count; i++)
         {
-            if (Children[i] is DataGridRow row)
+            if (Children[i] is DataGridRow row && !ReferenceEquals(row, OwningGrid.DragPreviewRow))
             {
                 double y = row.Index * rowH - vOff;
                 row.Arrange(new Rect(0, y, vpW, rowH));
             }
         }
 
+        OwningGrid.ArrangeDragPreview(this, finalSize, vOff);
         return finalSize;
     }
 
@@ -1505,6 +1741,22 @@ public class DataGridColumnEventArgs : EventArgs
 {
     public DataGridColumn Column { get; }
     public DataGridColumnEventArgs(DataGridColumn c) => Column = c;
+}
+
+public sealed class DataGridRowReorderedEventArgs : EventArgs
+{
+    public object? Item { get; }
+    public int OldIndex { get; }
+    public int NewIndex { get; }
+    public bool WasAppliedToItemsSource { get; }
+
+    public DataGridRowReorderedEventArgs(object? item, int oldIndex, int newIndex, bool wasAppliedToItemsSource)
+    {
+        Item = item;
+        OldIndex = oldIndex;
+        NewIndex = newIndex;
+        WasAppliedToItemsSource = wasAppliedToItemsSource;
+    }
 }
 
 public enum DataGridEditAction { Commit, Cancel }

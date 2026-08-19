@@ -8,6 +8,8 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
+using AtomContextMenu = AtomUI.Desktop.Controls.ContextMenu;
+using AtomMenuItem = AtomUI.Desktop.Controls.MenuItem;
 using AtomFlyout = AtomUI.Desktop.Controls.Flyout;
 
 namespace cdisc_dataset.Controls.DataGrid;
@@ -272,15 +274,13 @@ public class DataGridColumnHeader : Control
         var grid = OwningColumn.DataGridOwner;
         bool hasFilter = grid.Columns.Any(c => c.IsFiltered);
 
-        var menu = new ContextMenu();
+        var menu = new AtomContextMenu();
 
-        var chooserItem = new MenuItem { Header = "列选择 (Column Chooser)" };
+        var chooserItem = new AtomMenuItem { Header = "列选择 (Column Chooser)" };
         BuildColumnChooserSubmenu(chooserItem, grid);
         menu.Items.Add(chooserItem);
 
-        menu.Items.Add(new Separator());
-
-        var clearAllItem = new MenuItem
+        var clearAllItem = new AtomMenuItem
         {
             Header = "取消所有筛选",
             IsEnabled = hasFilter,
@@ -306,7 +306,7 @@ public class DataGridColumnHeader : Control
     /// plus Show All / Hide All. Marking the checkbox click Handled keeps the submenu open
     /// so multiple columns can be toggled without the menu closing.
     /// </summary>
-    private void BuildColumnChooserSubmenu(MenuItem parent, DataGrid grid)
+    private void BuildColumnChooserSubmenu(AtomMenuItem parent, DataGrid grid)
     {
         parent.Items.Clear();
 
@@ -333,17 +333,15 @@ public class DataGridColumnHeader : Control
             // Prevent the submenu from closing while toggling this column
             checkBox.Click += (_, e) => e.Handled = true;
 
-            var item = new MenuItem { Header = checkBox };
+            var item = new AtomMenuItem { Header = checkBox };
             parent.Items.Add(item);
         }
 
-        parent.Items.Add(new Separator());
-
-        var showAll = new MenuItem { Header = "全部显示" };
+        var showAll = new AtomMenuItem { Header = "全部显示" };
         showAll.Click += (_, _) => SetAllVisible(grid, true);
         parent.Items.Add(showAll);
 
-        var hideAll = new MenuItem { Header = "全部隐藏" };
+        var hideAll = new AtomMenuItem { Header = "全部隐藏" };
         hideAll.Click += (_, _) => SetAllVisible(grid, false);
         parent.Items.Add(hideAll);
     }

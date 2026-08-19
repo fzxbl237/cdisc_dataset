@@ -1,8 +1,11 @@
+using System.Threading.Tasks;
+using System.Threading;
 using cdisc_dataset.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -16,8 +19,9 @@ public partial class UnsavedChangesViewModel : ObservableObject, IDialogHostAwar
     [ObservableProperty]
     private string _message = "Do you want to save changes before leaving?";
 
-    public void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         if (parameters.TryGetValue("Title", out string title) && !string.IsNullOrWhiteSpace(title))
         {
             Title = title;
@@ -32,18 +36,18 @@ public partial class UnsavedChangesViewModel : ObservableObject, IDialogHostAwar
     [RelayCommand]
     private void Save()
     {
-        DialogHost.Close(DialogHostName, new DialogResult(ButtonResult.OK));
+        DialogHost.Close(DialogHostName, new DialogHostResult(DialogButtonResult.OK));
     }
 
     [RelayCommand]
     private void Discard()
     {
-        DialogHost.Close(DialogHostName, new DialogResult(ButtonResult.No));
+        DialogHost.Close(DialogHostName, new DialogHostResult(DialogButtonResult.No));
     }
 
     [RelayCommand]
     private void Cancel()
     {
-        DialogHost.Close(DialogHostName, new DialogResult(ButtonResult.Cancel));
+        DialogHost.Close(DialogHostName, new DialogHostResult(DialogButtonResult.Cancel));
     }
 }

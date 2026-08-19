@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -28,8 +28,8 @@ using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
 using DynamicData;
 using DynamicData.Binding;
-using Prism.Common;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -123,8 +123,9 @@ public partial class WhereClauseEditorViewModel : ObservableObject, IDialogHostA
 
     public AvaloniaList<string> Comparators { get; } = ["EQ", "NE", "LT", "LE", "GT", "GE", "IN", "NOTIN"];
 
-    public void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         _whereClauseSource.Clear();
 
         if (parameters.ContainsKey("Title"))
@@ -145,12 +146,12 @@ public partial class WhereClauseEditorViewModel : ObservableObject, IDialogHostA
             clauses[i].Seq = i + 1;
         }
         
-        ApplyTermOptions(clauses).Await();
+        await ApplyTermOptions(clauses);
         UpdatePreview();
         
         if (ValueLevelDto != null)
         {
-            LoadLookups(ValueLevelDto.DatasetId).Await();
+            await LoadLookups(ValueLevelDto.DatasetId);
         }
 
     }
@@ -307,9 +308,9 @@ public partial class WhereClauseEditorViewModel : ObservableObject, IDialogHostA
     private void Confirm()
     {
         _disposables.Dispose();
-        DialogHost.Close(DialogHostName, new DialogResult
+        DialogHost.Close(DialogHostName, new DialogHostResult
         {
-            Result = ButtonResult.Yes,
+            Result = DialogButtonResult.Yes,
             Parameters = new DialogParameters
             {
                 { "WhereClauses", WhereClauses.ToList() },
@@ -322,7 +323,7 @@ public partial class WhereClauseEditorViewModel : ObservableObject, IDialogHostA
     private void Cancel()
     {
         _disposables.Dispose();
-        DialogHost.Close(DialogHostName, new DialogResult { Result = ButtonResult.Cancel });
+        DialogHost.Close(DialogHostName, new DialogHostResult { Result = DialogButtonResult.Cancel });
     }
 }
 

@@ -28,7 +28,8 @@ using Dm.util;
 using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 using NavigationContext = AsyncNavigation.NavigationContext;
 using SqlSugar;
 using DataGridCellPointerPressedEventArgs = Avalonia.Controls.DataGridCellPointerPressedEventArgs;
@@ -257,7 +258,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
                     if (termDto.DecodedValueConsistent != isConsistent)
                     {
                         termDto.DecodedValueConsistent = isConsistent;
-                        _validator.ValidateDtoAsync(termDto,"DecodedValue").Await();
+                        _validator.ValidateDtoAsync(termDto,"DecodedValue").AwaitWithOpt();
                         list.AddOrUpdate(termDto);
                     }
                     // termDto.DecodedValueConsistent = isConsistent;
@@ -331,7 +332,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
             { "Title", "Delete Term" },
             { "Message", $"Are you sure you want to delete term {termDto.Name}?" }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         await _termService.DeleteTermAsync(termDto);
@@ -360,7 +361,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
             { "Title", "Delete Selected Terms" },
             { "Message", $"Are you sure you want to delete {selectedTerms.Count} selected term(s)?" }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         foreach (var term in selectedTerms)
@@ -428,7 +429,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     private async Task Pair()
     {
         var result = await _dialogHostService.ShowDialogAsync("PairTermsDialog", new DialogParameters());
-        if (result.Result == ButtonResult.Yes)
+        if (result.Result == DialogButtonResult.Yes)
         {
             await LoadTermsAsync();
             _messageService.Success("Terms paired successfully.");
@@ -461,7 +462,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     {
         if(HasChanges)
         {
-            _termService.SaveTermsAsync(Terms.ToList()).Await();
+            _termService.SaveTermsAsync(Terms.ToList()).AwaitWithOpt();
             _messageService.Success("Terms saved successfully.");
         }
         DetachAll();

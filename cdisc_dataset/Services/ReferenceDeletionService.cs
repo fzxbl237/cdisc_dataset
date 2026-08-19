@@ -1,10 +1,11 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using cdisc_dataset.Models;
 using cdisc_dataset.Models.Dto;
 using cdisc_dataset.Services.Interface;
 using MapsterMapper;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.Services;
 
@@ -25,8 +26,8 @@ public sealed class ReferenceDeletionService(
 
         return result.Result switch
         {
-            ButtonResult.Yes => false,
-            ButtonResult.OK => true,
+            DialogButtonResult.Yes => false,
+            DialogButtonResult.OK => true,
             _ => null
         };
     }

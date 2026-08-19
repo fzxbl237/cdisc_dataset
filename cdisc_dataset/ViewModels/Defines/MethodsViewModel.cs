@@ -1,4 +1,4 @@
-﻿using AsyncNavigation;
+using AsyncNavigation;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -24,7 +24,8 @@ using DynamicData;
 using DynamicData.Binding;
 using FluentValidation;
 using MapsterMapper;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 using NavigationContext = AsyncNavigation.NavigationContext;
 
 namespace cdisc_dataset.ViewModels.Defines;
@@ -237,7 +238,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
     private async Task AddDocumentAsync(MethodDto methodDto)
     {
         var result = await _dialogService.ShowAddDocumentModelAsync(new DocumentDto());
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<DocumentDto>("Model", out var documentDto))
             return;
 
@@ -254,7 +255,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
             return;
 
         var result = await _dialogService.ShowEditDocumentModelAsync(_mapper.Map<DocumentDto>(methodDto.Document));
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<DocumentDto>("Model", out var documentDto))
             return;
 
@@ -293,7 +294,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         };
 
         var result = await _dialogService.ShowAddMethodModelAsync(dto);
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<MethodDto>("Model", out var method))
             return;
         var linkMatchingVariables = result.Parameters.TryGetValue<bool>("LinkMatchingVariables", out var link) && link;
@@ -315,7 +316,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
             return;
         
         var result = await _dialogService.ShowEditMethodModelAsync(_mapper.Map<MethodDto>(methodDto));
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<MethodDto>("Model", out var editedMethod))
             return;
 
@@ -336,7 +337,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         }
 
         var result = await _dialogHostService.ShowDialogAsync("AssignVariablesDialog", new DialogParameters());
-        if (result.Result != ButtonResult.Yes ||
+        if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<List<int>>("VariableIds", out var variableIds))
         {
             return;
@@ -382,7 +383,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Selected Methods" },
             { "Message", $"Are you sure you want to delete {selectedMethods.Count} selected method(s)? All references will be cleared." }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         foreach (var method in selectedMethods)

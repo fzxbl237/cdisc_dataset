@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using AtomUI.Desktop.Controls;
@@ -10,7 +10,8 @@ using cdisc_dataset.Services;
 using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Defines;
 
@@ -100,7 +101,7 @@ public partial class IssueViewModel : ConfirmNavigationViewModelBase
             { "Title", "Delete Selected Issues" },
             { "Message", $"Are you sure you want to delete {selectedIssueIds.Count} selected issue(s)?" }
         });
-        if (result.Result != ButtonResult.OK)
+        if (result.Result != DialogButtonResult.OK)
             return;
 
         var deletedCount = await _issueService.DeleteIssuesAsync(

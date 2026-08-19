@@ -3,7 +3,8 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using DialogHostAvalonia;
 using Microsoft.Extensions.DependencyInjection;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.Services;
 
@@ -21,11 +22,22 @@ public class DialogHostService : IDialogHostService
             throw new InvalidOperationException("A dialog's ViewModel must implement IDialogHostAware.");
 
         viewModel.DialogHostName = dialogHostName;
-        DialogOpenedEventHandler eventHandler = (_, eventArgs) =>
+        DialogOpenedEventHandler eventHandler = async (_, eventArgs) =>
         {
-            viewModel.OnDialogOpened(parameters);
+            await viewModel.OnDialogOpenedAsync(parameters, default);
             eventArgs.Session.UpdateContent(dialogContent);
         };
-        return (IDialogResult)await DialogHost.Show(dialogContent, dialogHostName, eventHandler);
+        var dialogResult = (IDialogResult)await DialogHost.Show(dialogContent, dialogHostName, eventHandler);
+        await viewModel.OnDialogClosingAsync(dialogResult, default);
+        await viewModel.OnDialogClosedAsync(dialogResult, default);
+
+        if (dialogResult.Parameters != null)
+            return dialogResult;
+
+        return new DialogHostResult
+        {
+            Result = dialogResult.Result,
+            Status = dialogResult.Status
+        };
     }
 }

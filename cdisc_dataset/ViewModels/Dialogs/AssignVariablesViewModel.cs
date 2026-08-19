@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
 using AtomUI.Controls;
 using AtomUI.Controls.Data;
 using AtomUI.Controls.Utils;
@@ -11,7 +12,8 @@ using cdisc_dataset.Services.Interface;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DialogHostAvalonia;
-using Prism.Dialogs;
+using AsyncNavigation.Abstractions;
+using AsyncNavigation.Core;
 
 namespace cdisc_dataset.ViewModels.Dialogs;
 
@@ -28,8 +30,9 @@ public partial class AssignVariablesViewModel(IVariableService variableService) 
     [ObservableProperty]
     private ObservableCollection<EntityKey> _targetKeys = [];
 
-    public async void OnDialogOpened(IDialogParameters parameters)
+    public async Task OnDialogOpenedAsync(IDialogParameters? parameters, CancellationToken cancellationToken)
     {
+        parameters ??= new DialogParameters();
         var variables = await variableService.GetAllVariableDtosAsync();
         Variables = variables
             .Where(variable => variable.MethodId == 0)
@@ -52,9 +55,9 @@ public partial class AssignVariablesViewModel(IVariableService variableService) 
             .Select(key => int.TryParse(key.Value, out var id) ? id : 0)
             .Where(id => id > 0)
             .ToList();
-        DialogHost.Close(DialogHostName ?? "Root", new DialogResult
+        DialogHost.Close(DialogHostName ?? "Root", new DialogHostResult
         {
-            Result = ButtonResult.Yes,
+            Result = DialogButtonResult.Yes,
             Parameters = new DialogParameters { { "VariableIds", variableIds } }
         });
     }
@@ -62,6 +65,6 @@ public partial class AssignVariablesViewModel(IVariableService variableService) 
     [RelayCommand]
     private void Cancel()
     {
-        DialogHost.Close(DialogHostName ?? "Root", new DialogResult { Result = ButtonResult.Cancel });
+        DialogHost.Close(DialogHostName ?? "Root", new DialogHostResult { Result = DialogButtonResult.Cancel });
     }
 }

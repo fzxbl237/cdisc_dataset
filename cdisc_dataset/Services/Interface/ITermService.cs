@@ -12,6 +12,9 @@ public interface ITermService
     Task<List<Term>> GetAllTermsWithoutErorrAsync();
     
     Task<List<Term>?> GetTermsByCodeListIdAsync(int? codeListId);
+    
+    Task<List<TermDto>?> GetTermDtosByCodeListIdAsync(int? codeListId);
+    
     Task<List<string?>> GetTermCodesByCodeListIdAsync(string? codeListId);
 
     Task<TermStd?> GetTermStdAsync(string? codeListCode, string? term);
