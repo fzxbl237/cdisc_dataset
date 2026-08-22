@@ -165,6 +165,8 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
                     valueLevelDto.IsWhereClauseEffective = valueLevelDto.WhereClauses?
                         .All(whereClauseDto => whereClauseDto.VariableEntity != null) ?? true;
                     await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.WhereClause));
+                    MarkDuplicates();
+                    await ValidateWhereClauseDuplicatesAsync();
                     break;
                 }
                 case nameof(ValueLevelDto.Type):
@@ -179,6 +181,8 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
                     valueLevelDto.DatasetEntity = datasetEntity;
                     valueLevelDto.DatasetId = datasetEntity?.Id ?? 0;
                     await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Dataset));
+                    MarkDuplicates();
+                    await ValidateWhereClauseDuplicatesAsync();
                     break;
                 }
                 case nameof(ValueLevelDto.Variable):
@@ -188,8 +192,17 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
                     valueLevelDto.VariableEntity = variableEntity;
                     valueLevelDto.VariableId = variableEntity?.Id ?? 0;
                     await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Variable));
+                    MarkDuplicates();
+                    await ValidateWhereClauseDuplicatesAsync();
                     break;
                 }
+                case nameof(ValueLevelDto.WhereClauses):
+                    MarkDuplicates();
+                    await ValidateWhereClauseDuplicatesAsync();
+                    break;
+                case nameof(ValueLevelDto.IsWhereClauseDuplicate):
+                    await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.WhereClause));
+                    break;
                 case nameof(ValueLevelDto.Label):
                     await _validator.ValidateDtoAsync(valueLevelDto, nameof(ValueLevelDto.Label));
                     break;
@@ -254,6 +267,37 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     private void UnregisterValueLevelDtoPropertyChanged(ValueLevelDto valueLevelDto)
     {
         valueLevelDto.PropertyChanged -= ValueLevelDtoOnPropertyChanged;
+    }
+
+    private void MarkDuplicates()
+    {
+        foreach (var valueLevel in _sourceCache.Items)
+        {
+            valueLevel.IsWhereClauseDuplicate = false;
+            foreach (var whereClause in valueLevel.WhereClauses ?? [])
+                whereClause.IsDuplicate = false;
+        }
+
+        _sourceCache.Items.MarkDuplicates(
+            valueLevel => (
+                valueLevel.Dataset ?? string.Empty,
+                valueLevel.Variable ?? string.Empty,
+                valueLevel.WhereClause ?? string.Empty),
+            (valueLevel, isDuplicate) =>
+            {
+                valueLevel.IsWhereClauseDuplicate = isDuplicate;
+                foreach (var whereClause in valueLevel.WhereClauses ?? [])
+                    whereClause.IsDuplicate = isDuplicate;
+            },
+            key => !string.IsNullOrWhiteSpace(key.Item1)
+                   && !string.IsNullOrWhiteSpace(key.Item2)
+                   && !string.IsNullOrWhiteSpace(key.Item3));
+    }
+
+    private async Task ValidateWhereClauseDuplicatesAsync()
+    {
+        foreach (var valueLevel in _sourceCache.Items)
+            await _validator.ValidateDtoAsync(valueLevel, nameof(ValueLevelDto.WhereClause));
     }
     
     private async Task<ValueLevelDto> UpdateWhereClausesAsync(ValueLevelDto dto)
@@ -426,6 +470,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         }
 
         _sourceCache.AddOrUpdate(entities);
+        MarkDuplicates();
         HasChanges = false;
         _messageService.Success($"Built and saved {entities.Count} value level(s).");
     }
@@ -446,6 +491,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
         RegisterValueLevelDtoPropertyChanged(valueLevel);
         _sourceCache.AddOrUpdate(valueLevel);
+        MarkDuplicates();
         HasChanges = true;
     }
     
@@ -463,6 +509,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         await _valueLevelService.DeleteValueLevelAsync(valueLevelDto);
         UnregisterValueLevelDtoPropertyChanged(valueLevelDto);
         _sourceCache.Remove(valueLevelDto);
+        MarkDuplicates();
         HasChanges = true;
         _messageService.Success("Value level deleted successfully.");
     }
@@ -492,6 +539,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
         }
 
         _sourceCache.Remove(selectedValueLevels);
+        MarkDuplicates();
         HasChanges = true;
         _messageService.Success($"{selectedValueLevels.Count} value level(s) deleted successfully.");
     }
@@ -635,15 +683,19 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
 
         valueLevel.WhereClauseExist = !string.IsNullOrWhiteSpace(valueLevel.WhereClause);
         _sourceCache.AddOrUpdate(valueLevel);
+        MarkDuplicates();
+        await ValidateWhereClauseDuplicatesAsync();
         HasChanges = true;
     }
 
     [RelayCommand]
-    private void DeleteWhereClause(ValueLevelDto valueLevel)
+    private async Task DeleteWhereClause(ValueLevelDto valueLevel)
     {
         valueLevel.WhereClause = string.Empty;
         valueLevel.WhereClauseExist = false;
         valueLevel.WhereClauses = null;
+        MarkDuplicates();
+        await ValidateWhereClauseDuplicatesAsync();
         HasChanges = true;
     }
     
@@ -787,6 +839,9 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
     [RelayCommand]
     private async Task Save()
     {
+        MarkDuplicates();
+        await ValidateWhereClauseDuplicatesAsync();
+
         foreach (var valueLevel in ValueLevels)
         {
             valueLevel.ProjectId = _currentProjectService.CurrentProject?.Id ?? valueLevel.ProjectId;
@@ -866,6 +921,7 @@ public partial class ValueLevelsViewModel : ConfirmNavigationViewModelBase
             cache.AddOrUpdate(dtoList);
         });
 
+        MarkDuplicates();
         HasChanges = false;
     }
 

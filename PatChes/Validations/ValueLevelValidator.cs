@@ -56,6 +56,12 @@ public class ValueLevelValidator : AbstractValidator<ValueLevelDto>
             .WithSeverity(Severity.Error)
             .WithMessage("ValueLevel where clause cannot be empty");
 
+        RuleFor(x => x.WhereClause)
+            .Empty()
+            .When(x => x.IsWhereClauseDuplicate)
+            .WithSeverity(Severity.Error)
+            .WithMessage("ValueLevel where clause is duplicate");
+
         RuleFor(x => x.Pages)
             .NotEmpty()
             .When(x => string.Equals(x.Origin?.Trim(), "Collected", System.StringComparison.OrdinalIgnoreCase) &&

@@ -6,6 +6,7 @@ using PatChes.Extensions;
 using PatChes.Models;
 using PatChes.Models.Dto;
 using PatChes.Models.Enums;
+using PatChes.Models.Settings;
 using PatChes.Services.Interface;
 using MapsterMapper;
 using SqlSugar;
@@ -126,6 +127,101 @@ public class MethodService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueServi
         }
 
         return insertedMethod;
+    }
+
+    public async Task<int> InitializeTemplateMethodsAsync(IReadOnlyCollection<Variable> importedVariables)
+    {
+        var (projectId, dataType) = GetCurrentProjectContext();
+        if (projectId == 0 || importedVariables.Count == 0)
+            return 0;
+
+        var importedKeys = importedVariables
+            .Where(variable => !string.IsNullOrWhiteSpace(variable.DatasetName) &&
+                               !string.IsNullOrWhiteSpace(variable.VariableName))
+            .Select(variable => $"{variable.DatasetName}\u001f{variable.VariableName}")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var variableNames = importedVariables
+            .Where(variable => !string.IsNullOrWhiteSpace(variable.VariableName))
+            .Select(variable => variable.VariableName!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (importedKeys.Count == 0 || variableNames.Count == 0)
+            return 0;
+
+        var templates = await sqlSugar.AsTenant().QueryableWithAttr<TemplateMethod>()
+            .Where(template => template.CdiscDataType == dataType &&
+                               template.UniqueId != null &&
+                               variableNames.Contains(template.UniqueId))
+            .ToListAsync();
+        if (templates.Count == 0)
+            return 0;
+
+        var templateByUniqueId = templates
+            .Where(template => !string.IsNullOrWhiteSpace(template.UniqueId))
+            .GroupBy(template => template.UniqueId!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var templateUniqueIds = templateByUniqueId.Keys.ToList();
+
+        var variables = (await sqlSugar.Queryable<Variable>()
+                .Where(variable => variable.ProjectId == projectId &&
+                                   variable.CdiscDataType == dataType &&
+                                   variable.MethodId == 0 &&
+                                   variable.VariableName != null &&
+                                   templateUniqueIds.Contains(variable.VariableName))
+                .ToListAsync())
+            .Where(variable => !string.IsNullOrWhiteSpace(variable.DatasetName) &&
+                               !string.IsNullOrWhiteSpace(variable.VariableName) &&
+                               importedKeys.Contains($"{variable.DatasetName}\u001f{variable.VariableName}"))
+            .ToList();
+        if (variables.Count == 0)
+            return 0;
+
+        var existingMethods = await sqlSugar.Queryable<Method>()
+            .Where(method => method.ProjectId == projectId &&
+                             method.CdiscDataType == dataType &&
+                             method.UniqueId != null &&
+                             templateUniqueIds.Contains(method.UniqueId))
+            .ToListAsync();
+        var methodsByUniqueId = existingMethods
+            .Where(method => !string.IsNullOrWhiteSpace(method.UniqueId))
+            .GroupBy(method => method.UniqueId!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var template in templateByUniqueId.Values)
+        {
+            var uniqueId = template.UniqueId!;
+            if (methodsByUniqueId.ContainsKey(uniqueId))
+                continue;
+
+            var method = await sqlSugar.Insertable(new Method
+            {
+                UniqueId = uniqueId,
+                Name = template.Name,
+                Type = template.Type,
+                Description = template.Description,
+                ExpressionContext = template.ExpressionContext,
+                ExpressionCode = template.ExpressionCode,
+                ProjectId = projectId,
+                CdiscDataType = dataType
+            }).ExecuteReturnEntityAsync();
+            methodsByUniqueId[uniqueId] = method;
+            lookupStore.UpsertMethod(method);
+        }
+
+        foreach (var variable in variables)
+        {
+            var method = methodsByUniqueId[variable.VariableName!];
+            variable.MethodId = method.Id;
+            variable.MethodUniqueId = method.UniqueId;
+            variable.Method = method;
+        }
+
+        await sqlSugar.Utilities.PageEachAsync(variables, 200, async page =>
+        {
+            await sqlSugar.Updateable(page).ExecuteCommandAsync();
+        });
+
+        return variables.Count;
     }
 
     public async Task<int> SaveMethodsAsync(List<MethodDto> methods)

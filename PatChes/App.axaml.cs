@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using AtomUI;
 using AtomUI.Controls;
 using AtomUI.Desktop.Controls;
@@ -159,6 +160,79 @@ public partial class App : Application
         }).ExecuteCommand();
     }
 
+    private static void SeedTemplateMethods(ISqlSugarClient settingDb)
+    {
+        var legacyMethods = settingDb.Queryable<TemplateMethod>()
+            .Where(method => method.Type == "Computation" && method.ExpressionContext != null)
+            .ToList()
+            .Where(method => string.Equals(method.ExpressionContext, method.Description, StringComparison.Ordinal))
+            .ToList();
+        if (legacyMethods.Count > 0)
+        {
+            foreach (var method in legacyMethods)
+                method.ExpressionContext = null;
+            settingDb.Updateable(legacyMethods).ExecuteCommand();
+        }
+
+        var existingKeys = settingDb.Queryable<TemplateMethod>()
+            .Select(method => new { method.CdiscDataType, method.UniqueId })
+            .ToList()
+            .Where(method => !string.IsNullOrWhiteSpace(method.UniqueId))
+            .Select(method => $"{method.CdiscDataType}\u001f{method.UniqueId}")
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var templateMethods = new List<TemplateMethod>();
+        var variables = settingDb.Queryable<VariableTemplate>()
+            .Where(variable => variable.DatasetName != null && variable.VariableName != null)
+            .ToList();
+
+        foreach (var variable in variables)
+        {
+            if (string.IsNullOrWhiteSpace(variable.DatasetName) || string.IsNullOrWhiteSpace(variable.VariableName))
+                continue;
+
+            var suffix = variable.VariableName switch
+            {
+                var name when string.Equals(name, variable.DatasetName + "ENDY", StringComparison.OrdinalIgnoreCase) => "ENDY",
+                var name when string.Equals(name, variable.DatasetName + "STDY", StringComparison.OrdinalIgnoreCase) => "STDY",
+                var name when string.Equals(name, variable.DatasetName + "DY", StringComparison.OrdinalIgnoreCase) => "DY",
+                _ => null
+            };
+
+            if (suffix == null)
+                continue;
+
+            var prefix = suffix switch
+            {
+                "ENDY" => variable.DatasetName + "EN",
+                "STDY" => variable.DatasetName + "ST",
+                _ => variable.DatasetName
+            };
+            var uniqueId = variable.VariableName;
+            var key = $"{variable.CdiscDataType}\u001f{uniqueId}";
+            if (existingKeys.Contains(key) || !existingKeys.Add(key))
+                continue;
+
+            var expression =
+                $"{prefix}DY = {prefix}DTC-RFSTDTC+1 if {prefix}DTC is on or after RFSTDTC. " +
+                $"{prefix}DTC - RFSTDTC if {prefix}DTC precedes RFSTDTC.";
+
+            templateMethods.Add(new TemplateMethod
+            {
+                UniqueId = uniqueId,
+                Name = $"Algorithm to derive {uniqueId}",
+                Type = "Computation",
+                Description = expression,
+                ExpressionContext = null,
+                ExpressionCode = null,
+                CdiscDataType = variable.CdiscDataType
+            });
+        }
+
+        if (templateMethods.Count > 0)
+            settingDb.Insertable(templateMethods).ExecuteCommand();
+    }
+
     public override void OnFrameworkInitializationCompleted()
     {
         base.OnFrameworkInitializationCompleted();
@@ -228,8 +302,9 @@ public partial class App : Application
             var sqlSugarSetting = sqlSugar.GetConnection("setting");
             sqlSugarSetting.CodeFirst.InitTables<VariableCodeList, CodeListTerm,
                 CodeListReference, DatasetTemplate, VariableTemplate>();
-            sqlSugarSetting.CodeFirst.InitTables<TemplateDocument>();
+            sqlSugarSetting.CodeFirst.InitTables<TemplateMethod, TemplateDocument>();
             SeedTemplateDocuments(sqlSugarSetting);
+            SeedTemplateMethods(sqlSugarSetting);
             FixHasErrorsDefault(sqlSugar);
             return sqlSugar;
         });

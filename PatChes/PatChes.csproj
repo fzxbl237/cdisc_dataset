@@ -27,6 +27,7 @@
         <PackageReference Include="Mapster" Version="9.0.0-pre01" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
         <PackageReference Include="MiniExcel" Version="2.0.0-preview.2" />
+        <PackageReference Include="PdfPig" Version="0.1.15-alpha-20260328-e5c04" />
         <PackageReference Include="ReactiveUI.Avalonia" Version="12.1.0" />
         <PackageReference Include="SqlSugarCore" Version="5.1.4.211-preview01" />
         <PackageReference Include="Xaml.Behaviors.Avalonia" Version="12.0.0.1" />

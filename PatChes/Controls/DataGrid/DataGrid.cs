@@ -4,13 +4,16 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using AtomLineEdit = AtomUI.Desktop.Controls.LineEdit;
@@ -76,15 +79,28 @@ public class DataGrid : TemplatedControl
     private bool _itemsDirty = true;
     private List<object>? _cachedItems;
     private TextBlock? _statusBar;
-    private Border? _rowDropIndicator;
     private DataGridRow? _draggedRow;
     private DataGridRow? _dragPreviewRow;
+    private RowDragAnimation? _dragPreviewAnimation;
+    private double? _dragPreviewVisualY;
+    private double _dragPreviewTargetY;
     private Control? _rowDragFeedback;
     private Point _rowDragStartPosition;
     private Point _rowDragPosition;
     private bool _isRowDragging;
     private int _rowDropIndex = -1;
     private const double RowDragHandleWidth = 36;
+    private static readonly TimeSpan RowDragAnimationDuration = TimeSpan.FromMilliseconds(360);
+    private static readonly TimeSpan RowDragAnimationInterval = TimeSpan.FromMilliseconds(16);
+    private readonly Dictionary<DataGridRow, RowDragAnimation> _rowDragAnimations = new();
+    private DispatcherTimer? _rowDragAnimationTimer;
+
+    private sealed class RowDragAnimation
+    {
+        public double StartOffset { get; init; }
+        public double TargetOffset { get; init; }
+        public DateTime StartTime { get; init; }
+    }
 
     // Validation tracking
     private readonly HashSet<INotifyDataErrorInfo> _validationTrackedItems = new(ReferenceEqualityComparer.Instance);
@@ -915,6 +931,7 @@ public class DataGrid : TemplatedControl
     {
         if (!_templateApplied) return;
         _rowPool.Clear();
+        UpdateStarColumnWidths(GetViewportWidth());
         BuildHeaders();
         foreach (var row in _realizedRows)
             row.UpdateCells();
@@ -1380,7 +1397,7 @@ public class DataGrid : TemplatedControl
 
     private void UpdateDragLayout(Point position)
     {
-        UpdateRowDropIndicator(position);
+        UpdateRowDropIndex(position);
         _scrollPanel?.InvalidateArrange();
     }
 
@@ -1393,14 +1410,108 @@ public class DataGrid : TemplatedControl
         var targetIndex = _rowDropIndex;
         foreach (var row in _realizedRows)
         {
-            row.RenderTransform = null;
             if (row == _draggedRow || row == _dragPreviewRow)
                 continue;
 
+            var targetOffset = 0d;
             if (sourceIndex < targetIndex && row.Index > sourceIndex && row.Index <= targetIndex)
-                row.RenderTransform = new TranslateTransform(0, -RowHeight);
+                targetOffset = -RowHeight;
             else if (sourceIndex > targetIndex && row.Index >= targetIndex && row.Index < sourceIndex)
-                row.RenderTransform = new TranslateTransform(0, RowHeight);
+                targetOffset = RowHeight;
+
+            AnimateRowDragOffset(row, targetOffset);
+        }
+    }
+
+    private void AnimateRowDragOffset(DataGridRow row, double targetOffset)
+    {
+        var now = DateTime.UtcNow;
+        var currentOffset = GetCurrentRowDragOffset(row, now);
+        if (Math.Abs(currentOffset - targetOffset) < 0.01)
+            return;
+
+        _rowDragAnimations[row] = new RowDragAnimation
+        {
+            StartOffset = currentOffset,
+            TargetOffset = targetOffset,
+            StartTime = now
+        };
+        EnsureRowDragAnimationTimer();
+    }
+
+    private double GetCurrentRowDragOffset(DataGridRow row, DateTime now)
+    {
+        if (!_rowDragAnimations.TryGetValue(row, out var animation))
+            return row.RenderTransform is TranslateTransform transform ? transform.Y : 0;
+
+        var progress = Math.Clamp(
+            (now - animation.StartTime).TotalMilliseconds / RowDragAnimationDuration.TotalMilliseconds,
+            0,
+            1);
+        var easedProgress = 1 - Math.Pow(1 - progress, 3);
+        return animation.StartOffset + (animation.TargetOffset - animation.StartOffset) * easedProgress;
+    }
+
+    private void EnsureRowDragAnimationTimer()
+    {
+        _rowDragAnimationTimer ??= new DispatcherTimer
+        {
+            Interval = RowDragAnimationInterval
+        };
+        if (!_rowDragAnimationTimer.IsEnabled)
+        {
+            _rowDragAnimationTimer.Tick += OnRowDragAnimationTick;
+            _rowDragAnimationTimer.Start();
+        }
+    }
+
+    private void OnRowDragAnimationTick(object? sender, EventArgs e)
+    {
+        var now = DateTime.UtcNow;
+        foreach (var pair in _rowDragAnimations.ToArray())
+        {
+            var row = pair.Key;
+            var animation = pair.Value;
+            var progress = Math.Clamp(
+                (now - animation.StartTime).TotalMilliseconds / RowDragAnimationDuration.TotalMilliseconds,
+                0,
+                1);
+            var easedProgress = 1 - Math.Pow(1 - progress, 3);
+            var offset = animation.StartOffset + (animation.TargetOffset - animation.StartOffset) * easedProgress;
+
+            if (Math.Abs(offset) < 0.01 && animation.TargetOffset == 0 && progress >= 1)
+                row.RenderTransform = null;
+            else
+                row.RenderTransform = new TranslateTransform(0, offset);
+
+            if (progress >= 1)
+                _rowDragAnimations.Remove(row);
+        }
+
+        if (_dragPreviewAnimation != null && _dragPreviewRow != null)
+        {
+            var animation = _dragPreviewAnimation;
+            var progress = Math.Clamp(
+                (now - animation.StartTime).TotalMilliseconds / RowDragAnimationDuration.TotalMilliseconds,
+                0,
+                1);
+            var easedProgress = 1 - Math.Pow(1 - progress, 3);
+            _dragPreviewVisualY = animation.StartOffset +
+                (animation.TargetOffset - animation.StartOffset) * easedProgress;
+            SetDragPreviewVisualOffset();
+
+            if (progress >= 1)
+            {
+                _dragPreviewVisualY = animation.TargetOffset;
+                _dragPreviewAnimation = null;
+                SetDragPreviewVisualOffset();
+            }
+        }
+
+        if (_rowDragAnimations.Count == 0 && _dragPreviewAnimation == null && _rowDragAnimationTimer != null)
+        {
+            _rowDragAnimationTimer.Stop();
+            _rowDragAnimationTimer.Tick -= OnRowDragAnimationTick;
         }
     }
 
@@ -1409,12 +1520,53 @@ public class DataGrid : TemplatedControl
         if (_dragPreviewRow == null || _rowDropIndex < 0)
             return;
 
-        _dragPreviewRow.RenderTransform = null;
-        _dragPreviewRow.Arrange(new Rect(
+        var targetY = _rowDropIndex * RowHeight - verticalOffset;
+        var now = DateTime.UtcNow;
+        var currentY = GetCurrentDragPreviewY(now, targetY);
+        if (_dragPreviewVisualY == null)
+        {
+            _dragPreviewVisualY = targetY;
+        }
+        else if (_dragPreviewAnimation == null || Math.Abs(_dragPreviewAnimation.TargetOffset - targetY) > 0.01)
+        {
+            _dragPreviewAnimation = new RowDragAnimation
+            {
+                StartOffset = currentY,
+                TargetOffset = targetY,
+                StartTime = now
+            };
+            EnsureRowDragAnimationTimer();
+        }
+
+        _dragPreviewTargetY = targetY;
+        _dragPreviewVisualY = GetCurrentDragPreviewY(now, targetY);
+        _dragPreviewRow.Arrange(new Rect(0, targetY, finalSize.Width, RowHeight));
+        SetDragPreviewVisualOffset();
+    }
+
+    private double GetCurrentDragPreviewY(DateTime now, double fallbackTargetY)
+    {
+        if (_dragPreviewAnimation == null)
+            return _dragPreviewVisualY ?? fallbackTargetY;
+
+        var progress = Math.Clamp(
+            (now - _dragPreviewAnimation.StartTime).TotalMilliseconds / RowDragAnimationDuration.TotalMilliseconds,
             0,
-            _rowDropIndex * RowHeight - verticalOffset,
-            finalSize.Width,
-            RowHeight));
+            1);
+        var easedProgress = 1 - Math.Pow(1 - progress, 3);
+        return _dragPreviewAnimation.StartOffset +
+            (_dragPreviewAnimation.TargetOffset - _dragPreviewAnimation.StartOffset) * easedProgress;
+    }
+
+    private void SetDragPreviewVisualOffset()
+    {
+        if (_dragPreviewRow == null || _dragPreviewVisualY == null)
+            return;
+
+        var offset = _dragPreviewVisualY.Value - _dragPreviewTargetY;
+        _dragPreviewRow.RenderTransform = Math.Abs(offset) < 0.01
+            ? null
+            : new TranslateTransform(0, offset);
     }
 
     internal void ArrangeRowDragFeedback(DataGridScrollPanel panel, Size finalSize)
@@ -1436,7 +1588,7 @@ public class DataGrid : TemplatedControl
         _rowDragFeedback.Arrange(new Rect(x, y, desired.Width, desired.Height));
     }
 
-    private void UpdateRowDropIndicator(Point position)
+    private void UpdateRowDropIndex(Point position)
     {
         if (_scrollPanel == null || _draggedRow == null)
             return;
@@ -1451,24 +1603,6 @@ public class DataGrid : TemplatedControl
             0,
             itemCount - 1);
 
-        _rowDropIndicator ??= new Border
-        {
-            Background = new SolidColorBrush(Color.Parse("#1677FF")),
-            CornerRadius = new CornerRadius(2),
-            Height = 2,
-            IsHitTestVisible = false,
-            ZIndex = 40,
-        };
-        if (!_scrollPanel.Children.Contains(_rowDropIndicator))
-            _scrollPanel.Children.Add(_rowDropIndicator);
-
-        var y = _rowDropIndex * RowHeight - _verticalOffset;
-        _rowDropIndicator.Arrange(new Rect(
-            0,
-            y,
-            _scrollPanel.Bounds.Width,
-            2));
-        _rowDropIndicator.IsVisible = true;
         ApplyDragRowOffsets();
         _scrollPanel.InvalidateArrange();
     }
@@ -1503,6 +1637,14 @@ public class DataGrid : TemplatedControl
 
     private void ResetRowDrag(IPointer pointer)
     {
+        _rowDragAnimationTimer?.Stop();
+        if (_rowDragAnimationTimer != null)
+            _rowDragAnimationTimer.Tick -= OnRowDragAnimationTick;
+        _rowDragAnimations.Clear();
+        _dragPreviewAnimation = null;
+        _dragPreviewVisualY = null;
+        _dragPreviewTargetY = 0;
+
         foreach (var row in _realizedRows)
             row.RenderTransform = null;
 
@@ -1519,9 +1661,6 @@ public class DataGrid : TemplatedControl
             _scrollPanel?.Children.Remove(_rowDragFeedback);
             _rowDragFeedback = null;
         }
-
-        if (_rowDropIndicator != null)
-            _rowDropIndicator.IsVisible = false;
 
         if (_draggedRow != null)
         {
@@ -1763,6 +1902,161 @@ public class DataGrid : TemplatedControl
         _selectedCells.Clear();
         ApplyCellSelectionVisuals();
         SelectedCellsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private async Task CopySelectedCellsAsync()
+    {
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard == null || _selectedCells.Count == 0)
+            return;
+
+        var minRow = _selectedCells.Min(position => position.RowIndex);
+        var maxRow = _selectedCells.Max(position => position.RowIndex);
+        var minColumn = _selectedCells.Min(position => position.ColumnIndex);
+        var maxColumn = _selectedCells.Max(position => position.ColumnIndex);
+        var items = GetItemsList();
+        var lines = new List<string>(maxRow - minRow + 1);
+
+        for (var rowIndex = minRow; rowIndex <= maxRow; rowIndex++)
+        {
+            var values = new List<string>(maxColumn - minColumn + 1);
+            for (var columnIndex = minColumn; columnIndex <= maxColumn; columnIndex++)
+            {
+                var position = new DataGridCellPosition(rowIndex, columnIndex);
+                if (!_selectedCells.Contains(position) || rowIndex < 0 || rowIndex >= items.Count ||
+                    columnIndex < 0 || columnIndex >= Columns.Count)
+                {
+                    values.Add(string.Empty);
+                    continue;
+                }
+
+                values.Add(GetCellClipboardText(items[rowIndex], Columns[columnIndex]));
+            }
+            lines.Add(string.Join("\t", values));
+        }
+
+        await clipboard.SetTextAsync(string.Join(Environment.NewLine, lines));
+    }
+
+    private async Task PasteSelectedCellsAsync()
+    {
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard == null || IsReadOnly)
+            return;
+
+        var text = await clipboard.TryGetTextAsync();
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        var start = GetClipboardStartPosition();
+        if (start == null)
+            return;
+
+        var rows = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var items = GetItemsList();
+        var changedPositions = new List<DataGridCellPosition>();
+
+        for (var rowOffset = 0; rowOffset < rows.Length; rowOffset++)
+        {
+            var values = rows[rowOffset].Split('\t');
+            for (var columnOffset = 0; columnOffset < values.Length; columnOffset++)
+            {
+                var rowIndex = start.Value.RowIndex + rowOffset;
+                var columnIndex = start.Value.ColumnIndex + columnOffset;
+                if (rowIndex < 0 || rowIndex >= items.Count || columnIndex < 0 || columnIndex >= Columns.Count)
+                    continue;
+
+                var item = items[rowIndex];
+                var column = Columns[columnIndex];
+                if (item == null || column.IsReadOnly ||
+                    column is not DataGridBoundColumn boundColumn ||
+                    string.IsNullOrWhiteSpace(boundColumn.BindingPath))
+                    continue;
+
+                var property = item.GetType().GetProperty(boundColumn.BindingPath);
+                if (property?.CanWrite != true ||
+                    !TryConvertClipboardValue(values[columnOffset], property.PropertyType, out var convertedValue))
+                    continue;
+
+                if (Equals(property.GetValue(item), convertedValue))
+                    continue;
+
+                property.SetValue(item, convertedValue);
+                changedPositions.Add(new DataGridCellPosition(rowIndex, columnIndex));
+            }
+        }
+
+        foreach (var position in changedPositions)
+        {
+            var cell = _realizedRows
+                .Where(row => row.Index == position.RowIndex)
+                .SelectMany(row => row.Cells)
+                .FirstOrDefault(cell => Columns.IndexOf(cell.Column!) == position.ColumnIndex);
+            cell?.ResetDisplay();
+        }
+    }
+
+    private DataGridCellPosition? GetClipboardStartPosition()
+    {
+        if (_selectedCells.Count > 0)
+        {
+            return new DataGridCellPosition(
+                _selectedCells.Min(position => position.RowIndex),
+                _selectedCells.Min(position => position.ColumnIndex));
+        }
+
+        if (_currentCell?.OwningRow != null && _currentCell.Column != null)
+        {
+            var columnIndex = Columns.IndexOf(_currentCell.Column);
+            if (_currentCell.OwningRow.Index >= 0 && columnIndex >= 0)
+                return new DataGridCellPosition(_currentCell.OwningRow.Index, columnIndex);
+        }
+
+        return null;
+    }
+
+    private static string GetCellClipboardText(object? item, DataGridColumn column)
+    {
+        if (item == null || column is not DataGridBoundColumn boundColumn ||
+            string.IsNullOrWhiteSpace(boundColumn.BindingPath))
+            return string.Empty;
+
+        return item.GetType().GetProperty(boundColumn.BindingPath)?.GetValue(item)?.ToString() ?? string.Empty;
+    }
+
+    private static bool TryConvertClipboardValue(string text, Type targetType, out object? convertedValue)
+    {
+        convertedValue = null;
+        var valueType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        if (valueType == typeof(string))
+        {
+            convertedValue = text;
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+            return !targetType.IsValueType || Nullable.GetUnderlyingType(targetType) != null;
+
+        if (valueType.IsEnum)
+            return Enum.TryParse(valueType, text, ignoreCase: true, out convertedValue);
+
+        try
+        {
+            convertedValue = Convert.ChangeType(text, valueType, CultureInfo.CurrentCulture);
+            return convertedValue != null;
+        }
+        catch (InvalidCastException)
+        {
+            return false;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+        catch (OverflowException)
+        {
+            return false;
+        }
     }
 
     private void ToggleCellSelection(DataGridCellPosition position)
@@ -2013,6 +2307,16 @@ public class DataGrid : TemplatedControl
         }
         switch (e.Key)
         {
+            case Key.C when e.KeyModifiers.HasFlag(KeyModifiers.Control)
+                && SelectionUnit == DataGridSelectionUnit.Cell && _selectedCells.Count > 0:
+                _ = CopySelectedCellsAsync();
+                e.Handled = true;
+                break;
+            case Key.V when e.KeyModifiers.HasFlag(KeyModifiers.Control)
+                && SelectionUnit == DataGridSelectionUnit.Cell:
+                _ = PasteSelectedCellsAsync();
+                e.Handled = true;
+                break;
             case Key.Delete when SelectionUnit == DataGridSelectionUnit.Cell && _selectedCells.Count > 0:
                 ClearSelectedCellValues();
                 e.Handled = true;

@@ -27,6 +27,8 @@ using AsyncNavigation.Abstractions;
 using AsyncNavigation.Core;
 using AsyncNavigation;
 using SqlSugar;
+using UglyToad.PdfPig;
+using UglyToad.PdfPig.Annotations;
 using Window = AtomUI.Desktop.Controls.Window;
 
 namespace PatChes.ViewModels;
@@ -41,6 +43,7 @@ public partial class FileViewModel : ViewModelBase
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IDialogHostService _dialogHostService;
     private readonly IDatasetService _datasetService;
+    private readonly IMethodService _methodService;
     private readonly ILiteCollection<ProjectFile> _files;
     private readonly Dictionary<string, Variable?> _standardVariableCache = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, VariableCodeList?> _variableCodeListCache = new(StringComparer.OrdinalIgnoreCase);
@@ -71,7 +74,8 @@ public partial class FileViewModel : ViewModelBase
         IMessageService messageService,
         ICurrentProjectService currentProjectService,
         IDialogHostService dialogHostService,
-        IDatasetService datasetService)
+        IDatasetService datasetService,
+        IMethodService methodService)
     {
         _liteDatabase = liteDatabase;
         _sqlSugar = sqlSugar;
@@ -81,6 +85,7 @@ public partial class FileViewModel : ViewModelBase
         _currentProjectService = currentProjectService;
         _dialogHostService = dialogHostService;
         _datasetService = datasetService;
+        _methodService = methodService;
         _files = _liteDatabase.GetCollection<ProjectFile>("project_files");
         _files.EnsureIndex(x => x.ProjectId);
         _files.EnsureIndex(x => x.FileType);
@@ -192,8 +197,15 @@ public partial class FileViewModel : ViewModelBase
         var (datasets, codeLists, parsedFiles) = await BuildSdtmImportAsync(CurrentProject.Id, Files.ToList());
         var (finalCodeLists, codeListDictionary) = await BuildFinalCodeListsAsync(codeLists, CurrentProject.Id);
         LinkCodeListsToVariables(datasets, finalCodeLists, codeListDictionary);
+
+        var acrfAnnotations = LoadAcrfFreeTextAnnotations(CurrentProject.Id);
+        ApplyVariablePages(datasets, acrfAnnotations);
         await _datasetService.InsertDatasetsAsync(datasets);
+        await _methodService.InitializeTemplateMethodsAsync(
+            datasets.SelectMany(dataset => dataset.Variables ?? []).ToList());
+
         var valueLevels = await BuildSdtmValueLevelsAsync(parsedFiles, CurrentProject.Id);
+        ApplyValueLevelPages(valueLevels, acrfAnnotations);
         if (valueLevels.Count > 0)
             await _sqlSugar.Insertable(valueLevels).ExecuteCommandAsync();
 
@@ -273,6 +285,18 @@ public partial class FileViewModel : ViewModelBase
                || dataType.Equals("durationDatetime", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static string? NormalizeImportedFormat(string? format)
+    {
+        if (string.IsNullOrWhiteSpace(format))
+            return null;
+
+        var normalized = format.Trim();
+        if (Regex.IsMatch(normalized, @"^(?:\$\d*|BEST(?:\d+(?:\.\d+)?)?)\.?$", RegexOptions.IgnoreCase))
+            return null;
+
+        return format;
+    }
+
     private async Task<Variable> BuildVariableAsync(
         string datasetName,
         ParsedSdtmVariable parsedVariable,
@@ -293,7 +317,9 @@ public partial class FileViewModel : ViewModelBase
             SignificantDigits = parsedVariable.SignificantDigits,
             Format = IsDateTimeDataType(parsedVariable.DataType)
                 ? null
-                : parsedVariable.Format == "$" ? "$" + parsedVariable.Length : parsedVariable.Format,
+                : NormalizeImportedFormat(parsedVariable.Format == "$"
+                    ? "$" + parsedVariable.Length
+                    : parsedVariable.Format),
             Mandatory = standardVariable?.Mandatory,
             Role = standardVariable?.Role,
             HasNoData = parsedVariable.HasValue ? "No" : "Yes",
@@ -655,6 +681,114 @@ public partial class FileViewModel : ViewModelBase
         _codeListTermIndexCache.Clear();
     }
 
+    private List<AcrfFreeTextAnnotation> LoadAcrfFreeTextAnnotations(int projectId)
+    {
+        var acrfFile = _files.Query()
+            .Where(file => file.ProjectId == projectId && file.FileType == ProjectFileType.Acrf)
+            .OrderByDescending(file => file.UploadedAt)
+            .FirstOrDefault();
+        if (acrfFile == null)
+            return [];
+
+        var storedFile = _liteDatabase.FileStorage.FindById(acrfFile.StorageId.ToString());
+        if (storedFile == null)
+            return [];
+
+        try
+        {
+            using var stream = new MemoryStream();
+            storedFile.CopyTo(stream);
+            stream.Position = 0;
+            using var document = PdfDocument.Open(stream, new ParsingOptions());
+
+            return document.GetPages()
+                .SelectMany(page => page.GetAnnotations()
+                    .Where(annotation => annotation.Type == AnnotationType.FreeText
+                                         && !string.IsNullOrWhiteSpace(annotation.Content))
+                    .Select(annotation => new AcrfFreeTextAnnotation(page.Number, annotation.Content!.Trim())))
+                .ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static void ApplyVariablePages(
+        IEnumerable<Dataset> datasets,
+        IReadOnlyCollection<AcrfFreeTextAnnotation> annotations)
+    {
+        if (annotations.Count == 0)
+            return;
+
+        foreach (var variable in datasets.SelectMany(dataset => dataset.Variables ?? []))
+        {
+            if (string.IsNullOrWhiteSpace(variable.VariableName))
+                continue;
+
+            var pattern = $"(?<![\\p{{L}}\\p{{N}}_]){Regex.Escape(variable.VariableName)}(?![\\p{{L}}\\p{{N}}_])";
+            variable.Pages = FormatAnnotationPages(
+                annotations.Where(annotation => Regex.IsMatch(annotation.Content, pattern, RegexOptions.IgnoreCase)));
+        }
+    }
+
+    private static void ApplyValueLevelPages(
+        IEnumerable<ValueLevel> valueLevels,
+        IReadOnlyCollection<AcrfFreeTextAnnotation> annotations)
+    {
+        if (annotations.Count == 0)
+            return;
+
+        foreach (var valueLevel in valueLevels)
+        {
+            var condition = GetLastValueLevelCondition(valueLevel.WhereClause);
+            if (condition == null)
+                continue;
+
+            var pattern = BuildValueLevelConditionPattern(condition.Value.Field, condition.Value.Value);
+            valueLevel.Pages = FormatAnnotationPages(
+                annotations.Where(annotation => Regex.IsMatch(annotation.Content, pattern, RegexOptions.IgnoreCase)));
+        }
+    }
+
+    private static (string Field, string Value)? GetLastValueLevelCondition(string? whereClause)
+    {
+        if (string.IsNullOrWhiteSpace(whereClause))
+            return null;
+
+        var lastCondition = Regex.Split(whereClause, @"\s+and\s+", RegexOptions.IgnoreCase).LastOrDefault();
+        if (string.IsNullOrWhiteSpace(lastCondition))
+            return null;
+
+        var match = Regex.Match(
+            lastCondition,
+            @"^\s*(?<field>[A-Za-z][A-Za-z0-9_]*)\s*(?:EQ|=)\s*(?<value>.+?)\s*$",
+            RegexOptions.IgnoreCase);
+        return match.Success
+            ? (match.Groups["field"].Value, match.Groups["value"].Value)
+            : null;
+    }
+
+    private static string BuildValueLevelConditionPattern(string field, string value)
+    {
+        var valuePattern = string.Join(
+            @"\s+",
+            Regex.Split(value.Trim(), @"\s+").Select(Regex.Escape));
+        return $"(?<![\\p{{L}}\\p{{N}}_]){Regex.Escape(field)}\\s*=\\s*{valuePattern}(?![\\p{{L}}\\p{{N}}_])";
+    }
+
+    private static string? FormatAnnotationPages(IEnumerable<AcrfFreeTextAnnotation> annotations)
+    {
+        var pages = annotations
+            .Select(annotation => annotation.Page)
+            .Distinct()
+            .OrderBy(page => page)
+            .ToList();
+        return pages.Count == 0 ? null : string.Join(" ", pages);
+    }
+
+    private sealed record AcrfFreeTextAnnotation(int Page, string Content);
+
     private static string? GetVariableWithDataset(CodeList codeList)
     {
         return codeList.UniqueId?.LastIndexOf('.') switch
@@ -826,7 +960,9 @@ public partial class FileViewModel : ViewModelBase
                         Type = variable.DataType,
                         Length = IsDateTimeDataType(variable.DataType) ? null : variable.Length,
                         Digits = variable.SignificantDigits,
-                        Format = IsDateTimeDataType(variable.DataType) ? null : variable.Format,
+                        Format = IsDateTimeDataType(variable.DataType)
+                            ? null
+                            : NormalizeImportedFormat(variable.Format),
                         Mandatory = "No",
                         CodeListId = codeList?.Id ?? 0,
                         CodeListUniqueId = codeList?.UniqueId,
@@ -897,7 +1033,7 @@ public partial class FileViewModel : ViewModelBase
                     Type = metadata.Type,
                     Length = metadata.Length,
                     Digits = metadata.Digits,
-                    Format = metadata.Format,
+                    Format = NormalizeImportedFormat(metadata.Format),
                     Mandatory = "No",
                     CodeListId = codeList?.Id ?? 0,
                     CodeListUniqueId = codeList?.UniqueId,
@@ -1047,7 +1183,7 @@ public partial class FileViewModel : ViewModelBase
                     Type = metadata.Type,
                     Length = metadata.Length,
                     Digits = metadata.Digits,
-                    Format = metadata.Format,
+                    Format = NormalizeImportedFormat(metadata.Format),
                     Mandatory = "No",
                     CodeListId = codeList?.Id ?? 0,
                     CodeListUniqueId = codeList?.UniqueId,

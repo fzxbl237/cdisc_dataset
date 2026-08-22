@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using AtomButton = AtomUI.Desktop.Controls.Button;
+using AtomCheckBox = AtomUI.Desktop.Controls.CheckBox;
 using AtomLineEdit = AtomUI.Desktop.Controls.LineEdit;
 using AtomListBox = AtomUI.Desktop.Controls.ListBox;
 using AtomListBoxItem = AtomUI.Desktop.Controls.ListBoxItem;
@@ -18,13 +19,8 @@ public class DataGridFilterPopup : TemplatedControl
 {
     private AtomLineEdit? _searchBox;
     private AtomListBox? _filterList;
-    private Border? _selectAllBox;
-    private TextBlock? _selectAllCheckMark;
-    private TextBlock? _selectAllIndeterminate;
-    private Border? _selectAllCheckBorder;
+    private AtomCheckBox? _selectAllCheckBox;
     private readonly List<FilterItem> _items = new();
-    private static readonly IBrush CheckBg = new SolidColorBrush(Color.Parse("#3B82F6"));
-    private static readonly IBrush UncheckBdr = new SolidColorBrush(Color.Parse("#CBD5E1"));
     private static readonly IBrush TextPrimary = new SolidColorBrush(Color.Parse("#1E293B"));
 
     public DataGridColumn? Column { get; set; }
@@ -64,42 +60,30 @@ public class DataGridFilterPopup : TemplatedControl
 
     private AtomListBoxItem CreateListBoxItem(FilterItem item, string displayText)
     {
-        var checkBorder = new Border
+        var checkBox = new AtomCheckBox
         {
-            Width = 18, Height = 18,
-            CornerRadius = new CornerRadius(5),
-            BorderThickness = new Thickness(1.5),
+            IsChecked = item.IsChecked,
+            IsHitTestVisible = false,
             VerticalAlignment = VerticalAlignment.Center,
-            ClipToBounds = true,
-            Background = item.IsChecked ? CheckBg : Brushes.White,
-            BorderBrush = item.IsChecked ? CheckBg : UncheckBdr,
         };
-        var checkMark = new TextBlock
-        {
-            Text = "\u2713", FontSize = 12, FontWeight = FontWeight.SemiBold,
-            Foreground = Brushes.White,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            IsVisible = item.IsChecked,
-        };
-        checkBorder.Child = checkMark;
-        var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Margin = new Thickness(6, 2) };
-        panel.Children.Add(checkBorder);
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(4, 0) };
+        panel.Children.Add(checkBox);
         panel.Children.Add(new TextBlock
         {
-            Text = displayText, FontSize = 13,
+            Text = displayText,
+            FontSize = 13,
+            TextWrapping = TextWrapping.NoWrap,
             VerticalAlignment = VerticalAlignment.Center,
             Foreground = TextPrimary,
         });
         var container = new AtomListBoxItem
         {
             Content = panel,
-            Padding = new Thickness(8, 7),
-            Margin = new Thickness(0, 1),
+            Padding = new Thickness(6, 3),
+            Margin = new Thickness(0, 0),
             Cursor = new Cursor(StandardCursorType.Hand),
         };
-        item.CheckBorder = checkBorder;
-        item.CheckMark = checkMark;
+        item.CheckBox = checkBox;
         container.AddHandler(PointerPressedEvent, (_, e) =>
         {
             if (!e.GetCurrentPoint(container).Properties.IsLeftButtonPressed) return;
@@ -116,16 +100,14 @@ public class DataGridFilterPopup : TemplatedControl
         base.OnApplyTemplate(e);
         _searchBox = e.NameScope.Find<AtomLineEdit>("PART_SearchBox");
         _filterList = e.NameScope.Find<AtomListBox>("PART_FilterList");
-        _selectAllBox = e.NameScope.Find<Border>("PART_SelectAllBox");
-        _selectAllCheckMark = e.NameScope.Find<TextBlock>("PART_SelectAllCheckMark");
-        _selectAllIndeterminate = e.NameScope.Find<TextBlock>("PART_SelectAllIndeterminate");
-        _selectAllCheckBorder = e.NameScope.Find<Border>("PART_SelectAllCheckBorder");
+        _selectAllCheckBox = e.NameScope.Find<AtomCheckBox>("PART_SelectAllCheckBox");
         if (_searchBox != null) _searchBox.TextChanged += (_, _) => DoSearch();
-        if (_selectAllBox != null) _selectAllBox.PointerPressed += (_, _) =>
+        if (_selectAllCheckBox != null) _selectAllCheckBox.PointerPressed += (_, e) =>
         {
             var visibleItems = GetVisibleItems().ToList();
             bool allChecked = visibleItems.Count > 0 && visibleItems.All(i => i.IsChecked);
             SetSelectAll(!allChecked);
+            e.Handled = true;
         };
         var sortAsc = e.NameScope.Find<AtomButton>("PART_SortAsc");
         var sortDesc = e.NameScope.Find<AtomButton>("PART_SortDesc");
@@ -188,12 +170,8 @@ public class DataGridFilterPopup : TemplatedControl
 
     private static void UpdateItemVisual(FilterItem item)
     {
-        if (item.CheckBorder != null)
-        {
-            item.CheckBorder.Background = item.IsChecked ? CheckBg : Brushes.White;
-            item.CheckBorder.BorderBrush = item.IsChecked ? CheckBg : UncheckBdr;
-        }
-        if (item.CheckMark != null) item.CheckMark.IsVisible = item.IsChecked;
+        if (item.CheckBox != null && item.CheckBox.IsChecked != item.IsChecked)
+            item.CheckBox.IsChecked = item.IsChecked;
     }
 
     private void SyncSelectAll()
@@ -201,15 +179,8 @@ public class DataGridFilterPopup : TemplatedControl
         var visibleItems = GetVisibleItems().ToList();
         bool allChecked = visibleItems.Count > 0 && visibleItems.All(i => i.IsChecked);
         bool noneChecked = visibleItems.Count == 0 || visibleItems.All(i => !i.IsChecked);
-        bool isIndeterminate = !allChecked && !noneChecked;
-
-        if (_selectAllCheckBorder != null)
-        {
-            _selectAllCheckBorder.Background = allChecked || isIndeterminate ? CheckBg : Brushes.White;
-            _selectAllCheckBorder.BorderBrush = allChecked || isIndeterminate ? CheckBg : UncheckBdr;
-        }
-        if (_selectAllCheckMark != null) _selectAllCheckMark.IsVisible = allChecked;
-        if (_selectAllIndeterminate != null) _selectAllIndeterminate.IsVisible = isIndeterminate;
+        if (_selectAllCheckBox != null)
+            _selectAllCheckBox.IsChecked = allChecked ? true : noneChecked ? false : null;
     }
 
     private void DoSearch()
@@ -258,7 +229,6 @@ public class DataGridFilterPopup : TemplatedControl
         public string Value { get; set; } = "";
         public bool IsChecked { get; set; } = true;
         public AtomListBoxItem ListItem { get; set; } = null!;
-        public Border? CheckBorder { get; set; }
-        public TextBlock? CheckMark { get; set; }
+        public AtomCheckBox? CheckBox { get; set; }
     }
 }

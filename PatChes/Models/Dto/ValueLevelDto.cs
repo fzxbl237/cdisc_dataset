@@ -80,5 +80,7 @@ public partial class ValueLevelDto:BaseDto
     [ObservableProperty] private bool _whereClauseExist;
 
     [ObservableProperty] private bool _variableExist;
+
+    [ObservableProperty] private bool _isWhereClauseDuplicate;
     
 }

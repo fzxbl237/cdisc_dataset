@@ -16,4 +16,5 @@ public interface IMethodService
     Task<MethodDto> InsertMethodAsync(Method method);
     Task<MethodDto> InsertMethodAsync(MethodDto methodDto, bool linkMatchingVariables, string? variableMatchMode, string? variableMatchText);
     Task<int> SaveMethodsAsync(List<MethodDto> methods);
+    Task<int> InitializeTemplateMethodsAsync(IReadOnlyCollection<Variable> importedVariables);
 }

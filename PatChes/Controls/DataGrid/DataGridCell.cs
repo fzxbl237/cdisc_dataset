@@ -395,13 +395,7 @@ public class DataGridCell : Control
         double right = showVertical ? 0.5 : 0;
         double bottom = showHorizontal ? 0.5 : 0;
 
-        if (OwningRow?.IsDragging == true)
-        {
-            _border.Background = new SolidColorBrush(Color.Parse("#FAFAFA"));
-            _border.BorderBrush = new SolidColorBrush(Color.Parse("#91CAFF"));
-            _border.BorderThickness = new Thickness(0, 0, right, bottom);
-        }
-        else if (IsEditing)
+        if (IsEditing)
         {
             _border.Background = new SolidColorBrush(Colors.White);
             _border.BorderBrush = Brushes.Transparent;

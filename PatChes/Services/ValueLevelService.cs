@@ -105,7 +105,7 @@ public class ValueLevelService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueS
         // var storage = await sqlSugar.Storageable(list).ToStorageAsync();
         // var inserted = await storage.AsInsertable.ExecuteCommandAsync();
         // var updated = await storage.AsUpdateable.ExecuteCommandAsync();
-        await issueService.SyncIssuesAsync(valueLevels, nameof(ValueLevelDto), dto => dto.Id);
+        //await issueService.SyncIssuesAsync(valueLevels, nameof(ValueLevelDto), dto => dto.Id);
         return executeCommandAsync;
     }
 }

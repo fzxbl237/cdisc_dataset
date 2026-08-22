@@ -8,6 +8,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Styling;
+using AtomCheckBox = AtomUI.Desktop.Controls.CheckBox;
 using AtomContextMenu = AtomUI.Desktop.Controls.ContextMenu;
 using AtomMenuItem = AtomUI.Desktop.Controls.MenuItem;
 using AtomFlyout = AtomUI.Desktop.Controls.Flyout;
@@ -314,7 +315,7 @@ public class DataGridColumnHeader : Control
         {
             if (column == null) continue;
 
-            var checkBox = new CheckBox
+            var checkBox = new AtomCheckBox
             {
                 IsChecked = column.IsVisible,
                 IsEnabled = column.CanUserHide,
@@ -323,13 +324,22 @@ public class DataGridColumnHeader : Control
                 Margin = new Thickness(0, 1),
             };
             checkBox.Bind(
-                CheckBox.IsCheckedProperty,
+                AtomCheckBox.IsCheckedProperty,
                 new Binding
                 {
                     Source = column,
                     Path = nameof(DataGridColumn.IsVisible),
                     Mode = BindingMode.TwoWay,
                 });
+            checkBox.PropertyChanged += (_, args) =>
+            {
+                if (args.Property == AtomCheckBox.IsCheckedProperty &&
+                    args.NewValue is bool isVisible &&
+                    column.IsVisible != isVisible)
+                {
+                    column.IsVisible = isVisible;
+                }
+            };
             // Prevent the submenu from closing while toggling this column
             checkBox.Click += (_, e) => e.Handled = true;
 

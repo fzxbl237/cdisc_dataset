@@ -34,6 +34,8 @@ public partial class WhereClauseDto:ObservableObject
 
     [ObservableProperty] private bool _canDelete = true;
 
+    [ObservableProperty] private bool _isDuplicate;
+
     [ObservableProperty] private AvaloniaList<ISelectOption> _terms = [];
     
     [ObservableProperty] private IList<ISelectOption>? _selectedTerms = [];

@@ -1,4 +1,4 @@
-<Styles
+﻿<Styles
     xmlns="https://github.com/avaloniaui"
     xmlns:atom="https://atomui.net"
     xmlns:minidg="clr-namespace:PatChes.Controls.DataGrid"
@@ -11,7 +11,6 @@
         <SolidColorBrush Color="#E4E8EE" x:Key="SortBtnHoverBg" />
         <SolidColorBrush Color="#3B82F6" x:Key="AccentBlue" />
         <SolidColorBrush Color="#3B82F6" x:Key="CheckBg" />
-        <SolidColorBrush Color="#CBD5E1" x:Key="CheckBorder" />
         <SolidColorBrush Color="#F0F4FA" x:Key="ItemHoverBg" />
         <SolidColorBrush Color="#1E293B" x:Key="TextPrimary" />
         <SolidColorBrush Color="#64748B" x:Key="TextSecondary" />
@@ -64,51 +63,14 @@
                                 Height="1"
                                 Margin="12,0" />
 
-                            <Border
-                                Background="Transparent"
-                                CornerRadius="6"
-                                Cursor="Hand"
-                                Margin="4,4,4,4"
-                                Padding="8,6"
-                                x:Name="PART_SelectAllBox">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <Border
-                                        Background="#3B82F6"
-                                        BorderBrush="#3B82F6"
-                                        BorderThickness="1.5"
-                                        ClipToBounds="True"
-                                        CornerRadius="5"
-                                        Height="18"
-                                        VerticalAlignment="Center"
-                                        Width="18"
-                                        x:Name="PART_SelectAllCheckBorder">
-                                        <Panel>
-                                            <TextBlock
-                                                FontSize="12"
-                                                FontWeight="SemiBold"
-                                                Foreground="White"
-                                                HorizontalAlignment="Center"
-                                                Text="&#x2713;"
-                                                VerticalAlignment="Center"
-                                                x:Name="PART_SelectAllCheckMark" />
-                                            <TextBlock
-                                                FontSize="14"
-                                                FontWeight="Bold"
-                                                Foreground="White"
-                                                HorizontalAlignment="Center"
-                                                Text="&#x2212;"
-                                                VerticalAlignment="Center"
-                                                x:Name="PART_SelectAllIndeterminate" />
-                                        </Panel>
-                                    </Border>
-                                    <TextBlock
-                                        FontSize="13"
-                                        FontWeight="SemiBold"
-                                        Foreground="{StaticResource TextPrimary}"
-                                        Text="全选"
-                                        VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Border>
+                            <atom:CheckBox
+                                Content="全选"
+                                FontSize="13"
+                                FontWeight="SemiBold"
+                                Foreground="{StaticResource TextPrimary}"
+                                IsThreeState="True"
+                                Margin="20,3,8,3"
+                                x:Name="PART_SelectAllCheckBox" />
 
                             <Border
                                 Background="{StaticResource SeparatorBrush}"
@@ -118,10 +80,10 @@
                             <atom:ListBox
                                 IsBorderless="True"
                                 IsSelectable="False"
-                                Margin="4,4,4,4"
+                                Margin="4,2,4,2"
                                 MaxHeight="260"
                                 Padding="0"
-                                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                ScrollViewer.HorizontalScrollBarVisibility="Auto"
                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
                                 x:Name="PART_FilterList">
                                 <atom:ListBox.ItemTemplate>
