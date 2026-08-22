@@ -1,0 +1,63 @@
+﻿<UserControl
+    d:DesignHeight="360"
+    d:DesignWidth="760"
+    mc:Ignorable="d"
+    x:Class="PatChes.Views.Dialogs.BuildValueLevelsDialog"
+    x:DataType="vm:BuildValueLevelsViewModel"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:atom="https://atomui.net"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:PatChes.ViewModels.Dialogs"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Margin="32" MinWidth="680" Spacing="20">
+        <atom:TextBlock
+            FontSize="22"
+            FontWeight="Bold"
+            Text="Build Value Levels" />
+        <Grid ColumnDefinitions="180,*" RowDefinitions="Auto,Auto" RowSpacing="16">
+            <atom:TextBlock
+                Grid.Row="0"
+                VerticalAlignment="Center"
+                Text="Variable" />
+            <atom:Select
+                Filter="{atom:ValueFilterProvider Contains}"
+                FilterValueSelector="{x:Static atom:Select.ValueFilterPropertySelector}"
+                Grid.Column="1"
+                IsAllowClear="True"
+                IsFilterEnabled="True"
+                Mode="Single"
+                OptionsSource="{Binding Variables}"
+                PlaceholderText="Select variable"
+                SelectedOption="{Binding SelectedVariable, Mode=TwoWay}" />
+            <atom:TextBlock
+                Grid.Row="1"
+                VerticalAlignment="Center"
+                Text="Where clause variable" />
+            <atom:Select
+                Filter="{atom:ValueFilterProvider Contains}"
+                FilterValueSelector="{x:Static atom:Select.ValueFilterPropertySelector}"
+                Grid.Row="1"
+                Grid.Column="1"
+                IsAllowClear="True"
+                IsFilterEnabled="True"
+                Mode="Single"
+                OptionsSource="{Binding WhereClauseVariables}"
+                PlaceholderText="Select where clause variable"
+                SelectedOption="{Binding SelectedWhereClauseVariable, Mode=TwoWay}" />
+        </Grid>
+        <StackPanel
+            HorizontalAlignment="Right"
+            Orientation="Horizontal"
+            Spacing="12">
+            <atom:Button
+                ButtonType="Default"
+                Command="{Binding CancelCommand}"
+                Content="Cancel" />
+            <atom:Button
+                ButtonType="Primary"
+                Command="{Binding ConfirmCommand}"
+                Content="Build" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>
