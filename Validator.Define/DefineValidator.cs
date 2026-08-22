@@ -60,7 +60,10 @@ public sealed class DefineValidator : IDefineValidator
 
     private static void ValidateSchema(string xml, DefineValidationOptions options, ICollection<DefineDiagnostic> diagnostics)
     {
-        var schemas = new XmlSchemaSet();
+        // XmlResolver is required so the XSD xs:include/xs:import references (e.g. the ODM
+        // foundation schema that declares the ODM root element) are resolved. Without it the
+        // schema set is incomplete and every document is reported as "ODM element is not declared".
+        var schemas = new XmlSchemaSet { XmlResolver = new XmlUrlResolver() };
         schemas.Add(Odm.NamespaceName, options.OdmSchemaPath);
         schemas.Add(Odm.NamespaceName, options.DefineSchemaPath);
         schemas.Compile();
@@ -77,8 +80,8 @@ public sealed class DefineValidator : IDefineValidator
         {
             var exception = args.Exception;
             var location = exception == null ? "XML" : $"Line {exception.LineNumber}, Position {exception.LinePosition}";
-            Add(diagnostics, "DD0001", location, args.Message,
-                args.Severity == XmlSeverityType.Warning ? DefineDiagnosticSeverity.Warning : DefineDiagnosticSeverity.Error);
+            var severity = args.Severity == XmlSeverityType.Warning ? DefineDiagnosticSeverity.Warning : DefineDiagnosticSeverity.Error;
+            Add(diagnostics, ClassifySchemaMessage(args.Message), location, args.Message, severity);
         };
 
         try
@@ -93,8 +96,65 @@ public sealed class DefineValidator : IDefineValidator
         }
         catch (XmlSchemaException exception)
         {
-            Add(diagnostics, "DD0001", $"Line {exception.LineNumber}, Position {exception.LinePosition}", exception.Message);
+            Add(diagnostics, ClassifySchemaMessage(exception.Message), $"Line {exception.LineNumber}, Position {exception.LinePosition}", exception.Message);
         }
+    }
+
+    private static string ClassifySchemaMessage(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return "DD0001";
+
+        // "The required attribute 'X' is missing." -> missing required attribute
+        if (message.StartsWith("The required attribute '", StringComparison.Ordinal))
+            return "DD0003";
+
+        // "The 'X' attribute is invalid - The value 'Y' is invalid according to its datatype 'Z' - ..."
+        if (message.StartsWith("The '", StringComparison.Ordinal) && message.Contains(" attribute is invalid - ", StringComparison.Ordinal))
+            return ClassifyInvalidAttributeValue(message);
+
+        // "The 'X' attribute is not declared." -> attribute not allowed
+        if (message.EndsWith(" attribute is not declared.", StringComparison.Ordinal))
+            return "DD0004";
+
+        // "... has invalid child element ... List of possible elements expected: ..." -> invalid content
+        if (message.Contains(" has invalid child element ", StringComparison.Ordinal))
+            return "DD0007";
+
+        // Unrecognized schema message -> generic schema violation.
+        return "DD0001";
+    }
+
+    private static string ClassifyInvalidAttributeValue(string message)
+    {
+        var dataType = ExtractDataType(message);
+        if (dataType == null)
+            return "DD0003";
+
+        var localName = dataType[(dataType.LastIndexOf(':') + 1)..];
+        return localName switch
+        {
+            "CLDataType" => "OD0076",
+            "DataType" => "OD0075",
+            "YesOrNo" => message.Contains("'Repeating'", StringComparison.Ordinal) ? "OD0072"
+                : message.Contains("'IsReferenceData'", StringComparison.Ordinal) ? "OD0073"
+                : message.Contains("'Mandatory'", StringComparison.Ordinal) ? "OD0074"
+                : "DD0003",
+            "positiveInteger" or "integer" or "decimal" => message.Contains("'Length'", StringComparison.Ordinal) ? "OD0013" : "DD0003",
+            _ => "DD0003"
+        };
+    }
+
+    private static string? ExtractDataType(string message)
+    {
+        const string marker = " according to its datatype '";
+        var start = message.IndexOf(marker, StringComparison.Ordinal);
+        if (start < 0)
+            return null;
+
+        start += marker.Length;
+        var end = message.IndexOf('\'', start);
+        return end < 0 ? null : message[start..end];
     }
 
     private static void ValidateDocument(XDocument document, ICollection<DefineDiagnostic> diagnostics)
@@ -481,6 +541,9 @@ public sealed class DefineValidator : IDefineValidator
 
     private static void ValidateCodeList(XElement codeList, ICollection<DefineDiagnostic> diagnostics)
     {
+        if (string.IsNullOrWhiteSpace(codeList.Attribute("Name")?.Value))
+            Add(diagnostics, "DD0003", Location(codeList), "Missing required 'Name' value for 'CodeList'.");
+
         var type = codeList.Attribute("DataType")?.Value;
         if (string.IsNullOrWhiteSpace(type) || !CodeListDataTypes.Contains(type))
             Add(diagnostics, "OD0076", Location(codeList), "Invalid Data Type value for codelist.");
@@ -499,6 +562,11 @@ public sealed class DefineValidator : IDefineValidator
         foreach (var term in terms)
         {
             var value = term.Attribute("CodedValue")?.Value;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                Add(diagnostics, "DD0003", Location(term), $"Missing required 'CodedValue' value for '{term.Name.LocalName}'.");
+                continue;
+            }
             if (!MatchesDataType(value, type))
                 Add(diagnostics, "OD0077", Location(term), "Codelist Term Data Type mismatch.");
         }

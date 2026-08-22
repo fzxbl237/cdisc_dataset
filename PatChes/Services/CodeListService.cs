@@ -302,6 +302,47 @@ public class CodeListService(ISqlSugarClient sqlSugar, IMapper mapper, IIssueSer
             .FirstAsync();
     }
 
+    public async Task<List<CodeListTerm>> GetCodeListTermsByCodeAsync(string? codeListCode)
+    {
+        if (string.IsNullOrWhiteSpace(codeListCode))
+            return [];
+
+        var references = await sqlSugar.AsTenant()
+            .QueryableWithAttr<CodeListReference>()
+            .AsWithAttr()
+            .Where(reference => reference.CodeListCode == codeListCode && !string.IsNullOrEmpty(reference.CodeListRef))
+            .ToListAsync();
+        var codeListRefs = references
+            .Select(reference => reference.CodeListRef)
+            .Where(codeListRef => !string.IsNullOrWhiteSpace(codeListRef))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (codeListRefs.Count == 0)
+            return [];
+
+        var terms = await sqlSugar.AsTenant()
+            .QueryableWithAttr<CodeListTerm>()
+            .AsWithAttr()
+            .Where(term => codeListRefs.Contains(term.CodeListRef!))
+            .ToListAsync();
+        if (codeListRefs.Count == 1)
+            return terms;
+
+        return terms
+            .GroupBy(term => new { term.CodeValue, term.Code, term.DecodedValue })
+            .Select(group => group.First())
+            .ToList();
+    }
+
+    public async Task<CodeListTerm?> GetCodeListTermByCodeAsync(string? codeListCode, string? codeValue)
+    {
+        if (string.IsNullOrWhiteSpace(codeValue))
+            return null;
+
+        var terms = await GetCodeListTermsByCodeAsync(codeListCode);
+        return terms.FirstOrDefault(term => term.CodeValue == codeValue);
+    }
+
     public async Task<List<CodeListTerm>> GetCodeListTermsAsync(string? codeListOid)
     {
         return  await sqlSugar.AsTenant().QueryableWithAttr<CodeListTerm>()

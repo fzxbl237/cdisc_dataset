@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -260,6 +260,19 @@ public partial class FileViewModel : ViewModelBase
         return dataset;
     }
 
+    private static bool IsDateTimeDataType(string? dataType)
+    {
+        return dataType is not null && (dataType.Equals("datetime", StringComparison.OrdinalIgnoreCase)
+               || dataType.Equals("date", StringComparison.OrdinalIgnoreCase)
+               || dataType.Equals("time", StringComparison.OrdinalIgnoreCase)
+               || dataType.Equals("partialDate", StringComparison.OrdinalIgnoreCase)
+               || dataType.Equals("partialTime", StringComparison.OrdinalIgnoreCase)
+               || dataType.Equals("partialDatetime", StringComparison.OrdinalIgnoreCase)
+               || dataType.Equals("partialDateTime", StringComparison.OrdinalIgnoreCase)
+               || dataType.Equals("incompleteDatetime", StringComparison.OrdinalIgnoreCase)
+               || dataType.Equals("durationDatetime", StringComparison.OrdinalIgnoreCase));
+    }
+
     private async Task<Variable> BuildVariableAsync(
         string datasetName,
         ParsedSdtmVariable parsedVariable,
@@ -276,9 +289,11 @@ public partial class FileViewModel : ViewModelBase
             VariableName = variableName.ToUpper(),
             Label = parsedVariable.Label,
             DataType = parsedVariable.DataType,
-            Length = parsedVariable.DataType == "datetime" ? null : parsedVariable.Length,
+            Length = IsDateTimeDataType(parsedVariable.DataType) ? null : parsedVariable.Length,
             SignificantDigits = parsedVariable.SignificantDigits,
-            Format = parsedVariable.Format == "$" ? "$" + parsedVariable.Length : parsedVariable.Format,
+            Format = IsDateTimeDataType(parsedVariable.DataType)
+                ? null
+                : parsedVariable.Format == "$" ? "$" + parsedVariable.Length : parsedVariable.Format,
             Mandatory = standardVariable?.Mandatory,
             Role = standardVariable?.Role,
             HasNoData = parsedVariable.HasValue ? "No" : "Yes",
@@ -809,9 +824,9 @@ public partial class FileViewModel : ViewModelBase
                         WhereClause = context.Key,
                         Label = context.Value,
                         Type = variable.DataType,
-                        Length = variable.DataType == "datetime" ? null : variable.Length,
+                        Length = IsDateTimeDataType(variable.DataType) ? null : variable.Length,
                         Digits = variable.SignificantDigits,
-                        Format = variable.Format,
+                        Format = IsDateTimeDataType(variable.DataType) ? null : variable.Format,
                         Mandatory = "No",
                         CodeListId = codeList?.Id ?? 0,
                         CodeListUniqueId = codeList?.UniqueId,
@@ -916,7 +931,7 @@ public partial class FileViewModel : ViewModelBase
             type,
             type == "datetime" ? null : length == 0 ? null : length,
             digits == 0 ? null : digits,
-            formatWidth == 0 ? null : $"${formatWidth}");
+            type == "datetime" || formatWidth == 0 ? null : $"${formatWidth}");
     }
 
     private static InferredValueMetadata InferValueMetadata(string value)

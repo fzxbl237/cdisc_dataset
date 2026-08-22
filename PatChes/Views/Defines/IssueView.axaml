@@ -36,7 +36,7 @@
                         <atom:ContextMenu>
                             <atom:MenuItem
                                 Command="{Binding #Root.((vm:IssueViewModel)DataContext).DeleteSelectedCommand}"
-                                Header="批量删除"
+                                Header="Delete Selected"
                                 Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
                         </atom:ContextMenu>
                     </Setter>
@@ -45,15 +45,9 @@
             <customGrid:DataGrid.SearchBarRightContent>
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <atom:Button
-                        Color="Primary"
-                        Command="{Binding ValidateDefineXmlCommand}"
-                        Content="验证 Define XML"
-                        Icon="{antd-icons:AntDesignIconProvider Kind=SafetyCertificateOutlined}"
-                        Variant="Solid" />
-                    <atom:Button
                         Color="Default"
                         Command="{Binding LoadDataCommand}"
-                        Content="刷新"
+                        Content="Refresh"
                         Icon="{antd-icons:AntDesignIconProvider Kind=ReloadOutlined}"
                         Variant="Solid" />
                 </StackPanel>

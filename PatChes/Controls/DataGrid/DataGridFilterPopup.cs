@@ -32,6 +32,7 @@ public class DataGridFilterPopup : TemplatedControl
     public event EventHandler? FilterApplied;
     private List<string>? _pendingUniqueValues;
     private HashSet<string>? _pendingSelectedValues;
+    private bool _hasInitialFilter;
     protected override Type StyleKeyOverride => typeof(DataGridFilterPopup);
 
     public void FocusSearchBox() => _searchBox?.Focus();
@@ -40,6 +41,7 @@ public class DataGridFilterPopup : TemplatedControl
     {
         _pendingUniqueValues = uniqueValues;
         _pendingSelectedValues = selectedValues;
+        _hasInitialFilter = selectedValues != null;
         if (_filterList != null) PopulateItems(uniqueValues, selectedValues);
     }
 
@@ -121,7 +123,8 @@ public class DataGridFilterPopup : TemplatedControl
         if (_searchBox != null) _searchBox.TextChanged += (_, _) => DoSearch();
         if (_selectAllBox != null) _selectAllBox.PointerPressed += (_, _) =>
         {
-            bool allChecked = _items.Count > 0 && _items.All(i => i.IsChecked);
+            var visibleItems = GetVisibleItems().ToList();
+            bool allChecked = visibleItems.Count > 0 && visibleItems.All(i => i.IsChecked);
             SetSelectAll(!allChecked);
         };
         var sortAsc = e.NameScope.Find<AtomButton>("PART_SortAsc");
@@ -139,9 +142,31 @@ public class DataGridFilterPopup : TemplatedControl
         if (okBtn != null) okBtn.Click += (_, _) =>
         {
             if (Column == null) return;
-            var selected = _items.Where(i => i.IsChecked).Select(i => i.Value).ToHashSet();
-            if (selected.Count == _items.Count || selected.Count == 0) Column.ClearFilter();
-            else Column.SetFilter(selected);
+            var searchText = GetSearchText();
+            var visibleItems = GetVisibleItems(searchText).ToList();
+            var selected = visibleItems
+                .Where(i => i.IsChecked)
+                .Select(i => i.Value)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                if (_hasInitialFilter)
+                {
+                    foreach (var item in _items.Where(i => !visibleItems.Contains(i) && i.IsChecked))
+                        selected.Add(item.Value);
+                }
+
+                Column.SetFilter(selected);
+            }
+            else if (selected.Count == _items.Count || selected.Count == 0)
+            {
+                Column.ClearFilter();
+            }
+            else
+            {
+                Column.SetFilter(selected);
+            }
             FilterApplied?.Invoke(this, EventArgs.Empty);
         };
         if (_pendingUniqueValues != null)
@@ -153,7 +178,7 @@ public class DataGridFilterPopup : TemplatedControl
 
     private void SetSelectAll(bool val)
     {
-        foreach (var item in _items)
+        foreach (var item in GetVisibleItems())
         {
             item.IsChecked = val;
             UpdateItemVisual(item);
@@ -173,8 +198,9 @@ public class DataGridFilterPopup : TemplatedControl
 
     private void SyncSelectAll()
     {
-        bool allChecked = _items.Count > 0 && _items.All(i => i.IsChecked);
-        bool noneChecked = _items.Count == 0 || _items.All(i => !i.IsChecked);
+        var visibleItems = GetVisibleItems().ToList();
+        bool allChecked = visibleItems.Count > 0 && visibleItems.All(i => i.IsChecked);
+        bool noneChecked = visibleItems.Count == 0 || visibleItems.All(i => !i.IsChecked);
         bool isIndeterminate = !allChecked && !noneChecked;
 
         if (_selectAllCheckBorder != null)
@@ -189,17 +215,26 @@ public class DataGridFilterPopup : TemplatedControl
     private void DoSearch()
     {
         if (_filterList == null) return;
-        RenderMatchingItems(_searchBox?.Text?.ToLowerInvariant() ?? "");
+        RenderMatchingItems(GetSearchText());
         SyncSelectAll();
+    }
+
+    private string GetSearchText() => _searchBox?.Text?.Trim() ?? "";
+
+    private IEnumerable<FilterItem> GetVisibleItems(string? searchText = null)
+    {
+        searchText ??= GetSearchText();
+        if (string.IsNullOrEmpty(searchText)) return _items;
+
+        return _items.Where(item => item.Value.Contains(searchText, StringComparison.OrdinalIgnoreCase));
     }
 
     private void RenderMatchingItems(string text)
     {
         if (_filterList == null) return;
         _filterList.Items.Clear();
-        foreach (var item in _items)
+        foreach (var item in GetVisibleItems(text))
         {
-            if (!string.IsNullOrEmpty(text) && !item.Value.ToLowerInvariant().Contains(text)) continue;
             var displayText = string.IsNullOrEmpty(item.Value) ? "(空白)" : item.Value;
             item.ListItem = CreateListBoxItem(item, displayText);
             _filterList.Items.Add(item.ListItem);

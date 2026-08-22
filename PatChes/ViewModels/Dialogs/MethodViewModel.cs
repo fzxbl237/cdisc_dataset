@@ -55,11 +55,6 @@ public partial class MethodViewModel : ObservableObject, IDialogHostAware
     private IList<IFormValidator>  _validators = [];
 
     [ObservableProperty] private AvaloniaList<string> _types = ["Computation", "Imputation"];
-    [ObservableProperty] private bool _isVariableLinkEnabled;
-    [ObservableProperty] private string? _variableMatchMode = "Equal";
-    [ObservableProperty] private string? _variableMatchText;
-
-    public AvaloniaList<string> VariableMatchModes { get; } = ["Equal","Start With", "End With", "Contains"];
     public AvaloniaList<ISelectOption> DocumentOptions { get; } = [];
     
 
@@ -183,10 +178,7 @@ public partial class MethodViewModel : ObservableObject, IDialogHostAware
                 DocumentUniqueId = Method.DocumentUniqueId,
                 HasUniqueIdDuplicate = Method.HasUniqueIdDuplicate,
                 HasNameDuplicate = Method.HasNameDuplicate
-            } },
-            { "LinkMatchingVariables", IsVariableLinkEnabled },
-            { "VariableMatchMode", VariableMatchMode },
-            { "VariableMatchText", VariableMatchText }
+            } }
         }
         };
         DialogHost.Close(DialogHostName ?? "Root", dialogResult);

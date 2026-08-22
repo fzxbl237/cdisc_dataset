@@ -1,4 +1,5 @@
-﻿﻿using Avalonia;
+﻿﻿using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
@@ -18,6 +19,11 @@ namespace PatChes.Controls.DataGrid;
 /// </summary>
 public class DataGridCell : Control
 {
+    public DataGridCell()
+    {
+        Focusable = true;
+    }
+
     public static readonly StyledProperty<DataGridColumn?> ColumnProperty =
         AvaloniaProperty.Register<DataGridCell, DataGridColumn?>(nameof(Column));
     public static readonly StyledProperty<object?> DataItemProperty =
@@ -275,6 +281,9 @@ public class DataGridCell : Control
 
     internal void SetValidationMessage(string? message, DataGridValidationSeverity severity, Color iconColor)
     {
+        if (_validationMessage == message && ValidationSeverity == severity)
+            return;
+
         _validationMessage = message;
         ValidationSeverity = severity;
         UpdateValidationIcon();
@@ -398,6 +407,22 @@ public class DataGridCell : Control
             _border.BorderBrush = Brushes.Transparent;
             _border.BorderThickness = new Thickness(0);
         }
+        else if (IsSelected)
+        {
+            _border.Background = ValidationSeverity switch
+            {
+                DataGridValidationSeverity.InValid or DataGridValidationSeverity.Error =>
+                    new SolidColorBrush(Color.Parse("#fab6b6")),
+                DataGridValidationSeverity.Warning =>
+                    new SolidColorBrush(Color.Parse("#f3d19e")),
+                DataGridValidationSeverity.Info =>
+                    new SolidColorBrush(Color.Parse("#EEF6FF")),
+                _ => new SolidColorBrush(Color.Parse("#D6EBFF")),
+            };
+            _border.BorderBrush = new SolidColorBrush(Color.Parse("#0078D4"));
+            _border.BorderThickness = OwningRow?.OwningGrid?.GetCellSelectionBorderThickness(this)
+                ?? new Thickness(0.5);
+        }
         else if (ValidationSeverity == DataGridValidationSeverity.InValid)
         {
             _border.Background = new SolidColorBrush(Color.Parse("#fab6b6"));
@@ -421,12 +446,6 @@ public class DataGridCell : Control
             _border.Background = new SolidColorBrush(Color.Parse("#EEF6FF"));
             _border.BorderBrush = new SolidColorBrush(Color.Parse("#0078D4"));
             _border.BorderThickness = new Thickness(0.5, 0.5, right, bottom);
-        }
-        else if (IsSelected)
-        {
-            _border.Background = new SolidColorBrush(Color.Parse("#D6EBFF"));
-            _border.BorderBrush = new SolidColorBrush(Color.Parse("#0078D4"));
-            _border.BorderThickness = new Thickness(0.5, 0.5, 0.5, 0.5);
         }
         else if (IsFrozenCell())
         {

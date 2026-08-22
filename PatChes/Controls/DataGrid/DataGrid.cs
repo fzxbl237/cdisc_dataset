@@ -5,10 +5,10 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -16,6 +16,7 @@ using Avalonia.Media;
 using AtomLineEdit = AtomUI.Desktop.Controls.LineEdit;
 using AtomIconButton = AtomUI.Desktop.Controls.IconButton;
 using AtomUI.Icons.AntDesign;
+using Avalonia.Threading;
 using PatChes.Controls.DataGrid.Searching;
 
 namespace PatChes.Controls.DataGrid;
@@ -28,8 +29,23 @@ public enum DataGridGridLinesVisibility
     Both
 }
 
+public enum DataGridSelectionUnit
+{
+    FullRow,
+    Cell
+}
+
+public enum DataGridSelectionMode
+{
+    Single,
+    Extended
+}
+
 public class DataGrid : TemplatedControl
 {
+    private bool _viewportUpdateScheduled;
+    private int _realizedFirstIndex = -1;
+    private int _realizedLastIndex = -1;
     private DataGridScrollPanel? _scrollPanel;
     private DataGridColumnHeadersPresenter? _headersPresenter;
     private Border? _headerClipper;
@@ -37,8 +53,21 @@ public class DataGrid : TemplatedControl
     private ScrollBar? _hScrollBar;
     private bool _updatingScrollBars;
     private readonly List<DataGridRow> _realizedRows = new();
+    private readonly List<DataGridRow> _rowPool = new();
+    private const int MaxRowPoolSize = 128;
     private DataGridRow? _currentRow;
     private DataGridCell? _currentCell;
+    private int? _pendingCurrentCellRowIndex;
+    private DataGridColumn? _pendingCurrentCellColumn;
+    private bool _pendingCurrentCellHadFocus;
+    private int _selectionAnchorIndex = -1;
+    private readonly HashSet<DataGridCellPosition> _selectedCells = new();
+    private DataGridCellPosition? _cellSelectionAnchor;
+    private bool _isCellSelectionDragging;
+    private bool _cellSelectionDidDrag;
+    private bool _cellSelectionAppend;
+    private Point _cellSelectionStartPoint;
+    private IPointer? _cellSelectionPointer;
     private bool _isEditing;
     private bool _templateApplied;
     private double _verticalOffset;
@@ -50,7 +79,9 @@ public class DataGrid : TemplatedControl
     private Border? _rowDropIndicator;
     private DataGridRow? _draggedRow;
     private DataGridRow? _dragPreviewRow;
+    private Control? _rowDragFeedback;
     private Point _rowDragStartPosition;
+    private Point _rowDragPosition;
     private bool _isRowDragging;
     private int _rowDropIndex = -1;
     private const double RowDragHandleWidth = 36;
@@ -64,6 +95,9 @@ public class DataGrid : TemplatedControl
     private SearchModel? _searchModel;
     private DataGridSearchAdapter? _searchAdapter;
     private AtomLineEdit? _searchTextBox;
+    private DispatcherTimer? _searchDebounceTimer;
+    private string? _pendingSearchQuery;
+    private const int SearchDebounceMilliseconds = 200;
     private TextBlock? _searchCountText;
     private Border? _searchBarBorder;
     private bool _usesExternalSearchModel;
@@ -115,6 +149,12 @@ public class DataGrid : TemplatedControl
         AvaloniaProperty.Register<DataGrid, DataGridGridLinesVisibility>(nameof(GridLinesVisibility), DataGridGridLinesVisibility.Both);
     public static readonly StyledProperty<bool> CanUserReorderRowsProperty =
         AvaloniaProperty.Register<DataGrid, bool>(nameof(CanUserReorderRows));
+    public static readonly StyledProperty<DataGridSelectionUnit> SelectionUnitProperty =
+        AvaloniaProperty.Register<DataGrid, DataGridSelectionUnit>(nameof(SelectionUnit), DataGridSelectionUnit.FullRow);
+    public static readonly StyledProperty<DataGridSelectionMode> SelectionModeProperty =
+        AvaloniaProperty.Register<DataGrid, DataGridSelectionMode>(nameof(SelectionMode), DataGridSelectionMode.Single);
+    public static readonly StyledProperty<IDataTemplate?> RowDragFeedbackTemplateProperty =
+        AvaloniaProperty.Register<DataGrid, IDataTemplate?>(nameof(RowDragFeedbackTemplate));
 
     public IEnumerable? ItemsSource { get => GetValue(ItemsSourceProperty); set => SetValue(ItemsSourceProperty, value); }
     public object? SelectedItem { get => GetValue(SelectedItemProperty); set => SetValue(SelectedItemProperty, value); }
@@ -130,8 +170,12 @@ public class DataGrid : TemplatedControl
     public bool IsReadOnly { get => GetValue(IsReadOnlyProperty); set => SetValue(IsReadOnlyProperty, value); }
     public DataGridGridLinesVisibility GridLinesVisibility { get => GetValue(GridLinesVisibilityProperty); set => SetValue(GridLinesVisibilityProperty, value); }
     public bool CanUserReorderRows { get => GetValue(CanUserReorderRowsProperty); set => SetValue(CanUserReorderRowsProperty, value); }
+    public DataGridSelectionUnit SelectionUnit { get => GetValue(SelectionUnitProperty); set => SetValue(SelectionUnitProperty, value); }
+    public DataGridSelectionMode SelectionMode { get => GetValue(SelectionModeProperty); set => SetValue(SelectionModeProperty, value); }
+    public IDataTemplate? RowDragFeedbackTemplate { get => GetValue(RowDragFeedbackTemplateProperty); set => SetValue(RowDragFeedbackTemplateProperty, value); }
 
     public ObservableCollection<DataGridColumn> Columns { get; } = new();
+    public IReadOnlyCollection<DataGridCellPosition> SelectedCells => _selectedCells;
     public DataGridRow? CurrentRow => _currentRow;
     internal DataGridRow? DragPreviewRow => _dragPreviewRow;
     public DataGridCell? CurrentCell => _currentCell;
@@ -165,8 +209,18 @@ public class DataGrid : TemplatedControl
             || columnIndex >= Columns.Count - RightFrozenColumnCount;
     }
 
+    public static readonly RoutedEvent<DataGridPreparingCellForEditEventArgs> PreparingCellForEditEvent =
+        RoutedEvent.Register<DataGrid, DataGridPreparingCellForEditEventArgs>(
+            nameof(PreparingCellForEdit), RoutingStrategies.Bubble);
+
     public event EventHandler<DataGridColumnEventArgs>? ColumnHeaderClick;
     public event EventHandler? SelectionChanged;
+    public event EventHandler? SelectedCellsChanged;
+    public event EventHandler<DataGridPreparingCellForEditEventArgs> PreparingCellForEdit
+    {
+        add => AddHandler(PreparingCellForEditEvent, value);
+        remove => RemoveHandler(PreparingCellForEditEvent, value);
+    }
     public event EventHandler<DataGridCellEditEndingEventArgs>? CellEditEnding;
     public event EventHandler<DataGridRowReorderedEventArgs>? RowReordered;
 
@@ -185,6 +239,8 @@ public class DataGrid : TemplatedControl
     public DataGrid()
     {
         Columns.CollectionChanged += OnColumnsChanged;
+        PointerMoved += OnCellSelectionPointerMoved;
+        PointerReleased += OnCellSelectionPointerReleased;
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -331,10 +387,35 @@ public class DataGrid : TemplatedControl
             clearButton.IsVisible = !string.IsNullOrWhiteSpace(query);
 
         if (_usesExternalSearchModel) return;
+
         if (string.IsNullOrWhiteSpace(query))
+        {
+            _searchDebounceTimer?.Stop();
+            _pendingSearchQuery = null;
             _searchModel.Clear();
-        else
-            _searchModel.Apply(new[] { new SearchDescriptor(query) });
+            return;
+        }
+
+        // Debounce: keep typing without re-running the full grid scan on every keystroke.
+        if (_searchDebounceTimer == null)
+        {
+            _searchDebounceTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(SearchDebounceMilliseconds),
+            };
+            _searchDebounceTimer.Tick += (_, _) =>
+            {
+                _searchDebounceTimer.Stop();
+                var pending = _pendingSearchQuery;
+                _pendingSearchQuery = null;
+                if (pending != null)
+                    _searchModel.Apply(new[] { new SearchDescriptor(pending) });
+            };
+        }
+
+        _pendingSearchQuery = query;
+        _searchDebounceTimer.Stop();
+        _searchDebounceTimer.Start();
     }
 
     private void OnSearchKeyDown(object? sender, KeyEventArgs e)
@@ -385,13 +466,13 @@ public class DataGrid : TemplatedControl
             var cell = row?.Cells.FirstOrDefault(candidate => Columns.IndexOf(candidate.Column!) == result.ColumnIndex);
             if (row != null && cell != null)
             {
-                if (_currentRow != null && _currentRow != row) _currentRow.IsSelected = false;
-                row.IsSelected = true;
-                _currentRow = row;
+                SetRowSelection(row, clearOthers: true);
+                _selectionAnchorIndex = filteredIndex;
                 SelectedIndex = filteredIndex;
                 SelectedItem = row.DataContext;
 
                 if (_currentCell != null && _currentCell != cell) _currentCell.IsSelected = false;
+                ClearPendingCurrentCellRestore();
                 cell.IsSelected = true;
                 _currentCell = cell;
             }
@@ -556,9 +637,11 @@ public class DataGrid : TemplatedControl
         if (e.Delta.Y != 0)
             _verticalOffset = Math.Clamp(_verticalOffset - e.Delta.Y * RowHeight * 3, 0, maxV);
         if (e.Delta.X != 0)
+        {
             _horizontalOffset = Math.Clamp(_horizontalOffset - e.Delta.X * 30, 0, maxH);
+            SyncHorizontalOffset();
+        }
 
-        SyncHorizontalOffset();
         UpdateScrollBars();
         UpdateViewport();
         e.Handled = true;
@@ -567,11 +650,19 @@ public class DataGrid : TemplatedControl
     private void UpdateStatusBar()
     {
         if (_statusBar == null) return;
-        int total = ItemsSource?.Cast<object>().Count() ?? 0;
+        int total = GetTotalItemCount();
         int filtered = GetItemCount();
         _statusBar.Text = total == filtered
             ? $"共 {total} 行"
             : $"共 {filtered} 行（筛选自 {total} 行）";
+    }
+
+    private int GetTotalItemCount()
+    {
+        if (ItemsSource == null) return 0;
+        if (ItemsSource is ICollection collection) return collection.Count;
+        if (ItemsSource is IReadOnlyCollection<object> readOnly) return readOnly.Count;
+        return ItemsSource.Cast<object>().Count();
     }
 
     private double GetViewportHeight()
@@ -611,8 +702,21 @@ public class DataGrid : TemplatedControl
     {
         if (_updatingScrollBars) return;
         _verticalOffset = _vScrollBar!.Value;
-        SyncHorizontalOffset();
-        UpdateViewport();
+        ScheduleViewportUpdate();
+    }
+
+    private void ScheduleViewportUpdate()
+    {
+        if (_viewportUpdateScheduled)
+            return;
+
+        _viewportUpdateScheduled = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _viewportUpdateScheduled = false;
+            if (_templateApplied)
+                UpdateViewport();
+        }, DispatcherPriority.Render);
     }
 
     private void OnHScrollBarChanged(object? sender, RoutedEventArgs e)
@@ -620,7 +724,6 @@ public class DataGrid : TemplatedControl
         if (_updatingScrollBars) return;
         _horizontalOffset = _hScrollBar!.Value;
         SyncHorizontalOffset();
-        UpdateViewport();
     }
 
     private void UpdateScrollBars()
@@ -736,6 +839,7 @@ public class DataGrid : TemplatedControl
 
     private void OnColumnsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        _rowPool.Clear();
         for (int i = 0; i < Columns.Count; i++) { Columns[i].Index = i; Columns[i].DataGridOwner = this; }
         if (_templateApplied) { BuildHeaders(); RefreshRows(); }
     }
@@ -810,6 +914,7 @@ public class DataGrid : TemplatedControl
     internal void OnColumnVisibilityChanged(DataGridColumn column)
     {
         if (!_templateApplied) return;
+        _rowPool.Clear();
         BuildHeaders();
         foreach (var row in _realizedRows)
             row.UpdateCells();
@@ -830,7 +935,14 @@ public class DataGrid : TemplatedControl
 
     private void UpdateViewport()
     {
-        if (_scrollPanel == null || ItemsSource == null) { ClearRows(); return; }
+        if (_scrollPanel == null || ItemsSource == null)
+        {
+            ClearRows();
+            _realizedFirstIndex = -1;
+            _realizedLastIndex = -1;
+            ClearPendingCurrentCellRestore();
+            return;
+        }
         int itemCount = GetItemCount();
         double vpH = GetViewportHeight();
         if (vpH <= 0) vpH = 600;
@@ -838,60 +950,187 @@ public class DataGrid : TemplatedControl
         int first = Math.Max(0, (int)Math.Floor(_verticalOffset / RowHeight) - 2);
         int last = Math.Min(itemCount - 1, (int)Math.Ceiling((_verticalOffset + vpH) / RowHeight) + 2);
         var items = GetItemsList();
-        var keep = new HashSet<int>();
+        if (first == _realizedFirstIndex && last == _realizedLastIndex)
+        {
+            foreach (var row in _realizedRows)
+            {
+                var item = row.Index < items.Count ? items[row.Index] : null;
+                if (!ReferenceEquals(row.DataContext, item))
+                {
+                    UnsubscribeItemValidation(row.DataContext);
+                    ReuseRow(row, row.Index, item);
+                    SubscribeItemValidation(item);
+                    RestoreRowValidationState(row);
+                }
+                var selected = IsItemSelected(item);
+                if (row.IsSelected != selected)
+                    row.IsSelected = selected;
+            }
+            _scrollPanel.InvalidateArrange();
+            if (SelectionUnit == DataGridSelectionUnit.Cell)
+                ApplyCellSelectionVisuals();
+            RestorePendingCurrentCell();
+            return;
+        }
+
+        var realizedByIndex = new Dictionary<int, DataGridRow>(_realizedRows.Count);
+        foreach (var row in _realizedRows)
+            realizedByIndex[row.Index] = row;
+
+        for (var index = _realizedRows.Count - 1; index >= 0; index--)
+        {
+            var row = _realizedRows[index];
+            if (row.Index >= first && row.Index <= last)
+                continue;
+
+            UnsubscribeItemValidation(row.DataContext);
+            _realizedRows.RemoveAt(index);
+            ReturnRowToPool(row);
+        }
+
         for (int i = first; i <= last; i++)
         {
-            keep.Add(i);
-            var existing = _realizedRows.FirstOrDefault(r => r.Index == i);
-            if (existing != null)
+            if (realizedByIndex.TryGetValue(i, out var existing) && _realizedRows.Contains(existing))
             {
                 var item = i < items.Count ? items[i] : null;
                 if (!ReferenceEquals(existing.DataContext, item))
                 {
                     UnsubscribeItemValidation(existing.DataContext);
-                    existing.DataContext = item;
+                    ReuseRow(existing, i, item);
                     SubscribeItemValidation(item);
-                    existing.UpdateCells();
                     RestoreRowValidationState(existing);
                 }
+                var selected = IsItemSelected(item);
+                if (existing.IsSelected != selected)
+                    existing.IsSelected = selected;
                 continue;
             }
 
-            var row = CreateRow(i, items);
+            var row = ReuseOrCreateRow(i, items);
             _realizedRows.Add(row);
+            realizedByIndex[i] = row;
             if (!_scrollPanel.Children.Contains(row)) _scrollPanel.Children.Add(row);
         }
-        foreach (var row in _realizedRows.Where(r => !keep.Contains(r.Index)).ToList())
-        {
-            UnsubscribeItemValidation(row.DataContext);
-            _realizedRows.Remove(row);
-            _scrollPanel.Children.Remove(row);
-        }
 
+        _realizedFirstIndex = first;
+        _realizedLastIndex = last;
         _scrollPanel.InvalidateArrange();
+        if (SelectionUnit == DataGridSelectionUnit.Cell)
+            ApplyCellSelectionVisuals();
+        RestorePendingCurrentCell();
     }
 
-    private DataGridRow CreateRow(int index, IList items)
+    private DataGridRow ReuseOrCreateRow(int index, IList items)
     {
         object? item = index < items.Count ? items[index] : null;
-        var row = new DataGridRow { Index = index, DataContext = item, Height = RowHeight, OwningGrid = this };
-        row.UpdateCells();
-        row.PointerPressed += OnRowPointerPressed;
-        bool sel = index == SelectedIndex;
+
+        DataGridRow row;
+        if (_rowPool.Count > 0)
+        {
+            row = _rowPool[^1];
+            _rowPool.RemoveAt(_rowPool.Count - 1);
+            row.IsVisible = true;
+            ReuseRow(row, index, item);
+            if (!_scrollPanel!.Children.Contains(row))
+                _scrollPanel.Children.Add(row);
+        }
+        else
+        {
+            row = new DataGridRow { Height = RowHeight, OwningGrid = this };
+            row.PointerPressed += OnRowPointerPressed;
+            ReuseRow(row, index, item);
+            row.UpdateCells();
+        }
+
+        bool sel = IsItemSelected(item);
         row.IsSelected = sel;
-        if (sel) _currentRow = row;
+        if (sel && index == SelectedIndex) _currentRow = row;
         SubscribeItemValidation(item);
         RestoreRowValidationState(row);
         return row;
     }
 
+    private void ReuseRow(DataGridRow row, int index, object? item)
+    {
+        row.Index = index;
+        row.DataContext = item;
+        foreach (var cell in row.Cells)
+        {
+            cell.DataItem = item;
+            if (cell.Column != null)
+                cell.Width = cell.Column.GetEffectiveWidth();
+        }
+    }
+
+    private void ReturnRowToPool(DataGridRow row)
+    {
+        var currentCellInRow = row.Cells.Any(cell => ReferenceEquals(cell, _currentCell));
+
+        if (currentCellInRow && _currentCell?.Column is { } column)
+        {
+            _pendingCurrentCellRowIndex = row.Index;
+            _pendingCurrentCellColumn = column;
+            _pendingCurrentCellHadFocus = _currentCell.IsFocused;
+            _currentCell.IsSelected = false;
+            _currentCell = null;
+        }
+
+        row.Index = -1;
+        row.IsVisible = false;
+        if (_rowPool.Count >= MaxRowPoolSize)
+        {
+            _scrollPanel?.Children.Remove(row);
+            return;
+        }
+
+        _rowPool.Add(row);
+    }
+
+    private void RestorePendingCurrentCell()
+    {
+        if (_pendingCurrentCellRowIndex is not { } rowIndex || _pendingCurrentCellColumn is not { } column)
+            return;
+
+        var row = _realizedRows.FirstOrDefault(candidate => candidate.Index == rowIndex);
+        var cell = row?.Cells.FirstOrDefault(candidate => ReferenceEquals(candidate.Column, column));
+        if (cell == null)
+            return;
+
+        var restoreFocus = _pendingCurrentCellHadFocus;
+        ClearPendingCurrentCellRestore();
+        cell.IsSelected = true;
+        _currentCell = cell;
+        if (restoreFocus)
+            cell.Focus();
+    }
+
+    private void ClearPendingCurrentCellRestore()
+    {
+        _pendingCurrentCellRowIndex = null;
+        _pendingCurrentCellColumn = null;
+        _pendingCurrentCellHadFocus = false;
+    }
+
     private void ClearRows()
     {
         foreach (var row in _realizedRows)
+        {
             UnsubscribeItemValidation(row.DataContext);
+            ReturnRowToPool(row);
+        }
 
-        if (_scrollPanel != null) _scrollPanel.Children.Clear();
+        if (_scrollPanel != null)
+        {
+            // Remove only realized rows, keeping the frozen-column shadows intact.
+            for (int i = _scrollPanel.Children.Count - 1; i >= 0; i--)
+            {
+                if (_scrollPanel.Children[i] is DataGridRow)
+                    _scrollPanel.Children.RemoveAt(i);
+            }
+        }
         _realizedRows.Clear();
+        _realizedFirstIndex = -1;
+        _realizedLastIndex = -1;
     }
 
     private void InvalidateItemsCache()
@@ -945,9 +1184,14 @@ public class DataGrid : TemplatedControl
     {
         _verticalOffset = 0;
         SelectedIndex = -1;
+        _selectionAnchorIndex = -1;
         _currentRow = null;
+        ClearPendingCurrentCellRestore();
         _currentCell = null;
         _realizedRows.Clear();
+        _realizedFirstIndex = -1;
+        _realizedLastIndex = -1;
+        ClearSelectedCells();
         if (_scrollPanel != null)
         {
             for (int i = _scrollPanel.Children.Count - 1; i >= 0; i--)
@@ -965,17 +1209,58 @@ public class DataGrid : TemplatedControl
 
     private void OnRowPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        if (SelectionUnit == DataGridSelectionUnit.Cell)
+            return;
         if (sender is not DataGridRow row) return;
         var pos = e.GetPosition(row);
         var pt = e.GetCurrentPoint(this);
-        DataGridCell? cell = pt.Properties.IsLeftButtonPressed ? HitTestCell(row, pos.X) : null;
+        if (!pt.Properties.IsLeftButtonPressed) return;
+
+        DataGridCell? cell = HitTestCell(row, pos.X);
         if (_isEditing && cell != null && cell != _currentCell)
-        {
             CommitEdit();
+
+        var modifiers = e.KeyModifiers;
+        bool isShift = modifiers.HasFlag(KeyModifiers.Shift);
+        bool isCtrl = modifiers.HasFlag(KeyModifiers.Control);
+        bool isCheckBox = cell?.Column is DataGridCheckBoxColumn;
+
+        if (isCheckBox)
+        {
+            if (isShift)
+            {
+                if (_selectionAnchorIndex < 0)
+                    _selectionAnchorIndex = _currentRow?.Index ?? row.Index;
+                SelectRange(_selectionAnchorIndex, row.Index);
+            }
+            else
+            {
+                SetRowSelection(row, clearOthers: !isCtrl);
+                _selectionAnchorIndex = row.Index;
+                SelectedIndex = row.Index;
+                SelectedItem = row.DataContext;
+                ToggleCheckBoxValue(cell!);
+            }
+        }
+        else if (isShift)
+        {
+            if (_selectionAnchorIndex < 0)
+                _selectionAnchorIndex = _currentRow?.Index ?? row.Index;
+            SelectRange(_selectionAnchorIndex, row.Index);
+        }
+        else if (isCtrl)
+        {
+            SetItemSelected(row.DataContext, !IsItemSelected(row.DataContext));
+            row.IsSelected = IsItemSelected(row.DataContext);
+            _selectionAnchorIndex = row.Index;
+        }
+        else
+        {
+            SetRowSelection(row, clearOthers: true);
+            _selectionAnchorIndex = row.Index;
         }
 
-        if (_currentRow != null && _currentRow != row) _currentRow.IsSelected = false;
-        row.IsSelected = true;
+        row.IsSelected = IsItemSelected(row.DataContext);
         _currentRow = row;
         SelectedIndex = row.Index;
         SelectedItem = row.DataContext;
@@ -983,17 +1268,9 @@ public class DataGrid : TemplatedControl
         if (cell != null)
         {
             if (_currentCell != null && _currentCell != cell) _currentCell.IsSelected = false;
+            ClearPendingCurrentCellRestore();
             cell.IsSelected = true;
             _currentCell = cell;
-
-            if (cell.Column is DataGridCheckBoxColumn && cell.DataItem != null)
-            {
-                ToggleCheckBoxValue(cell);
-                SelectionChanged?.Invoke(this, EventArgs.Empty);
-                e.Handled = true;
-                return;
-            }
-
         }
 
         SelectionChanged?.Invoke(this, EventArgs.Empty);
@@ -1014,6 +1291,7 @@ public class DataGrid : TemplatedControl
 
         _draggedRow = row;
         _rowDragStartPosition = e.GetPosition(this);
+        _rowDragPosition = _rowDragStartPosition;
         _rowDropIndex = row.Index;
         return true;
     }
@@ -1024,6 +1302,7 @@ public class DataGrid : TemplatedControl
             return;
 
         var position = e.GetPosition(this);
+        _rowDragPosition = position;
         if (!_isRowDragging)
         {
             if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed
@@ -1078,11 +1357,31 @@ public class DataGrid : TemplatedControl
         _dragPreviewRow.UpdateCells();
         _dragPreviewRow.SetDragVisualState(true);
         _scrollPanel.Children.Add(_dragPreviewRow);
+        CreateRowDragFeedback();
+    }
+
+    private void CreateRowDragFeedback()
+    {
+        if (_scrollPanel == null || _draggedRow == null || RowDragFeedbackTemplate == null || _rowDragFeedback != null)
+            return;
+
+        var content = RowDragFeedbackTemplate.Build(_draggedRow.DataContext) as Control;
+        if (content == null)
+            return;
+
+        content.DataContext = _draggedRow.DataContext;
+        content.IsHitTestVisible = false;
+        content.ZIndex = 60;
+        content.Opacity = 0.98;
+        _rowDragFeedback = content;
+        _scrollPanel.Children.Add(content);
+        content.Measure(new Size(Math.Min(420, Math.Max(0, _scrollPanel.Bounds.Width)), 120));
     }
 
     private void UpdateDragLayout(Point position)
     {
         UpdateRowDropIndicator(position);
+        _scrollPanel?.InvalidateArrange();
     }
 
     private void ApplyDragRowOffsets()
@@ -1116,6 +1415,25 @@ public class DataGrid : TemplatedControl
             _rowDropIndex * RowHeight - verticalOffset,
             finalSize.Width,
             RowHeight));
+    }
+
+    internal void ArrangeRowDragFeedback(DataGridScrollPanel panel, Size finalSize)
+    {
+        if (_rowDragFeedback == null || !_isRowDragging)
+            return;
+
+        var panelOrigin = panel.TranslatePoint(default, this);
+        if (panelOrigin == null)
+            return;
+
+        var pointer = _rowDragPosition - panelOrigin.Value;
+        var desired = _rowDragFeedback.DesiredSize;
+        var x = Math.Clamp(pointer.X + 18, 0, Math.Max(0, finalSize.Width - desired.Width));
+        var y = pointer.Y - desired.Height - 10;
+        if (y < 4)
+            y = Math.Min(finalSize.Height - desired.Height - 4, pointer.Y + 10);
+        y = Math.Clamp(y, 4, Math.Max(4, finalSize.Height - desired.Height - 4));
+        _rowDragFeedback.Arrange(new Rect(x, y, desired.Width, desired.Height));
     }
 
     private void UpdateRowDropIndicator(Point position)
@@ -1196,6 +1514,12 @@ public class DataGrid : TemplatedControl
             _dragPreviewRow = null;
         }
 
+        if (_rowDragFeedback != null)
+        {
+            _scrollPanel?.Children.Remove(_rowDragFeedback);
+            _rowDragFeedback = null;
+        }
+
         if (_rowDropIndicator != null)
             _rowDropIndicator.IsVisible = false;
 
@@ -1208,6 +1532,7 @@ public class DataGrid : TemplatedControl
 
         _draggedRow = null;
         _isRowDragging = false;
+        _rowDragPosition = default;
         _rowDropIndex = -1;
     }
 
@@ -1224,6 +1549,51 @@ public class DataGrid : TemplatedControl
         cell.ResetDisplay();
     }
 
+    private static bool IsItemSelected(object? item)
+    {
+        if (item == null) return false;
+        var property = item.GetType().GetProperty("IsSelected");
+        return property?.GetValue(item) is bool selected && selected;
+    }
+
+    private static void SetItemSelected(object? item, bool selected)
+    {
+        if (item == null) return;
+        var property = item.GetType().GetProperty("IsSelected");
+        if (property?.CanWrite == true && property.PropertyType == typeof(bool))
+            property.SetValue(item, selected);
+    }
+
+    private void SetRowSelection(DataGridRow row, bool clearOthers)
+    {
+        if (clearOthers)
+        {
+            foreach (var item in GetItemsList())
+                SetItemSelected(item, false);
+            foreach (var realizedRow in _realizedRows)
+                realizedRow.IsSelected = false;
+        }
+
+        SetItemSelected(row.DataContext, true);
+        row.IsSelected = true;
+    }
+
+    private void SelectRange(int firstIndex, int lastIndex)
+    {
+        var items = GetItemsList();
+        if (items.Count == 0) return;
+        int start = Math.Clamp(Math.Min(firstIndex, lastIndex), 0, items.Count - 1);
+        int end = Math.Clamp(Math.Max(firstIndex, lastIndex), 0, items.Count - 1);
+
+        foreach (var item in items)
+            SetItemSelected(item, false);
+        for (int i = start; i <= end; i++)
+            SetItemSelected(items[i], true);
+
+        foreach (var realizedRow in _realizedRows)
+            realizedRow.IsSelected = IsItemSelected(realizedRow.DataContext);
+    }
+
     private DataGridCell? HitTestCell(DataGridRow row, double x)
     {
         foreach (var cell in row.Cells)
@@ -1235,7 +1605,246 @@ public class DataGrid : TemplatedControl
         return null;
     }
 
-    public void OnCellPressed(DataGridCell cell, PointerPressedEventArgs e) { }
+    public void OnCellPressed(DataGridCell cell, PointerPressedEventArgs e)
+    {
+        if (SelectionUnit != DataGridSelectionUnit.Cell ||
+            !e.GetCurrentPoint(cell).Properties.IsLeftButtonPressed ||
+            cell.OwningRow == null)
+        {
+            return;
+        }
+
+        var rowIndex = cell.OwningRow.Index;
+        var columnIndex = Columns.IndexOf(cell.Column!);
+        if (rowIndex < 0 || columnIndex < 0)
+            return;
+
+        if (_isEditing && !ReferenceEquals(cell, _currentCell))
+            CommitEdit();
+
+        var position = new DataGridCellPosition(rowIndex, columnIndex);
+        var modifiers = e.KeyModifiers;
+        var isExtended = SelectionMode == DataGridSelectionMode.Extended;
+        var isCtrl = isExtended && modifiers.HasFlag(KeyModifiers.Control);
+        var isShift = isExtended && modifiers.HasFlag(KeyModifiers.Shift);
+        var anchor = _cellSelectionAnchor ?? position;
+
+        if (isShift)
+        {
+            ApplyCellSelectionRange(anchor, position, append: isCtrl);
+        }
+        else if (isCtrl)
+        {
+            ToggleCellSelection(position);
+            _cellSelectionAnchor = position;
+        }
+        else
+        {
+            ApplyCellSelectionRange(position, position, append: false);
+            _cellSelectionAnchor = position;
+        }
+
+        _currentRow = cell.OwningRow;
+        SelectedIndex = rowIndex;
+        SelectedItem = cell.DataItem;
+        ClearPendingCurrentCellRestore();
+        _currentCell = cell;
+        if (cell.Column is DataGridCheckBoxColumn && !isShift && !isCtrl)
+            ToggleCheckBoxValue(cell);
+
+        _isCellSelectionDragging = true;
+        _cellSelectionDidDrag = false;
+        _cellSelectionAppend = isCtrl;
+        _cellSelectionStartPoint = e.GetPosition(this);
+        _cellSelectionPointer = e.Pointer;
+    }
+
+    private void OnCellSelectionPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_isCellSelectionDragging || !ReferenceEquals(e.Pointer, _cellSelectionPointer))
+            return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
+
+        var point = e.GetPosition(this);
+        if (Math.Abs(point.X - _cellSelectionStartPoint.X) < 3 &&
+            Math.Abs(point.Y - _cellSelectionStartPoint.Y) < 3)
+            return;
+
+        _cellSelectionDidDrag = true;
+        e.Pointer.Capture(this);
+        var target = FindCellAtPoint(point);
+        if (target?.OwningRow == null)
+            return;
+
+        var targetPosition = new DataGridCellPosition(
+            target.OwningRow.Index,
+            Columns.IndexOf(target.Column!));
+        if (targetPosition.RowIndex < 0 || targetPosition.ColumnIndex < 0)
+            return;
+
+        ApplyCellSelectionRange(_cellSelectionAnchor ?? targetPosition, targetPosition, append: _cellSelectionAppend);
+        _currentRow = target.OwningRow;
+        SelectedIndex = targetPosition.RowIndex;
+        SelectedItem = target.DataItem;
+        _currentCell = target;
+        target.IsSelected = true;
+        e.Handled = true;
+    }
+
+    private void OnCellSelectionPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_isCellSelectionDragging || !ReferenceEquals(e.Pointer, _cellSelectionPointer))
+            return;
+
+        var target = FindCellAtPoint(e.GetPosition(this));
+        if (_cellSelectionDidDrag && target?.OwningRow != null)
+        {
+            var targetPosition = new DataGridCellPosition(
+                target.OwningRow.Index,
+                Columns.IndexOf(target.Column!));
+            if (targetPosition.RowIndex >= 0 && targetPosition.ColumnIndex >= 0)
+                ApplyCellSelectionRange(_cellSelectionAnchor ?? targetPosition, targetPosition, append: false);
+        }
+
+        var didDrag = _cellSelectionDidDrag;
+        e.Pointer.Capture(null);
+        _cellSelectionPointer = null;
+        _cellSelectionAppend = false;
+        _isCellSelectionDragging = false;
+        _cellSelectionDidDrag = false;
+        if (didDrag)
+            e.Handled = true;
+    }
+
+    protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+    {
+        base.OnPointerCaptureLost(e);
+        if (ReferenceEquals(e.Pointer, _cellSelectionPointer))
+        {
+            _cellSelectionPointer = null;
+            _cellSelectionAppend = false;
+            _isCellSelectionDragging = false;
+            _cellSelectionDidDrag = false;
+        }
+    }
+
+    private DataGridCell? FindCellAtPoint(Point point)
+    {
+        foreach (var row in _realizedRows)
+        {
+            var rowOrigin = row.TranslatePoint(default, this);
+            if (rowOrigin is not { } rowPoint ||
+                point.Y < rowPoint.Y || point.Y >= rowPoint.Y + row.Bounds.Height)
+                continue;
+
+            foreach (var cell in row.Cells)
+            {
+                var cellOrigin = cell.TranslatePoint(default, this);
+                if (cellOrigin is not { } cellPoint)
+                    continue;
+                if (point.X >= cellPoint.X && point.X < cellPoint.X + cell.Bounds.Width)
+                    return cell;
+            }
+        }
+        return null;
+    }
+
+    public void SelectCells(DataGridCellPosition anchor, DataGridCellPosition target, bool append = false)
+    {
+        ApplyCellSelectionRange(anchor, target, append);
+        _cellSelectionAnchor = anchor;
+    }
+
+    public void ClearSelectedCells()
+    {
+        if (_selectedCells.Count == 0)
+            return;
+        _selectedCells.Clear();
+        ApplyCellSelectionVisuals();
+        SelectedCellsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ToggleCellSelection(DataGridCellPosition position)
+    {
+        var next = new HashSet<DataGridCellPosition>(_selectedCells);
+        if (!next.Add(position))
+            next.Remove(position);
+        ReplaceCellSelection(next);
+    }
+
+    private void ApplyCellSelectionRange(DataGridCellPosition anchor, DataGridCellPosition target, bool append)
+    {
+        var minRow = Math.Min(anchor.RowIndex, target.RowIndex);
+        var maxRow = Math.Max(anchor.RowIndex, target.RowIndex);
+        var minColumn = Math.Min(anchor.ColumnIndex, target.ColumnIndex);
+        var maxColumn = Math.Max(anchor.ColumnIndex, target.ColumnIndex);
+        var next = append
+            ? new HashSet<DataGridCellPosition>(_selectedCells)
+            : new HashSet<DataGridCellPosition>();
+
+        for (var row = minRow; row <= maxRow; row++)
+        {
+            for (var column = minColumn; column <= maxColumn; column++)
+                next.Add(new DataGridCellPosition(row, column));
+        }
+        ReplaceCellSelection(next);
+    }
+
+    private void ReplaceCellSelection(HashSet<DataGridCellPosition> next)
+    {
+        if (_selectedCells.SetEquals(next))
+            return;
+        _selectedCells.Clear();
+        _selectedCells.UnionWith(next);
+        ApplyCellSelectionVisuals();
+        SelectedCellsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void ApplyCellSelectionVisuals()
+    {
+        foreach (var row in _realizedRows)
+        {
+            foreach (var cell in row.Cells)
+            {
+                var position = new DataGridCellPosition(row.Index, Columns.IndexOf(cell.Column!));
+                cell.IsSelected = SelectionUnit == DataGridSelectionUnit.Cell && _selectedCells.Contains(position);
+            }
+        }
+
+        // Recalculate every selected cell after all neighboring selection states are current.
+        foreach (var row in _realizedRows)
+        {
+            foreach (var cell in row.Cells)
+                cell.UpdateBg();
+        }
+    }
+
+    internal Thickness GetCellSelectionBorderThickness(DataGridCell cell)
+    {
+        if (SelectionUnit != DataGridSelectionUnit.Cell || cell.OwningRow == null || cell.Column == null)
+            return new Thickness(0.5);
+
+        var rowIndex = cell.OwningRow.Index;
+        var columnIndex = Columns.IndexOf(cell.Column);
+        if (!_selectedCells.Contains(new DataGridCellPosition(rowIndex, columnIndex)))
+            return new Thickness(0.5);
+
+        bool hasSelectedLeft = columnIndex > 0 &&
+            _selectedCells.Contains(new DataGridCellPosition(rowIndex, columnIndex - 1));
+        bool hasSelectedTop = rowIndex > 0 &&
+            _selectedCells.Contains(new DataGridCellPosition(rowIndex - 1, columnIndex));
+        bool hasSelectedRight = columnIndex + 1 < Columns.Count &&
+            _selectedCells.Contains(new DataGridCellPosition(rowIndex, columnIndex + 1));
+        bool hasSelectedBottom =
+            _selectedCells.Contains(new DataGridCellPosition(rowIndex + 1, columnIndex));
+
+        return new Thickness(
+            hasSelectedLeft ? 0 : 0.5,
+            hasSelectedTop ? 0 : 0.5,
+            hasSelectedRight ? 0 : 0.5,
+            hasSelectedBottom ? 0 : 0.5);
+    }
 
     public void BeginEdit(DataGridCell cell)
     {
@@ -1245,8 +1854,21 @@ public class DataGrid : TemplatedControl
         }
 
         _isEditing = true;
+        ClearPendingCurrentCellRestore();
         _currentCell = cell;
         cell.BeginEdit();
+        if (cell.Column != null && cell.OwningRow != null && cell.ContentControl != null)
+        {
+            RaiseEvent(new DataGridPreparingCellForEditEventArgs(
+                cell.Column,
+                cell.OwningRow,
+                new RoutedEventArgs(),
+                cell.ContentControl)
+            {
+                RoutedEvent = PreparingCellForEditEvent,
+                Source = this
+            });
+        }
     }
 
     public void CommitEdit()
@@ -1259,6 +1881,7 @@ public class DataGrid : TemplatedControl
         _isEditing = false;
         var value = cell.CommitEdit();
         CommitCellValue(cell, value);
+        SetCurrentCell(cell);
 
     }
 
@@ -1278,16 +1901,92 @@ public class DataGrid : TemplatedControl
         if (property?.CanWrite != true)
             return;
 
+        var targetType = property.PropertyType;
+        var convertedValue = ConvertCellValue(value, targetType);
+        if (convertedValue == null && targetType.IsValueType && Nullable.GetUnderlyingType(targetType) == null)
+            return;
+        if (value != null && convertedValue == null)
+            return;
+
         var currentValue = property.GetValue(cell.DataItem);
-        if (Equals(currentValue, value) ||
-            property.PropertyType == typeof(string) &&
+        if (Equals(currentValue, convertedValue) ||
+            targetType == typeof(string) &&
             string.IsNullOrEmpty(currentValue as string) &&
-            string.IsNullOrEmpty(value as string))
+            string.IsNullOrEmpty(convertedValue as string))
         {
             return;
         }
 
-        property.SetValue(cell.DataItem, value);
+        property.SetValue(cell.DataItem, convertedValue);
+    }
+
+    private void ClearSelectedCellValues()
+    {
+        var items = GetItemsList();
+        foreach (var position in _selectedCells)
+        {
+            if (position.RowIndex < 0 || position.RowIndex >= items.Count ||
+                position.ColumnIndex < 0 || position.ColumnIndex >= Columns.Count)
+                continue;
+
+            var item = items[position.RowIndex];
+            var column = Columns[position.ColumnIndex];
+            if (item == null || column.IsReadOnly || column is not DataGridBoundColumn boundColumn ||
+                string.IsNullOrWhiteSpace(boundColumn.BindingPath))
+                continue;
+
+            var property = item.GetType().GetProperty(boundColumn.BindingPath);
+            if (property?.CanWrite != true)
+                continue;
+
+            var clearedValue = GetClearedCellValue(property.PropertyType);
+            if (Equals(property.GetValue(item), clearedValue))
+                continue;
+
+            property.SetValue(item, clearedValue);
+
+            var realizedCell = _realizedRows
+                .Where(row => row.Index == position.RowIndex)
+                .SelectMany(row => row.Cells)
+                .FirstOrDefault(cell => Columns.IndexOf(cell.Column!) == position.ColumnIndex);
+            realizedCell?.ResetDisplay();
+        }
+    }
+
+    private static object? GetClearedCellValue(Type targetType)
+    {
+        if (targetType == typeof(string))
+            return string.Empty;
+        if (!targetType.IsValueType || Nullable.GetUnderlyingType(targetType) != null)
+            return null;
+        return Activator.CreateInstance(targetType);
+    }
+
+    private static object? ConvertCellValue(object? value, Type targetType)
+    {
+        if (value == null)
+            return null;
+
+        var valueType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        if (valueType.IsInstanceOfType(value))
+            return value;
+
+        try
+        {
+            return Convert.ChangeType(value, valueType);
+        }
+        catch (InvalidCastException)
+        {
+            return null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+        catch (OverflowException)
+        {
+            return null;
+        }
     }
 
     public void CancelEdit()
@@ -1314,6 +2013,10 @@ public class DataGrid : TemplatedControl
         }
         switch (e.Key)
         {
+            case Key.Delete when SelectionUnit == DataGridSelectionUnit.Cell && _selectedCells.Count > 0:
+                ClearSelectedCellValues();
+                e.Handled = true;
+                break;
             case Key.F2:
             case Key.Enter:
                 if (_currentCell?.Column is { IsReadOnly: false }) { BeginEdit(_currentCell); e.Handled = true; }
@@ -1339,23 +2042,65 @@ public class DataGrid : TemplatedControl
 
     private void Navigate(int colDelta, int rowDelta)
     {
-        int count = GetItemCount();
-        if (count == 0) return;
-        int newIdx = Math.Clamp(SelectedIndex + rowDelta, 0, count - 1);
+        var items = GetItemsList();
+        if (items.Count == 0) return;
+
+        var currentIndex = SelectedIndex;
+        if (currentIndex < 0 && _currentCell?.DataItem != null)
+            currentIndex = items.IndexOf(_currentCell.DataItem);
+        if (currentIndex < 0)
+            currentIndex = 0;
+
+        int newIdx = Math.Clamp(currentIndex + rowDelta, 0, items.Count - 1);
+        int colIdx = _currentCell?.Column != null ? Columns.IndexOf(_currentCell.Column) : 0;
+        colIdx = Math.Clamp(colIdx + colDelta, 0, Math.Max(0, Columns.Count - 1));
+
         SelectedIndex = newIdx;
+        SelectedItem = items[newIdx];
         EnsureRowVisible(newIdx);
         UpdateScrollBars();
         UpdateViewport();
-        int colIdx = _currentCell?.Column != null ? Columns.IndexOf(_currentCell.Column) : 0;
-        colIdx = Math.Clamp(colIdx + colDelta, 0, Math.Max(0, Columns.Count - 1));
-        var row = _realizedRows.FirstOrDefault(r => r.Index == newIdx);
-        if (row != null && colIdx < row.Cells.Count)
+        FocusCell(newIdx, colIdx);
+    }
+
+    private void FocusCell(int rowIndex, int columnIndex)
+    {
+        var row = _realizedRows.FirstOrDefault(candidate => candidate.Index == rowIndex);
+        var targetCell = row?.Cells.FirstOrDefault(candidate => Columns.IndexOf(candidate.Column!) == columnIndex);
+        if (targetCell != null)
         {
-            if (_currentCell != null) _currentCell.IsSelected = false;
-            var cell = row.Cells[colIdx];
-            cell.IsSelected = true;
-            _currentCell = cell;
+            SetCurrentCell(targetCell);
+            return;
         }
+
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            UpdateViewport();
+            var realizedRow = _realizedRows.FirstOrDefault(candidate => candidate.Index == rowIndex);
+            var realizedCell = realizedRow?.Cells.FirstOrDefault(candidate => Columns.IndexOf(candidate.Column!) == columnIndex);
+            if (realizedCell != null)
+                SetCurrentCell(realizedCell);
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
+    }
+
+    private void SetCurrentCell(DataGridCell cell)
+    {
+        if (_currentCell != null && _currentCell != cell)
+            _currentCell.IsSelected = false;
+
+        ClearPendingCurrentCellRestore();
+        _currentCell = cell;
+        if (SelectionUnit == DataGridSelectionUnit.Cell && cell.OwningRow != null && cell.Column != null)
+        {
+            var position = new DataGridCellPosition(cell.OwningRow.Index, Columns.IndexOf(cell.Column));
+            ApplyCellSelectionRange(position, position, append: false);
+            _cellSelectionAnchor = position;
+        }
+        else
+        {
+            cell.IsSelected = true;
+        }
+        cell.Focus();
     }
 
     private void EnsureRowVisible(int rowIndex)
@@ -1379,6 +2124,8 @@ public class DataGrid : TemplatedControl
 
     private void SubscribeCollectionChanged()
     {
+        if (ReferenceEquals(_subscribedSource, ItemsSource)) return;
+
         if (_subscribedSource != null)
         {
             _subscribedSource.CollectionChanged -= OnItemsSourceCollectionChanged;
@@ -1413,6 +2160,8 @@ public class DataGrid : TemplatedControl
     public void RefreshRows()
     {
         SubscribeCollectionChanged();
+        ClearSelectedCells();
+        _cellSelectionAnchor = null;
         InvalidateItemsCache();
         UpdateStatusBar();
         UpdateViewport();
@@ -1424,7 +2173,6 @@ public class DataGrid : TemplatedControl
     {
         _verticalOffset = offset;
         UpdateScrollBars();
-        SyncHorizontalOffset();
         UpdateViewport();
     }
 
@@ -1436,6 +2184,16 @@ public class DataGrid : TemplatedControl
         {
             _usesExternalSearchModel = SearchModel != null;
             AttachSearchModel(SearchModel ?? new SearchModel { HighlightMode = SearchHighlightMode });
+        }
+        else if (change.Property == SelectionUnitProperty)
+        {
+            ClearSelectedCells();
+            _cellSelectionAnchor = null;
+            UpdateViewport();
+        }
+        else if (change.Property == SelectionModeProperty)
+        {
+            _cellSelectionAnchor = null;
         }
         else if (change.Property == SelectedIndexProperty) UpdateViewport();
         else if (change.Property == GridLinesVisibilityProperty)
@@ -1691,7 +2449,7 @@ internal class DataGridScrollPanel : Panel
 
         for (int i = 0; i < Children.Count; i++)
         {
-            if (Children[i] is DataGridRow row && !ReferenceEquals(row, OwningGrid.DragPreviewRow))
+            if (Children[i] is DataGridRow row && row.IsVisible && !ReferenceEquals(row, OwningGrid.DragPreviewRow))
             {
                 double y = row.Index * rowH - vOff;
                 row.Arrange(new Rect(0, y, vpW, rowH));
@@ -1699,6 +2457,7 @@ internal class DataGridScrollPanel : Panel
         }
 
         OwningGrid.ArrangeDragPreview(this, finalSize, vOff);
+        OwningGrid.ArrangeRowDragFeedback(this, finalSize);
         return finalSize;
     }
 
@@ -1741,6 +2500,29 @@ public class DataGridColumnEventArgs : EventArgs
 {
     public DataGridColumn Column { get; }
     public DataGridColumnEventArgs(DataGridColumn c) => Column = c;
+}
+
+public class DataGridPreparingCellForEditEventArgs : RoutedEventArgs
+{
+    public DataGridColumn Column { get; }
+    public DataGridRow Row { get; }
+    public RoutedEventArgs EditingEventArgs { get; }
+    public Control EditingElement { get; }
+
+    public DataGridPreparingCellForEditEventArgs(
+        DataGridColumn column,
+        DataGridRow row,
+        RoutedEventArgs editingEventArgs,
+        Control editingElement,
+        RoutedEvent? routedEvent = null,
+        object? source = null)
+        : base(routedEvent, source)
+    {
+        Column = column;
+        Row = row;
+        EditingEventArgs = editingEventArgs;
+        EditingElement = editingElement;
+    }
 }
 
 public sealed class DataGridRowReorderedEventArgs : EventArgs

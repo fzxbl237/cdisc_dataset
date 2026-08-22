@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
@@ -25,13 +25,15 @@ public class DataGridCheckBoxColumn : DataGridBoundColumn
         {
             VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            IsHitTestVisible = false,
         };
         if (Binding != null && dataItem != null)
         {
             var b = CloneBinding(Binding);
-            if (b is Binding binding) binding.Mode = BindingMode.TwoWay;
+            if (b is Binding binding) binding.Mode = BindingMode.OneWay;
             cb.Bind(AtomCheckBox.IsCheckedProperty, b);
         }
+
         return cb;
     }
 

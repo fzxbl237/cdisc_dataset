@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -33,6 +33,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 {
     private readonly IMessageService _messageService;
     private readonly IDatasetService _datasetService;
+    private readonly IVariableService _variableService;
     private readonly ICommentService _commentService;
     private readonly IReferenceDeletionService _referenceDeletionService;
     private readonly IDialogHostService _dialogHostService;
@@ -60,6 +61,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     public DatasetsViewModel(
         IMessageService messageService,
         IDatasetService datasetService,
+        IVariableService variableService,
         ICommentService commentService,
         IReferenceDeletionService referenceDeletionService,
         ICurrentProjectService currentProjectService,
@@ -71,6 +73,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
     {
         _messageService = messageService;
         _datasetService = datasetService;
+        _variableService = variableService;
         _commentService = commentService;
         _referenceDeletionService = referenceDeletionService;
         _currentProjectService = currentProjectService;
@@ -175,6 +178,7 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
 
     private void HandleCommentUniqueIdChanged(DatasetDto datasetDto)
     {
+        if (datasetDto.CommentUniqueId == datasetDto.Comment?.UniqueId) return;
         if (_frozenCommentDictionary != null &&
             _frozenCommentDictionary.TryGetValue(datasetDto.CommentUniqueId ?? string.Empty, out var comment))
         {
@@ -388,9 +392,9 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
             return;
 
         var entity = await _commentService.InsertCommentAsync(comment);
-        dataset.CommentUniqueId = entity.UniqueId;
         dataset.Comment = _mapper.Map<Comment>(entity);
         dataset.CommentId = entity.Id;
+        dataset.CommentUniqueId = entity.UniqueId;
         await _datasetService.UpdateDatasetAsync(dataset);
         _messageService.Success("Comment added successfully.");
     }
@@ -412,6 +416,28 @@ public partial class DatasetsViewModel : ConfirmNavigationViewModelBase
         dataset.CommentUniqueId = entity.UniqueId;
         await _datasetService.UpdateDatasetAsync(dataset);
         _messageService.Success("Comment updated successfully.");
+    }
+
+    [RelayCommand]
+    private async Task LinkVariablesAsync(DatasetDto dataset)
+    {
+        if (dataset.Comment == null || dataset.CommentId == 0 || string.IsNullOrWhiteSpace(dataset.CommentUniqueId))
+            return;
+
+        var result = await _dialogHostService.ShowDialogAsync("AssignCommentVariablesDialog", new DialogParameters
+        {
+            { "CommentId", dataset.CommentId },
+            { "CommentUniqueId", dataset.CommentUniqueId }
+        });
+        if (result.Result != DialogButtonResult.Yes ||
+            !result.Parameters.TryGetValue<List<int>>("VariableIds", out var variableIds))
+            return;
+
+        var assignedCount = await _variableService.AssignCommentToVariablesAsync(
+            dataset.CommentId,
+            dataset.CommentUniqueId,
+            variableIds);
+        _messageService.Success($"Assigned comment to {assignedCount} variable(s).");
     }
 
     [RelayCommand]

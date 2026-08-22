@@ -144,26 +144,6 @@
                 <atom:LineEdit PlaceholderText="请输入Pages，多个页码请用空格分隔" Text="{Binding Method.Pages, Mode=TwoWay}" />
             </atom:FormItem>
 
-            <atom:FormItem LabelText="Link Variables">
-                <atom:CheckBox
-                    Content="Link matching variables without a method"
-                    IsChecked="{Binding IsVariableLinkEnabled, Mode=TwoWay}" />
-            </atom:FormItem>
-
-            <atom:FormItem LabelText="Match Mode">
-                <atom:ComboBox
-                    IsEnabled="{Binding IsVariableLinkEnabled}"
-                    ItemsSource="{Binding VariableMatchModes}"
-                    SelectedItem="{Binding VariableMatchMode, Mode=TwoWay}" />
-            </atom:FormItem>
-
-            <atom:FormItem LabelText="Variable Name">
-                <atom:LineEdit
-                    IsEnabled="{Binding IsVariableLinkEnabled}"
-                    PlaceholderText="Variable name match text"
-                    Text="{Binding VariableMatchText, Mode=TwoWay}" />
-            </atom:FormItem>
-
             <atom:FormActionsItem>
                 <StackPanel
                     HorizontalAlignment="Right"

@@ -54,6 +54,30 @@
             ItemsSource="{Binding WhereClauses}"
             Margin="0,4"
             RowHeight="32">
+            <customGrid:DataGrid.RowDragFeedbackTemplate>
+                <DataTemplate x:DataType="model:WhereClauseDto">
+                    <Border
+                        Background="White"
+                        BorderBrush="#D9D9D9"
+                        BorderThickness="1"
+                        BoxShadow="0 4 12 0 #30000000"
+                        CornerRadius="4"
+                        Padding="10,6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <atom:TextBlock
+                                FontSize="16"
+                                Foreground="#434343"
+                                Text="↕"
+                                VerticalAlignment="Center" />
+                            <atom:TextBlock
+                                FontWeight="SemiBold"
+                                Text="{Binding Variable}"
+                                TextTrimming="CharacterEllipsis"
+                                VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </customGrid:DataGrid.RowDragFeedbackTemplate>
             <customGrid:DataGrid.Columns>
                 <customGrid:DataGridTextColumn
                     Binding="{Binding Seq}"

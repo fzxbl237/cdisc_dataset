@@ -1,4 +1,4 @@
-using AsyncNavigation;
+﻿using AsyncNavigation;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -754,6 +754,27 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
+    private async Task LinkVariablesAsync(VariableDto variable)
+    {
+        if (variable.MethodId == 0 || string.IsNullOrWhiteSpace(variable.MethodUniqueId))
+        {
+            _messageService.Error("Please save the method before assigning variables.");
+            return;
+        }
+
+        var result = await _dialogHostService.ShowDialogAsync("AssignVariablesDialog", new DialogParameters());
+        if (result.Result != DialogButtonResult.Yes ||
+            !result.Parameters.TryGetValue<List<int>>("VariableIds", out var variableIds))
+            return;
+
+        var assignedCount = await _variableService.AssignMethodToVariablesAsync(
+            variable.MethodId,
+            variable.MethodUniqueId,
+            variableIds);
+        _messageService.Success($"Assigned method to {assignedCount} variable(s).");
+    }
+
+    [RelayCommand]
     private async Task DeleteCommentAsync(VariableDto variable)
     {
         if (variable.Comment == null || !await _referenceDeletionService.ConfirmAndDeleteCommentAsync(variable.Comment))
@@ -792,15 +813,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
             return;
         }
 
-        var linkMatchingVariables = result.Parameters.TryGetValue<bool>("LinkMatchingVariables", out var link) && link;
-        var variableMatchMode = result.Parameters.TryGetValue<string>("VariableMatchMode", out var mode) ? mode : null;
-        var variableMatchText = result.Parameters.TryGetValue<string>("VariableMatchText", out var text) ? text : null;
-
-        var methodDto = await _methodService.InsertMethodAsync(
-            method,
-            linkMatchingVariables,
-            variableMatchMode,
-            variableMatchText);
+        var methodDto = await _methodService.InsertMethodAsync(_mapper.Map<Method>(method));
         var methodEntity = _mapper.Map<Method>(methodDto);
         variable.Method = methodEntity;
         variable.MethodId = methodDto.Id;
@@ -808,41 +821,7 @@ public partial class VariablesViewModel : ConfirmNavigationViewModelBase
         _sourceCache.Edit(o => o.AddOrUpdate(variable));
         await _variableService.UpdateVariableAsync(variable);
 
-        var linkedCount = 0;
-        if (linkMatchingVariables &&
-            !string.IsNullOrWhiteSpace(variableMatchMode) &&
-            !string.IsNullOrWhiteSpace(variableMatchText))
-        {
-            var matchText = variableMatchText;
-            var comparison = StringComparison.OrdinalIgnoreCase;
-            foreach (var variableDto in _sourceCache.Items.Where(variableDto =>
-                         variableDto.Id != variable.Id &&
-                         variableDto.MethodId == 0 &&
-                         !string.IsNullOrWhiteSpace(variableDto.VariableName) &&
-                         IsVariableNameMatch(variableDto.VariableName!, variableMatchMode!, matchText, comparison)))
-            {
-                variableDto.Method = methodEntity;
-                variableDto.MethodId = methodDto.Id;
-                variableDto.MethodUniqueId = methodDto.UniqueId;
-                _sourceCache.AddOrUpdate(variableDto);
-                linkedCount++;
-            }
-        }
-
-        _messageService.Success(linkedCount == 0
-            ? "Method added and linked to the variable successfully."
-            : $"Method added and linked to {linkedCount + 1} variable(s) successfully.");
-    }
-
-    private static bool IsVariableNameMatch(string variableName, string matchMode, string matchText, StringComparison comparison)
-    {
-        return matchMode switch
-        {
-            "Start With" => variableName.StartsWith(matchText, comparison),
-            "End With" => variableName.EndsWith(matchText, comparison),
-            "Equal" => string.Equals(variableName, matchText, comparison),
-            _ => variableName.Contains(matchText, comparison)
-        };
+        _messageService.Success("Method added and linked to the variable successfully.");
     }
 
     [RelayCommand]

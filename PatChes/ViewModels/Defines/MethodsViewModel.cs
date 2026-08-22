@@ -1,4 +1,4 @@
-using AsyncNavigation;
+﻿using AsyncNavigation;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -297,10 +297,7 @@ public partial class MethodsViewModel : ConfirmNavigationViewModelBase
         if (result.Result != DialogButtonResult.Yes ||
             !result.Parameters.TryGetValue<MethodDto>("Model", out var method))
             return;
-        var linkMatchingVariables = result.Parameters.TryGetValue<bool>("LinkMatchingVariables", out var link) && link;
-        var variableMatchMode = result.Parameters.TryGetValue<string>("VariableMatchMode", out var mode) ? mode : null;
-        var variableMatchText = result.Parameters.TryGetValue<string>("VariableMatchText", out var text) ? text : null;
-        var methodDto = await _methodService.InsertMethodAsync(method, linkMatchingVariables, variableMatchMode, variableMatchText);
+        var methodDto = await _methodService.InsertMethodAsync(_mapper.Map<Method>(method));
 
         await _validator.ValidateDtoAsync(methodDto);
         RegisterMethodDtoPropertyChanged(methodDto);

@@ -35,7 +35,7 @@
             <atom:Button
                 ButtonType="Primary"
                 Command="{Binding AddCommentCommand}"
-                Content="新增"
+                Content="Add New"
                 DockPanel.Dock="Right"
                 HorizontalAlignment="Right"
                 Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
@@ -152,11 +152,11 @@
                                 <atom:MenuItem
                                     Command="{Binding #Root.((vm:CommentsViewModel)DataContext).AssignVariablesCommand}"
                                     CommandParameter="{Binding}"
-                                    Header="关联变量"
+                                    Header="Link Variables"
                                     Icon="{antd-icons:AntDesignIconProvider Kind=LinkOutlined}" />
                                 <atom:MenuItem
                                     Command="{Binding #Root.((vm:CommentsViewModel)DataContext).DeleteSelectedCommand}"
-                                    Header="批量删除"
+                                    Header="Delete Selected"
                                     Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
                             </atom:ContextMenu>
                         </Setter>
@@ -172,7 +172,7 @@
                         <atom:Button
                             Color="Default"
                             Command="{Binding AddCommentCommand}"
-                        Content="新增"
+                        Content="Add New"
                             Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
                             Variant="Solid" />
                     </StackPanel>

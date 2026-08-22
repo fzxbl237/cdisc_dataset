@@ -39,7 +39,11 @@
 
 
 
-            <Border Background="#1C1E22" DockPanel.Dock="Left">
+            <Border
+                Background="#1C1E22"
+                BorderBrush="LightGray"
+                BorderThickness="0,0,0.5,0"
+                DockPanel.Dock="Left">
 
                 <atom:ThemeConfigProvider Config="{Binding NavMenuConfig}" Grid.Row="1">
                     <atom:NavMenu
@@ -92,7 +96,11 @@
 
 
 
-            <Border DockPanel.Dock="Top">
+            <Border
+                BorderBrush="LightGray"
+                BorderThickness="0,0,0,0.5"
+                DockPanel.Dock="Top"
+                Padding="0,0,0,10">
                 <DockPanel
                     Background="Transparent"
                     HorizontalAlignment="Stretch"
@@ -136,12 +144,8 @@
             </Border>
 
             <ContentControl
-                Background="white"
-                BorderBrush="#E5E7EB"
-                BorderThickness="1"
-                CornerRadius="3"
+                Background="Transparent"
                 DockPanel.Dock="Right"
-                Margin="12"
                 Padding="12,20,12,12"
                 an:RegionManager.RegionName="ContentRegion" />
         </DockPanel>

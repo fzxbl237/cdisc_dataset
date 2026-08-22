@@ -39,6 +39,10 @@ public interface ICodeListService
     Task<VariableCodeList?> GetCodeListRefByVariableAsync(string? variableName);
     
     Task<CodeListTerm?> GetCodeListTermAsync(string? codeListOid,string? term);
+
+    Task<List<CodeListTerm>> GetCodeListTermsByCodeAsync(string? codeListCode);
+
+    Task<CodeListTerm?> GetCodeListTermByCodeAsync(string? codeListCode, string? codeValue);
     
     Task<List<CodeListTerm>> GetCodeListTermsAsync(string? codeListOid);
     

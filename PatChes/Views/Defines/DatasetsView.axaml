@@ -56,7 +56,7 @@
                                     Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
                                 <atom:MenuItem
                                     Command="{Binding #Root.((vm:DatasetsViewModel)DataContext).DeleteSelectedCommand}"
-                                    Header="批量删除"
+                                    Header="Delete Selected"
                                     Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
                             </atom:ContextMenu>
                         </Setter>
@@ -75,7 +75,7 @@
                         <atom:Button
                             Color="Default"
                             Command="{Binding ImportSettingDatasetsCommand}"
-                            Content="从设置导入"
+                            Content="Import from Settings"
                             Variant="Solid" />
                     </StackPanel>
                 </controls:DataGrid.SearchBarRightContent>
@@ -209,6 +209,19 @@
                                             Command="{Binding #Root.((vm:DatasetsViewModel)DataContext).EditCommentCommand}"
                                             CommandParameter="{Binding}"
                                             Content="Open in Editor"
+                                            IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNotNull}}"
+                                            SizeType="Small" />
+                                        <Border
+                                            Background="#D9D9D9"
+                                            Height="18"
+                                            IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNotNull}}"
+                                            VerticalAlignment="Center"
+                                            Width="1" />
+                                        <atom:Button
+                                            ButtonType="Link"
+                                            Command="{Binding #Root.((vm:DatasetsViewModel)DataContext).LinkVariablesCommand}"
+                                            CommandParameter="{Binding}"
+                                            Content="Link Variables"
                                             IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNotNull}}"
                                             SizeType="Small" />
                                         <Border

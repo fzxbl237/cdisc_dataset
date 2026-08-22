@@ -16,9 +16,11 @@ using AtomUI.Desktop.Controls;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using PatChes.Extensions;
+using PatChes.Controls.DataGrid;
 using PatChes.Models;
 using PatChes.Models.Dto;
 using PatChes.Models.Enums;
+using PatChes.Models.Settings;
 using PatChes.Services;
 using PatChes.Services.Interface;
 using PatChes.ViewModels.Dialogs;
@@ -32,8 +34,7 @@ using AsyncNavigation.Abstractions;
 using AsyncNavigation.Core;
 using NavigationContext = AsyncNavigation.NavigationContext;
 using SqlSugar;
-using DataGridCellPointerPressedEventArgs = Avalonia.Controls.DataGridCellPointerPressedEventArgs;
-using DataGridPreparingCellForEditEventArgs = Avalonia.Controls.DataGridPreparingCellForEditEventArgs;
+using DataGridPreparingCellForEditEventArgs = PatChes.Controls.DataGrid.DataGridPreparingCellForEditEventArgs;
 
 namespace PatChes.ViewModels.Defines;
 
@@ -57,7 +58,6 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     private AvaloniaList<IAutoCompleteOption> _codeListOptions = [];
     
     private FrozenDictionary<string,CodeList>? _codeListDictionary;
-    
 
     [ObservableProperty] private string? _searchText;
     [ObservableProperty] private bool _isErrorOnly;
@@ -95,7 +95,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
         _messageService = messageService;
         _currentProjectService = currentProjectService;
         _validator = validator;
-        TermOptionsAsyncLoader = new TermOptionsAsyncLoader(sqlSugar);
+        TermOptionsAsyncLoader = new TermOptionsAsyncLoader(sqlSugar, codeListService);
 
         var filter = this.WhenValueChanged(t => t.SearchText)
             .Throttle(TimeSpan.FromMilliseconds(250))
@@ -189,7 +189,6 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
             }
         }
 
-        //���codelist�����ı� term��Ҫ����¼??
         if(!string.IsNullOrWhiteSpace(changeSender.Name))
             changeSender.Name = string.Empty;
         Observable.StartAsync(async () =>
@@ -213,14 +212,13 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     {
         Observable.StartAsync(async () =>
         {
-            var termStd = await _termService.GetTermStdAsync(changeSender.CodeList?.Code, changeSender.Name);
-            if (termStd!=null)
+            var codeListTerm = await _codeListService.GetCodeListTermByCodeAsync(
+                changeSender.CodeList?.Code,
+                changeSender.Name);
+            if (codeListTerm != null)
             {
-                changeSender.Code = termStd.Code;
-                if (!string.IsNullOrEmpty(termStd.Synonyms))
-                {
-                    changeSender.DecodedValue = termStd.Synonyms.Split(";").First();
-                }
+                changeSender.Code = codeListTerm.Code;
+                changeSender.DecodedValue = codeListTerm.DecodedValue;
             }
             else
             {
@@ -289,7 +287,7 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     
     public async Task LoadTermsAsync()
     {
-        var list = await _termService.GetAllTermDtosAsync();
+        var list =await _termService.GetAllTermDtosAsync();
         _sourceCache.Edit(o =>
         {
             o.Clear();
@@ -408,20 +406,49 @@ public partial class TermViewModel:ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
-    private async Task PreparingCellForEdit(DataGridPreparingCellForEditEventArgs e)
+    private void PreparingCellForEdit(DataGridPreparingCellForEditEventArgs e)
     {
-        if(e.Column.Header is null) return;
-        if (e.Column.Header.ToString() != "Term") return;
+        if (!string.Equals(e.Column.Header?.ToString(), "Term", StringComparison.Ordinal))
+            return;
+        if (e.Row.DataContext is not TermDto termDto)
+            return;
+
+        TermOptionsAsyncLoader.CodeListCode = termDto.CodeList?.Code;
+        TermOptionsAsyncLoader.CodeListReference = null;
         TermOptionsAsyncLoader.CodeListStd = null;
-        if (e.Row.DataContext is not TermDto termDto) return;
-        if (termDto.CodeList == null) return;
-        var codeListCode = termDto.CodeList.Code;
-        var codeListTerminology = termDto.CodeList.Terminology;
-        if (!string.IsNullOrWhiteSpace(codeListCode) && !string.IsNullOrWhiteSpace(codeListTerminology))
+    }
+
+    [RelayCommand]
+    private async Task EditTermsAsync(TermDto? term)
+    {
+        var codeList = term?.CodeList;
+        if (codeList == null)
+            return;
+
+        var codeListDto = new CodeListDto
         {
-            var codeListStd = await _codeListService.GetCodeListStdAsync(codeListTerminology,codeListCode);
-            CodeListId = codeListStd.Id;
-            TermOptionsAsyncLoader.CodeListStd = codeListStd;
+            Id = codeList.Id,
+            UniqueId = codeList.UniqueId,
+            Name = codeList.Name,
+            Code = codeList.Code,
+            Type = codeList.Type,
+            Terminology = codeList.Terminology,
+            CommentId = codeList.CommentId,
+            Comment = codeList.Comment,
+            CommentUniqueId = codeList.CommentUniqueId,
+            DeveloperNotes = codeList.DeveloperNotes,
+            ProjectId = codeList.ProjectId,
+            CdiscDataType = codeList.CdiscDataType
+        };
+
+        var result = await _dialogHostService.ShowDialogAsync("EditTermsDialog", new DialogParameters
+        {
+            { "Model", codeListDto }
+        });
+        if (result.Result == DialogButtonResult.Yes)
+        {
+            await LoadTermsAsync();
+            _messageService.Success("Terms updated successfully.");
         }
     }
 

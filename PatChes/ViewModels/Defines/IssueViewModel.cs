@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
 using AtomUI.Desktop.Controls;
@@ -21,7 +21,6 @@ public partial class IssueViewModel : ConfirmNavigationViewModelBase
     private readonly ICurrentProjectService _currentProjectService;
     private readonly IDialogHostService _dialogHostService;
     private readonly IMessageService _messageService;
-    private readonly IDefineXmlValidationService _defineXmlValidationService;
 
     [ObservableProperty]
     private AvaloniaList<IssueDto> _issues = [];
@@ -30,39 +29,12 @@ public partial class IssueViewModel : ConfirmNavigationViewModelBase
         IIssueService issueService,
         ICurrentProjectService currentProjectService,
         IDialogHostService dialogHostService,
-        IMessageService messageService,
-        IDefineXmlValidationService defineXmlValidationService)
+        IMessageService messageService)
     {
         _issueService = issueService;
         _currentProjectService = currentProjectService;
         _dialogHostService = dialogHostService;
         _messageService = messageService;
-        _defineXmlValidationService = defineXmlValidationService;
-    }
-
-    [RelayCommand]
-    private async Task ValidateDefineXmlAsync()
-    {
-        if (_currentProjectService.CurrentProject == null)
-        {
-            _messageService.Error("Please select a project before validating Define XML.");
-            return;
-        }
-
-        try
-        {
-            await ExecuteLoadingAsync(async () =>
-            {
-                var result = await _defineXmlValidationService.ValidateAsync();
-                await LoadDataAsync();
-                _messageService.Success(
-                    $"Define XML validation completed: {result.ErrorCount} error(s), {result.WarningCount} warning(s).");
-            });
-        }
-        catch (Exception exception)
-        {
-            _messageService.Error($"Define XML validation failed: {exception.Message}");
-        }
     }
 
     [RelayCommand]

@@ -34,7 +34,7 @@
                 IsAllowClear="True"
                 MinWidth="200"
                 Text="{Binding SearchText}"
-                Watermark="请输入搜索字段" />
+                Watermark="Please input search string" />
             <StackPanel
                 DockPanel.Dock="Right"
                 HorizontalAlignment="Right"
@@ -43,7 +43,7 @@
                 <atom:Button
                     ButtonType="Primary"
                     Command="{Binding AddMethodCommand}"
-                    Content="新增"
+                    Content="Add New"
                     Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
             </StackPanel>
         </DockPanel>
@@ -219,7 +219,7 @@
                                     Icon="{antd-icons:AntDesignIconProvider Kind=LinkOutlined}" />
                                 <atom:MenuItem
                                     Command="{Binding #Root.((vm:MethodsViewModel)DataContext).DeleteSelectedCommand}"
-                                    Header="批量删除"
+                                    Header="Delete Selected"
                                     Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
                             </atom:ContextMenu>
                         </Setter>
@@ -235,7 +235,7 @@
                         <atom:Button
                             Color="Default"
                             Command="{Binding AddMethodCommand}"
-                            Content="新增"
+                            Content="Add New"
                             Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
                             Variant="Solid" />
                     </StackPanel>

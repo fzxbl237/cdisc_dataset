@@ -2,8 +2,10 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Threading;
 
 namespace PatChes.Controls.DataGrid;
 
@@ -58,6 +60,34 @@ public class DataGridNumericUpDownColumn : DataGridBoundColumn
             VerticalAlignment = VerticalAlignment.Stretch,
             Margin = new Thickness(0),
         };
+    }
+
+    public override Control? GenerateEditingElement(DataGridCell cell, object? dataItem)
+    {
+        var element = GenerateEditingElementDirect(cell, dataItem);
+        if (element is not AtomNumericUpDown numericUpDown)
+            return element;
+
+        if (dataItem != null && !string.IsNullOrWhiteSpace(BindingPath))
+        {
+            var property = dataItem.GetType().GetProperty(BindingPath);
+            var currentValue = property?.GetValue(dataItem);
+            if (currentValue != null)
+                numericUpDown.Value = System.Convert.ToDecimal(currentValue);
+        }
+
+        numericUpDown.AddHandler(InputElement.KeyDownEvent, OnNumericKeyDown, RoutingStrategies.Tunnel);
+        return numericUpDown;
+    }
+
+    private static void OnNumericKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (sender is not AtomNumericUpDown numericUpDown || e.Key != Key.Back)
+            return;
+
+        numericUpDown.Value = null;
+        e.Handled = true;
+        Dispatcher.UIThread.Post(() => numericUpDown.Focus(), DispatcherPriority.Input);
     }
 
     public override object? PrepareCellForEdit(Control editingElement, RoutedEventArgs? editingEventArgs)

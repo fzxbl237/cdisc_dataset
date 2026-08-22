@@ -34,11 +34,11 @@
                 IsAllowClear="True"
                 MinWidth="200"
                 Text="{Binding SearchText}"
-                Watermark="请输入搜索字段" />
+                Watermark="Please input search string" />
             <atom:Button
                 ButtonType="Primary"
                 Command="{Binding AddDocumentCommand}"
-                Content="新增"
+                Content="Add New"
                 DockPanel.Dock="Right"
                 HorizontalAlignment="Right"
                 Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
@@ -123,7 +123,7 @@
                                     Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
                                 <atom:MenuItem
                                     Command="{Binding #Root.((vm:DocumentsViewModel)DataContext).DeleteSelectedCommand}"
-                                    Header="批量删除"
+                                    Header="Delete Selected"
                                     Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
                             </atom:ContextMenu>
                         </Setter>
@@ -139,13 +139,13 @@
                         <atom:Button
                             Color="Default"
                             Command="{Binding ImportFromSettingsCommand}"
-                            Content="从设置导入"
+                            Content="Import from Settings"
                             Icon="{antd-icons:AntDesignIconProvider Kind=ImportOutlined}"
                             Variant="Solid" />
                         <atom:Button
                             Color="Default"
                             Command="{Binding AddDocumentCommand}"
-                            Content="新增"
+                            Content="Add New"
                             Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
                             Variant="Solid" />
                     </StackPanel>

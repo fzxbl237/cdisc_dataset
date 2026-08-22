@@ -34,7 +34,7 @@
                     IsAllowClear="True"
                     MinWidth="200"
                     PlaceholderForeground="Gray"
-                    PlaceholderText="请输入搜索字段"
+                    PlaceholderText="Please input search string"
                     Text="{Binding SearchText}" />
                 <StackPanel
                     DockPanel.Dock="Right"
@@ -44,7 +44,7 @@
                     <atom:Button
                         ButtonType="Primary"
                         Command="{Binding AddValueLevelCommand}"
-                        Content="新增"
+                        Content="Add New"
                         Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}" />
                 </StackPanel>
             </DockPanel>
@@ -412,6 +412,8 @@
                 Grid.Row="0"
                 ItemsSource="{Binding ValueLevels}"
                 LeftFrozenColumnCount="3"
+                SelectionMode="Extended"
+                SelectionUnit="Cell"
                 Margin="8,4"
                 RowHeight="32">
                 <customGrid:DataGrid.Styles>
@@ -425,7 +427,7 @@
                                     Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
                                 <atom:MenuItem
                                     Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).DeleteSelectedCommand}"
-                                    Header="批量删除"
+                                    Header="Delete Selected"
                                     Icon="{antd-icons:AntDesignIconProvider Kind=DeleteOutlined}" />
                             </atom:ContextMenu>
                         </Setter>
@@ -440,8 +442,14 @@
                             VerticalAlignment="Center" />
                         <atom:Button
                             Color="Default"
+                            Command="{Binding BuildValueLevelsCommand}"
+                            Content="Build"
+                            Icon="{antd-icons:AntDesignIconProvider Kind=BuildOutlined}"
+                            Variant="Solid" />
+                        <atom:Button
+                            Color="Default"
                             Command="{Binding AddValueLevelCommand}"
-                        Content="新增"
+                            Content="Add New"
                             Icon="{antd-icons:AntDesignIconProvider Kind=PlusOutlined}"
                             Variant="Solid" />
                     </StackPanel>
@@ -530,6 +538,12 @@
                                             Content="Open in Editor"
                                             IsVisible="{Binding WhereClauseExist}"
                                             SizeType="Small" />
+                                        <Border
+                                            Background="#D9D9D9"
+                                            Height="18"
+                                            IsVisible="{Binding WhereClauseExist}"
+                                            VerticalAlignment="Center"
+                                            Width="1" />
                                         <atom:Button
                                             ButtonType="Link"
                                             Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).DeleteWhereClauseCommand}"
@@ -642,6 +656,27 @@
                                 </StackPanel>
                             </DataTemplate>
                         </customGrid:DataGridAutoCompleteColumn.OptionTemplate>
+                        <customGrid:FloatingBar.FloatingBarTemplate>
+                            <DataTemplate x:DataType="model:ValueLevelDto">
+                                <Border
+                                    Background="White"
+                                    BorderBrush="{atom:SharedTokenResource ColorPrimary}"
+                                    BorderThickness="0.5"
+                                    BoxShadow="0 1 6 0 #18000000"
+                                    CornerRadius="4"
+                                    Padding="2">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <atom:Button
+                                            ButtonType="Link"
+                                            Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).LinkMethodVariablesCommand}"
+                                            CommandParameter="{Binding}"
+                                            Content="Link Variables"
+                                            IsVisible="{Binding Method, Converter={x:Static converter:Converters.IsNotNull}}"
+                                            SizeType="Small" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </customGrid:FloatingBar.FloatingBarTemplate>
                     </customGrid:DataGridAutoCompleteColumn>
                     <customGrid:DataGridTextColumn
                         Binding="{Binding Predecessor}"
@@ -692,6 +727,19 @@
                                             Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).EditCommentCommand}"
                                             CommandParameter="{Binding}"
                                             Content="Open in Editor"
+                                            IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNotNull}}"
+                                            SizeType="Small" />
+                                        <Border
+                                            Background="#D9D9D9"
+                                            Height="18"
+                                            IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNotNull}}"
+                                            VerticalAlignment="Center"
+                                            Width="1" />
+                                        <atom:Button
+                                            ButtonType="Link"
+                                            Command="{Binding #Root.((vm:ValueLevelsViewModel)DataContext).LinkVariablesCommand}"
+                                            CommandParameter="{Binding}"
+                                            Content="Link Variables"
                                             IsVisible="{Binding Comment, Converter={x:Static converter:Converters.IsNotNull}}"
                                             SizeType="Small" />
                                         <Border

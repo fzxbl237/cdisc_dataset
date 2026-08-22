@@ -16,21 +16,27 @@ public partial class TermView : UserControl, IActivatableView, IView
     public TermView()
     {
         InitializeComponent();
+        //TermsGrid.PreparingCellForEdit += OnPreparingCellForEdit;
         this.WhenActivated((MultipleDisposable disposables) =>
         {
             if (DataContext is TermViewModel vm)
             {
-                // ʹ�� Post �ӳٵ� Dispatcher ����ʱִ�У��� TabStrip ���������
                 Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     await vm.ExecuteLoadingAsync(async () =>
                     {
-                        await Task.Delay(250); // �ӳ�ȷ����������
+                        await Task.Delay(250);
                         await vm.LoadTermsAsync();
                     });
                 }, DispatcherPriority.Background);
             }
         });
     }
+
+    // private void OnPreparingCellForEdit(object? sender, PatChes.Controls.DataGrid.DataGridPreparingCellForEditEventArgs e)
+    // {
+    //     if (DataContext is TermViewModel vm)
+    //         vm.PreparingCellForEditCommand.Execute(e);
+    // }
     
 }

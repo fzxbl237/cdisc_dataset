@@ -215,7 +215,8 @@ public class DataGridRow : Control
             VisualChildren.Remove(cell);
         }
         _cells.Clear();
-        if (OwningGrid == null || DataContext == null) return;
+        if (OwningGrid == null || DataContext == null)
+            return;
 
         var columns = OwningGrid.Columns;
         int leftFrozen = Math.Min(OwningGrid.LeftFrozenColumnCount, columns.Count);

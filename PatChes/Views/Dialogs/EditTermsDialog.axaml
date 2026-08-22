@@ -78,6 +78,30 @@
                 LeftFrozenColumnCount="1"
                 RowBackground="Transparent"
                 RowHeight="40">
+                <customGrid:DataGrid.RowDragFeedbackTemplate>
+                    <DataTemplate x:DataType="dto:TermDto">
+                        <Border
+                            Background="White"
+                            BorderBrush="#D9D9D9"
+                            BorderThickness="1"
+                            BoxShadow="0 4 12 0 #30000000"
+                            CornerRadius="4"
+                            Padding="10,6">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <atom:TextBlock
+                                    FontSize="16"
+                                    Foreground="#434343"
+                                    Text="↕"
+                                    VerticalAlignment="Center" />
+                                <atom:TextBlock
+                                    FontWeight="SemiBold"
+                                    Text="{Binding Name}"
+                                    TextTrimming="CharacterEllipsis"
+                                    VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </customGrid:DataGrid.RowDragFeedbackTemplate>
                 <customGrid:DataGrid.Styles>
                     <Style Selector="customGrid|DataGridRow">
                         <Setter Property="ContextMenu">

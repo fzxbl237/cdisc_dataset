@@ -184,6 +184,7 @@ public partial class App : Application
             .RegisterNavigation<DatasetsView, DatasetsViewModel>("Datasets")
             .RegisterNavigation<DictionariesView, DictionariesViewModel>("Dictionaries")
             .RegisterNavigation<IssueView, IssueViewModel>("Issues")
+            .RegisterNavigation<DefineIssueView, DefineIssueViewModel>("Define Issues")
             .AddSingleton<IDialogHostService, DialogHostService>()
             .AddSingleton<PatChes.Services.IDialogService, PatChes.Services.DialogService>();
 
@@ -197,6 +198,7 @@ public partial class App : Application
         RegisterDialog<MethodDialog, MethodViewModel>(services, "MethodDialog");
         RegisterDialog<AssignVariablesDialog, AssignVariablesViewModel>(services, "AssignVariablesDialog");
         RegisterDialog<AssignCommentVariablesDialog, AssignCommentVariablesViewModel>(services, "AssignCommentVariablesDialog");
+        RegisterDialog<BuildValueLevelsDialog, BuildValueLevelsViewModel>(services, "BuildValueLevelsDialog");
         RegisterDialog<WhereClauseEditorDialog, WhereClauseEditorViewModel>(services, "WhereClauseEditorDialog");
         RegisterDialog<VariableDialog, VariableViewModel>(services, "VariableDialog");
         RegisterDialog<DeleteConfirmedDialog, DeleteConfirmedViewModel>(services, "DeleteConfirmedDialog");
@@ -222,7 +224,7 @@ public partial class App : Application
             var sqlSugarProject = sqlSugar.GetConnection("project");
             sqlSugarProject.CodeFirst.InitTables<Project, Document, Dataset, Variable>();
             sqlSugarProject.CodeFirst.InitTables<CodeList, Term, Comment, Method, ValueLevel>();
-            sqlSugarProject.CodeFirst.InitTables<Dictionary, Issue, WhereClause, DictionaryVersion>();
+            sqlSugarProject.CodeFirst.InitTables<Dictionary, Issue, DefineIssue, WhereClause, DictionaryVersion>();
             var sqlSugarSetting = sqlSugar.GetConnection("setting");
             sqlSugarSetting.CodeFirst.InitTables<VariableCodeList, CodeListTerm,
                 CodeListReference, DatasetTemplate, VariableTemplate>();
@@ -247,6 +249,7 @@ public partial class App : Application
         services.AddSingleton<IProjectService, ProjectService>();
         services.AddSingleton<IValueLevelService, ValueLevelService>();
         services.AddSingleton<IIssueService, IssueService>();
+        services.AddSingleton<IDefineIssueService, DefineIssueService>();
         services.AddSingleton<IDictionaryService, DictionaryService>();
         services.AddSingleton<IDefineExcelExportService, DefineExcelExportService>();
         services.AddSingleton<IDefineXmlExportService, DefineXmlExportService>();

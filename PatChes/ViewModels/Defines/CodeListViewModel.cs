@@ -403,6 +403,28 @@ public partial class CodeListViewModel:ConfirmNavigationViewModelBase
     }
 
     [RelayCommand]
+    private async Task LinkVariablesAsync(CodeListDto codeList)
+    {
+        if (codeList.Comment == null || codeList.CommentId == 0 || string.IsNullOrWhiteSpace(codeList.CommentUniqueId))
+            return;
+
+        var result = await _dialogHostService.ShowDialogAsync("AssignCommentVariablesDialog", new DialogParameters
+        {
+            { "CommentId", codeList.CommentId },
+            { "CommentUniqueId", codeList.CommentUniqueId }
+        });
+        if (result.Result != DialogButtonResult.Yes ||
+            !result.Parameters.TryGetValue<List<int>>("VariableIds", out var variableIds))
+            return;
+
+        var assignedCount = await _variableService.AssignCommentToVariablesAsync(
+            codeList.CommentId,
+            codeList.CommentUniqueId,
+            variableIds);
+        _messageService.Success($"Assigned comment to {assignedCount} variable(s).");
+    }
+
+    [RelayCommand]
     private async Task DeleteComment(Comment? comment)
     {
         if (comment == null || !await _referenceDeletionService.ConfirmAndDeleteCommentAsync(comment))

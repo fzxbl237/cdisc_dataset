@@ -5,13 +5,15 @@ using AtomUI.Controls.Utils;
 using AtomUI.Desktop.Controls;
 using PatChes.Models;
 using PatChes.Models.Settings;
+using PatChes.Services.Interface;
 using P21.Validator.Api.Options;
 using SqlSugar;
 
 namespace PatChes.ViewModels.Dialogs;
 
-public class TermOptionsAsyncLoader(ISqlSugarClient sqlSugar) : ICompleteOptionsAsyncLoader
+public class TermOptionsAsyncLoader(ISqlSugarClient sqlSugar, ICodeListService? codeListService = null) : ICompleteOptionsAsyncLoader
 {
+    public string? CodeListCode { get; set; }
     public CodeListReference? CodeListReference { get; set; }
     public CodeListStd? CodeListStd { get; set; }
 
@@ -19,17 +21,26 @@ public class TermOptionsAsyncLoader(ISqlSugarClient sqlSugar) : ICompleteOptions
     {
         List<IAutoCompleteOption> data = [];
         var codeListRef = CodeListReference?.CodeListRef;
-        if (!string.IsNullOrWhiteSpace(codeListRef))
+        List<CodeListTerm>? codeListTerms = null;
+        if (!string.IsNullOrWhiteSpace(CodeListCode) && codeListService != null)
+            codeListTerms = await codeListService.GetCodeListTermsByCodeAsync(CodeListCode);
+        else if (!string.IsNullOrWhiteSpace(codeListRef))
         {
-            var list = await sqlSugar.AsTenant().QueryableWithAttr<CodeListTerm>()
+            codeListTerms = await sqlSugar.AsTenant().QueryableWithAttr<CodeListTerm>()
                 .AsWithAttr()
                 .Where(o => o.CodeListRef == codeListRef)
-                .Where(o => SqlFunc.IsNullOrEmpty(context)
-                            || (SqlFunc.IsNullOrEmpty(o.CodeValue) || SqlFunc.Contains(o.CodeValue, context))
-                            || (SqlFunc.IsNullOrEmpty(o.DecodedValue) || SqlFunc.Contains(o.DecodedValue, context)))
                 .ToListAsync(token);
-            foreach (var codeListTerm in list)
+        }
+
+        if (codeListTerms != null)
+        {
+            foreach (var codeListTerm in codeListTerms)
             {
+                if (!string.IsNullOrWhiteSpace(context)
+                    && !(codeListTerm.CodeValue?.Contains(context, System.StringComparison.OrdinalIgnoreCase) == true
+                         || codeListTerm.DecodedValue?.Contains(context, System.StringComparison.OrdinalIgnoreCase) == true))
+                    continue;
+
                 data.Add(new TermCompleteOption
                 {
                     Header = $"{codeListTerm.CodeValue} {codeListTerm.DecodedValue}",

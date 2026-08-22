@@ -111,15 +111,5 @@
             </atom:FormActionsItem>
         </atom:Form>
 
-        <atom:TextBlock FontWeight="Bold" Text="Link Variables" />
-        <atom:ListTransfer
-            FilterValueSelector="{Binding VariableFilterValueSelector}"
-            IsFilterEnabled="True"
-            ItemsSource="{Binding Variables}"
-            ListHeight="260"
-            ListWidth="280"
-            SourceTitle="未关联 Comment 的 Variables"
-            TargetKeys="{Binding TargetKeys, Mode=TwoWay}"
-            TargetTitle="待关联 Variables" />
     </StackPanel>
 </UserControl>

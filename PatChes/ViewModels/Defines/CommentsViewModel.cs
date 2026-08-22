@@ -1,4 +1,4 @@
-using AsyncNavigation;
+﻿using AsyncNavigation;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
@@ -249,14 +249,7 @@ public partial class CommentsViewModel : ConfirmNavigationViewModelBase
 
         commentDto.ProjectId = _currentProjectService.CurrentProject.Id;
         commentDto.CdiscDataType = _currentProjectService.CdiscDataType;
-        var variableIds = result.Parameters.TryGetValue<List<int>>("VariableIds", out var selectedVariableIds)
-            ? selectedVariableIds
-            : [];
         var insertedComment = await _commentService.InsertCommentAsync(commentDto);
-        await _variableService.AssignCommentToVariablesAsync(
-            insertedComment.Id,
-            insertedComment.UniqueId ?? string.Empty,
-            variableIds);
         await _validator.ValidateDtoAsync(insertedComment);
         RegisterCommentDtoPropertyChanged(insertedComment);
         _sourceCache.AddOrUpdate(insertedComment);
